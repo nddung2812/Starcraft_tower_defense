@@ -58,6 +58,14 @@ export const sfx = {
   isEnabled: () => enabled,
 
   gauss() { noise(0.1, 'bandpass', 2600, 1.1, 0.55, 6); tone('square', 320, 90, 0.08, 0.1); },
+  cannon() { noise(0.16, 'lowpass', 420, 0.55, 0.5, 3); tone('sawtooth', 96, 38, 0.2, 0.14); },
+  cannonHit() { noise(0.26, 'lowpass', 300, 0.45, 0.55, 2); tone('triangle', 68, 28, 0.28, 0.1); },
+  airstrike() {
+    tone('sawtooth', 220, 90, 0.35, 0.12);
+    tone('square', 640, 180, 0.28, 0.08, 0.08);
+    noise(0.4, 'bandpass', 900, 0.7, 0.35, 2);
+  },
+  airstrikeDrop() { tone('triangle', 420, 90, 0.22, 0.08); noise(0.18, 'highpass', 1200, 0.5, 0.18, 2); },
   impact() { noise(0.09, 'lowpass', 1400, 0.7, 0.3, 3); },
   hitFlesh() { noise(0.14, 'lowpass', 700, 0.9, 0.42, 2.5); tone('triangle', 180, 70, 0.1, 0.09); },
   screech() {

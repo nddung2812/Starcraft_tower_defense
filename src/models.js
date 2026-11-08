@@ -9,6 +9,8 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 export const MAT = {
   armor: new THREE.MeshStandardMaterial({ color: 0x2f74a8, metalness: 0.35, roughness: 0.42 }),
   armorLit: new THREE.MeshStandardMaterial({ color: 0x4e97cc, metalness: 0.35, roughness: 0.38 }),
+  olive: new THREE.MeshStandardMaterial({ color: 0x6d7644, metalness: 0.4, roughness: 0.55 }),
+  oliveDark: new THREE.MeshStandardMaterial({ color: 0x3e4428, metalness: 0.45, roughness: 0.6 }),
   steel: new THREE.MeshStandardMaterial({ color: 0xa7b0b5, metalness: 0.9, roughness: 0.32 }),
   steelDark: new THREE.MeshStandardMaterial({ color: 0x4a545b, metalness: 0.85, roughness: 0.42 }),
   gunmetal: new THREE.MeshStandardMaterial({ color: 0x2e363c, metalness: 0.8, roughness: 0.5 }),
@@ -30,7 +32,10 @@ export const MAT = {
 
   wall: new THREE.MeshStandardMaterial({ color: 0x6d777d, metalness: 0.75, roughness: 0.55 }),
   wallTrim: new THREE.MeshStandardMaterial({ color: 0xe8a72c, metalness: 0.5, roughness: 0.5 }),
-  rock: new THREE.MeshStandardMaterial({ color: 0x5f574b, metalness: 0.05, roughness: 0.95, flatShading: true }),
+  rock: new THREE.MeshStandardMaterial({ color: 0x6a6256, metalness: 0.08, roughness: 0.96, flatShading: true }),
+  rockDark: new THREE.MeshStandardMaterial({ color: 0x3c3832, metalness: 0.06, roughness: 1, flatShading: true }),
+  rockLite: new THREE.MeshStandardMaterial({ color: 0x8a8172, metalness: 0.05, roughness: 0.92, flatShading: true }),
+  stone: new THREE.MeshStandardMaterial({ color: 0x4a453c, metalness: 0.05, roughness: 1 }),
   coreGlow: new THREE.MeshStandardMaterial({ color: 0x9ae8ff, emissive: 0x3cc8ff, emissiveIntensity: 3 }),
   creep: new THREE.MeshStandardMaterial({ color: 0x3d1646, metalness: 0.1, roughness: 0.9 })
 };
@@ -215,6 +220,100 @@ export function buildMarine(tier = 0) {
   head.add(mesh(new THREE.SphereGeometry(0.02, 8, 6), MAT.lamp, -0.16, 0.21, 0.07));
 
   root.userData = { body, torso, head, weapon, visor, legs };
+  return root;
+}
+
+/* ------------------------------------------------------------------ */
+/*  GOLIATH — faces +X. Twin autocannons, reverse-joint legs.          */
+/* ------------------------------------------------------------------ */
+
+export function buildGoliath(tier = 0) {
+  const root = new THREE.Group();
+  const body = new THREE.Group();
+  root.add(body);
+
+  for (const s of [-1, 1]) {
+    body.add(mesh(box(0.16, 0.18, 0.16, 0.03), MAT.steelDark, -0.02, 0.78, s * 0.2));
+    const thigh = mesh(box(0.11, 0.42, 0.12, 0.03), MAT.oliveDark, -0.06, 0.52, s * 0.28);
+    thigh.rotation.z = 0.35;
+    body.add(thigh);
+    const shin = mesh(box(0.1, 0.4, 0.11, 0.025), MAT.olive, 0.1, 0.24, s * 0.34);
+    shin.rotation.z = -0.45;
+    body.add(shin);
+    body.add(mesh(box(0.26, 0.07, 0.16, 0.02), MAT.gunmetal, 0.16, 0.04, s * 0.36));
+  }
+
+  const torso = new THREE.Group();
+  torso.position.y = 1.02;
+  body.add(torso);
+  torso.add(mesh(box(0.46, 0.32, 0.42, 0.05), MAT.olive, -0.02, 0, 0));
+  torso.add(mesh(box(0.28, 0.2, 0.34, 0.04), MAT.steel, 0.12, 0.12, 0));
+  torso.add(mesh(box(0.18, 0.1, 0.24, 0.02), MAT.visor, 0.22, 0.16, 0));
+  torso.add(mesh(box(0.2, 0.22, 0.3, 0.03), MAT.steelDark, -0.28, 0.04, 0));
+
+  const weapon = new THREE.Group();
+  torso.add(weapon);
+  const muzzles = [];
+  for (const s of [-1, 1]) {
+    const gun = new THREE.Group();
+    gun.position.set(0.16, 0.02, s * 0.3);
+    gun.add(mesh(box(0.16, 0.14, 0.14, 0.03), MAT.steelDark, 0, 0, 0));
+    gun.add(mesh(box(0.62, 0.09, 0.09, 0.02), MAT.gunmetal, 0.36, 0, 0));
+    gun.add(mesh(box(0.1, 0.12, 0.12, 0.02), MAT.oliveDark, 0.62, 0, 0));
+    gun.add(mesh(box(0.18, 0.1, 0.14, 0.02), MAT.wallTrim, -0.02, 0.12, 0));
+    weapon.add(gun);
+    muzzles.push(new THREE.Vector3(0.78, 0.02, s * 0.3));
+  }
+  weapon.userData.muzzles = muzzles;
+  weapon.userData.muzzle = muzzles[0];
+
+  const rankColor = [0x9aa3a8, 0xe8a72c, 0xff5a4a][tier] || 0x9aa3a8;
+  for (let i = 0; i <= tier; i++) {
+    torso.add(mesh(box(0.06, 0.025, 0.02, 0.005),
+      new THREE.MeshStandardMaterial({ color: rankColor, emissive: rankColor, emissiveIntensity: 0.5 }),
+      0.24, 0.02 - i * 0.045, 0));
+  }
+
+  root.userData = { body, torso, weapon };
+  return root;
+}
+
+/* ------------------------------------------------------------------ */
+/*  SIEGE TANK — faces +X. Hull stays put; the turret is the torso.    */
+/* ------------------------------------------------------------------ */
+
+export function buildTank() {
+  const root = new THREE.Group();
+  const body = new THREE.Group();
+  root.add(body);
+
+  for (const s of [-1, 1]) {
+    body.add(mesh(box(0.86, 0.16, 0.18, 0.03), MAT.gunmetal, 0, 0.1, s * 0.3));
+    body.add(mesh(box(0.9, 0.06, 0.2, 0.015), MAT.steelDark, 0, 0.04, s * 0.3));
+    for (let i = 0; i < 4; i++) {
+      body.add(mesh(box(0.08, 0.1, 0.22, 0.015), MAT.oliveDark, -0.3 + i * 0.2, 0.1, s * 0.3));
+    }
+  }
+  body.add(mesh(box(0.7, 0.16, 0.42, 0.04), MAT.olive, -0.02, 0.22, 0));
+  body.add(mesh(box(0.22, 0.1, 0.28, 0.02), MAT.oliveDark, 0.28, 0.2, 0));
+
+  const torso = new THREE.Group();
+  torso.position.set(-0.04, 0.32, 0);
+  body.add(torso);
+  torso.add(mesh(box(0.42, 0.18, 0.38, 0.04), MAT.olive, 0, 0.08, 0));
+  torso.add(mesh(box(0.18, 0.08, 0.18, 0.02), MAT.steel, 0.02, 0.2, 0));
+  torso.add(mesh(new THREE.SphereGeometry(0.035, 8, 6), MAT.lamp, -0.16, 0.16, 0.14));
+
+  const weapon = new THREE.Group();
+  weapon.position.set(0.16, 0.1, 0);
+  torso.add(weapon);
+  weapon.add(mesh(box(0.16, 0.12, 0.12, 0.025), MAT.steelDark, 0, 0, 0));
+  weapon.add(mesh(box(0.78, 0.08, 0.08, 0.02), MAT.gunmetal, 0.42, 0, 0));
+  weapon.add(mesh(box(0.1, 0.1, 0.1, 0.02), MAT.oliveDark, 0.78, 0, 0));
+  weapon.userData.muzzle = new THREE.Vector3(0.9, 0, 0);
+  weapon.userData.muzzles = [weapon.userData.muzzle];
+
+  root.userData = { body, torso, weapon };
   return root;
 }
 
@@ -412,33 +511,72 @@ export function buildScv() {
 
 export function buildCore() {
   const g = new THREE.Group();
-  g.add(mesh(box(1.85, 0.5, 1.85, 0.1, 3), MAT.steelDark, 0, 0.25, 0));
-  g.add(mesh(box(1.5, 0.55, 1.5, 0.12, 3), MAT.wall, 0, 0.72, 0));
-  g.add(mesh(box(1.62, 0.1, 1.62, 0.04), MAT.wallTrim, 0, 1.03, 0));
+  const hull = new THREE.MeshStandardMaterial({ color: 0x9aa3ab, metalness: 0.86, roughness: 0.34 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x2c333a, metalness: 0.8, roughness: 0.46 });
+  const red = new THREE.MeshStandardMaterial({ color: 0xc22830, metalness: 0.5, roughness: 0.4 });
+  const padMat = new THREE.MeshStandardMaterial({ color: 0x3a4148, metalness: 0.7, roughness: 0.5 });
 
-  const dome = new THREE.Mesh(new THREE.SphereGeometry(0.42, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2), MAT.steel);
-  dome.position.y = 1.05;
-  dome.castShadow = true;
+  // segmented foundation skirt
+  g.add(mesh(new THREE.CylinderGeometry(0.98, 1.05, 0.22, 10), dark, 0, 0.11, 0));
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    const block = mesh(box(0.34, 0.34, 0.22, 0.04), hull, Math.cos(a) * 0.86, 0.2, Math.sin(a) * 0.86);
+    block.rotation.y = -a;
+    g.add(block);
+  }
+
+  // main drum and the red armour band
+  g.add(mesh(new THREE.CylinderGeometry(0.74, 0.8, 0.46, 12), hull, 0, 0.52, 0));
+  const band = mesh(new THREE.TorusGeometry(0.76, 0.05, 8, 24), red, 0, 0.66, 0);
+  band.rotation.x = Math.PI / 2;
+  g.add(band);
+  g.add(mesh(new THREE.CylinderGeometry(0.6, 0.66, 0.16, 12), dark, 0, 0.82, 0));
+
+  // dome
+  const dome = mesh(new THREE.SphereGeometry(0.5, 24, 14, 0, Math.PI * 2, 0, Math.PI / 2), hull, 0, 0.88, 0);
+  dome.scale.y = 0.58;
   g.add(dome);
 
-  const reactor = new THREE.Mesh(new THREE.SphereGeometry(0.22, 18, 14), MAT.coreGlow);
-  reactor.position.y = 1.3;
-  g.add(reactor);
+  // bridge tower, offset so the dome still reads
+  const tower = new THREE.Group();
+  tower.position.set(0.18, 1.02, 0.12);
+  tower.add(mesh(box(0.34, 0.34, 0.3, 0.04), dark, 0, 0.16, 0));
+  tower.add(mesh(box(0.4, 0.07, 0.36, 0.02), red, 0, 0.35, 0));
+  tower.add(mesh(new THREE.CylinderGeometry(0.16, 0.18, 0.1, 10), hull, 0, 0.42, 0));
+  const glass = new THREE.MeshStandardMaterial({
+    color: 0xd8eeff, emissive: 0x8ec8ff, emissiveIntensity: 1.4, metalness: 0.15, roughness: 0.18
+  });
+  for (const z of [-0.08, 0, 0.08]) tower.add(mesh(box(0.03, 0.1, 0.055, 0.008), glass, 0.18, 0.18, z));
+  g.add(tower);
 
+  // rotating comms dish on the tower
   const dish = new THREE.Group();
-  dish.position.set(0, 1.5, 0);
-  const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.3, 8), MAT.steelDark);
-  arm.position.y = 0.15;
-  dish.add(arm);
-  const plate = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2.6), MAT.steel);
-  plate.position.set(0.14, 0.3, 0);
-  plate.rotation.z = -0.8;
+  dish.position.set(0.18, 1.5, 0.12);
+  dish.add(mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.16, 6), dark, 0, 0.08, 0));
+  const plate = mesh(new THREE.SphereGeometry(0.14, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2.4), hull, 0.08, 0.16, 0);
+  plate.rotation.z = -0.9;
   dish.add(plate);
   g.add(dish);
 
-  for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-    g.add(mesh(new THREE.SphereGeometry(0.05, 8, 6), MAT.lampGreen, x * 0.78, 1.06, z * 0.78));
+  // landing pad with a lit grid
+  g.add(mesh(box(0.72, 0.08, 0.58, 0.02), padMat, 1.02, 0.28, -0.05));
+  const reactorMat = new THREE.MeshStandardMaterial({
+    color: 0xffe7a2, emissive: 0xffb020, emissiveIntensity: 1.3, metalness: 0.25, roughness: 0.45
+  });
+  const reactor = mesh(new THREE.PlaneGeometry(0.5, 0.38), reactorMat, 1.02, 0.325, -0.05);
+  reactor.rotation.x = -Math.PI / 2;
+  g.add(reactor);
+  const gridLine = new THREE.MeshStandardMaterial({ color: 0x1c1408, metalness: 0.4, roughness: 0.6 });
+  for (let i = -2; i <= 2; i++) {
+    g.add(mesh(box(0.5, 0.012, 0.012, 0.002), gridLine, 1.02, 0.33, -0.05 + i * 0.08));
+    g.add(mesh(box(0.012, 0.012, 0.36, 0.002), gridLine, 1.02 + i * 0.1, 0.33, -0.05));
   }
+
+  // status pips on the hull
+  [0xd23a3a, 0xe6c24a, 0x3aa6ee].forEach((color, i) => {
+    const pip = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 1.6, roughness: 0.3 });
+    g.add(mesh(box(0.05, 0.07, 0.04, 0.01), pip, 0.62, 0.58, -0.22 + i * 0.1));
+  });
 
   g.userData = { reactor, dish };
   return g;
@@ -474,21 +612,42 @@ export function buildHatchery() {
   return g;
 }
 
-export function buildRock(seed) {
+const ROCK_MATS = [MAT.rock, MAT.rockDark, MAT.rockLite];
+const MOUNTAIN_PROTOS = [];
+
+function makeMountain(seed) {
   let s = seed * 9301 + 49297;
   const rnd = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
   const g = new THREE.Group();
-  const n = 2 + Math.floor(rnd() * 2);
-  for (let i = 0; i < n; i++) {
-    const r = 0.18 + rnd() * 0.22;
-    const geo = new THREE.IcosahedronGeometry(r, 0);
-    const m = new THREE.Mesh(geo, MAT.rock);
-    m.position.set((rnd() - 0.5) * 0.4, r * 0.55, (rnd() - 0.5) * 0.4);
-    m.rotation.set(rnd() * 3, rnd() * 3, rnd() * 3);
-    m.scale.set(1, 0.75 + rnd() * 0.4, 1);
-    m.castShadow = true;
-    m.receiveShadow = true;
-    g.add(m);
+  const mat = ROCK_MATS[seed % ROCK_MATS.length];
+  const piles = 3 + Math.floor(rnd() * 2);
+  for (let i = 0; i < piles; i++) {
+    const r = 0.18 + rnd() * 0.16;
+    const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 0), i === piles - 1 ? ROCK_MATS[(seed + 1) % ROCK_MATS.length] : mat);
+    rock.position.set((rnd() - 0.5) * 0.38, 0.12 + i * 0.16 + rnd() * 0.08, (rnd() - 0.5) * 0.38);
+    rock.rotation.set(rnd() * 2, rnd() * 6, rnd() * 2);
+    rock.scale.set(1.1 + rnd() * 0.35, 1.3 + rnd() * 0.8, 1.05 + rnd() * 0.3);
+    rock.castShadow = true;
+    rock.receiveShadow = true;
+    g.add(rock);
   }
+  const h = 0.85 + rnd() * 0.55;
+  const summit = new THREE.Mesh(new THREE.ConeGeometry(0.14 + rnd() * 0.08, h, 5), mat);
+  summit.position.set((rnd() - 0.5) * 0.12, 0.72 + rnd() * 0.2, (rnd() - 0.5) * 0.12);
+  summit.rotation.y = rnd() * 6;
+  summit.castShadow = true;
+  summit.receiveShadow = true;
+  g.add(summit);
   return g;
+}
+
+function mountainProtos() {
+  if (MOUNTAIN_PROTOS.length) return MOUNTAIN_PROTOS;
+  for (let i = 0; i < 10; i++) MOUNTAIN_PROTOS.push(makeMountain(i + 3));
+  return MOUNTAIN_PROTOS;
+}
+
+export function buildRock(seed) {
+  const list = mountainProtos();
+  return list[Math.abs(seed) % list.length].clone(true);
 }

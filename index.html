@@ -28,12 +28,13 @@
 
     <div class="hud__readouts">
       <div class="readout readout--mineral"><span class="readout__k">Minerals</span><span class="readout__v" id="rMinerals">0</span></div>
-      <div class="readout"><span class="readout__k">Wave</span><span class="readout__v" id="rWave">0</span></div>
+      <div class="readout"><span class="readout__k">Level</span><span class="readout__v" id="rWave">1</span></div>
       <div class="readout readout--zerg"><span class="readout__k">Kills</span><span class="readout__v" id="rKills">0</span></div>
       <div class="readout"><span class="readout__k">Command Center</span><span class="readout__v" id="rCore">100%</span></div>
     </div>
 
     <div class="hud__controls">
+      <button id="btnAir" class="btn btn--strike" title="Air Strike (R)">Air Strike</button>
       <button id="btnSound" class="btn btn--icon" title="Sound">ON</button>
       <button id="btnSpeed" class="btn btn--icon" title="Game speed">1x</button>
       <button id="btnRestart" class="btn">Restart</button>
@@ -71,6 +72,8 @@
   <aside class="panel" data-faction="marine">
     <div class="panel__tabs">
       <button class="tab tab--active" data-unit="marine">Marine</button>
+      <button class="tab" data-unit="goliath">Goliath</button>
+      <button class="tab" data-unit="tank">Tank</button>
       <button class="tab" data-unit="zergling">Zergling</button>
     </div>
 

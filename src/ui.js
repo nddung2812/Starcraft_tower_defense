@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { BUILD, ARMORY, MARINE_TIERS, MARINE_INFO, ZERG_INFO, BREEDS, ECON } from './config.js';
-import { buildMarine, buildZergling } from './models.js';
+import { BUILD, ZERG_INFO, BREEDS, ECON, UNITS, LEVEL_COUNT, AIR_STRIKE } from './config.js';
+import { buildMarine, buildGoliath, buildTank, buildZergling } from './models.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -38,6 +38,14 @@ class Portrait {
       this.current = buildMarine(tier);
       this.camera.position.set(0, 0.72, 2.0);
       this.camera.lookAt(0, 0.5, 0);
+    } else if (kind === 'goliath') {
+      this.current = buildGoliath(tier);
+      this.camera.position.set(1.5, 1.2, 3.3);
+      this.camera.lookAt(0.05, 0.7, 0);
+    } else if (kind === 'tank') {
+      this.current = buildTank();
+      this.camera.position.set(1.35, 0.85, 2.7);
+      this.camera.lookAt(0.05, 0.26, 0);
     } else {
       this.current = buildZergling();
       this.camera.position.set(0, 0.62, 1.7);
@@ -105,8 +113,9 @@ export class UI {
     });
 
     $('btnWave').addEventListener('click', () => game.startWave());
+    $('btnAir').addEventListener('click', () => game.emit('airstrike'));
     $('btnUpgrade').addEventListener('click', () => {
-      if (this.inspect.entity?.kind === 'marine') game.upgradeMarine(this.inspect.entity);
+      if (this.inspect.entity?.upgrade) game.upgradeGunner(this.inspect.entity);
     });
     $('btnStim').addEventListener('click', () => {
       if (this.inspect.entity?.kind === 'marine') this.inspect.entity.stim(game);
@@ -130,7 +139,7 @@ export class UI {
     game.on('brief', (card) => this.say(`<b>${card.title}.</b> ${card.body}`));
     game.on('hold', (card) => this.say(`<b>${card.title}.</b> ${card.body}`));
     game.on('count', (n) => { if (n) this.say(`<b>Contact in ${n}.</b>`); });
-    game.on('over', () => this.showBanner());
+    game.on('over', (win) => this.showBanner(win));
 
     this.showUnit('marine', 0, null);
   }
@@ -162,24 +171,30 @@ export class UI {
         : 'Select the SCV, then click a damaged wall or a downed Marine. Keep it out of the breach.';
       $('pQuote').textContent = bunker ? '"Hold this corridor."' : '"Job\'s done."';
       $('stats').innerHTML = statRow('Hit Points', Math.ceil(entity.hp) + ' / ' + entity.maxHp, entity.hp / entity.maxHp, '#5ef08a');
-    } else if (kind === 'marine') {
-      const base = MARINE_TIERS[tier];
-      const s = { hp: base.hp, damage: base.damage, attackSpeed: base.attackSpeed, range: base.range, armor: MARINE_INFO.armor };
+    } else if (UNITS[kind]) {
+      const spec = UNITS[kind];
+      const base = spec.tiers[tier];
+      const s = { hp: base.hp, damage: base.damage, attackSpeed: base.attackSpeed, range: base.range, armor: spec.info.armor };
       if (entity) Object.assign(s, entity.stats);
-      else for (const u of g.armory) u.apply(s);
+      else if (spec.armory) for (const u of g.armory) u.apply(s);
+      const shots = kind === 'goliath' ? 2 : 1;
 
-      $('pName').textContent = MARINE_INFO.name;
-      $('pRole').textContent = `${base.rank} · Tier ${tier + 1} of ${MARINE_TIERS.length}`;
-      $('pFaction').textContent = MARINE_INFO.faction;
-      $('pBio').textContent = MARINE_INFO.bio;
-      $('pQuote').textContent = MARINE_INFO.quote;
+      $('pName').textContent = spec.info.name;
+      $('pRole').textContent = spec.tiers.length > 1
+        ? `${base.rank} · Tier ${tier + 1} of ${spec.tiers.length}`
+        : spec.info.role;
+      $('pFaction').textContent = spec.info.faction;
+      $('pBio').textContent = spec.info.bio;
+      $('pQuote').textContent = spec.info.quote;
+      const accent = spec.info.accent;
       $('stats').innerHTML =
-        statRow('Hit Points', Math.round(s.hp), s.hp / 220, '#5ef08a') +
-        statRow('Damage', s.damage, s.damage / 36, '#f0b23c') +
-        statRow('Armour', s.armor, s.armor / 3, '#9aa3a8') +
+        statRow('Hit Points', Math.round(s.hp), s.hp / 380, '#5ef08a') +
+        statRow('Damage', shots > 1 ? s.damage + ' ×2' : s.damage, (s.damage * shots) / 50, '#f0b23c') +
+        statRow('Armour', s.armor, s.armor / 4, '#9aa3a8') +
         statRow('Fire Rate', (1 / s.attackSpeed).toFixed(2) + '/s', (1 / s.attackSpeed) / 3.5, '#f0b23c') +
-        statRow('Range', s.range.toFixed(1) + ' tiles', s.range / 8, '#5ad7ff') +
-        statRow('Move Speed', 'Emplaced', 0, '#5ad7ff');
+        statRow('Range', s.range.toFixed(1) + ' tiles', s.range / 8, accent) +
+        (spec.splash ? statRow('Blast', spec.splash.toFixed(1) + ' tiles', spec.splash / 2, accent) : '') +
+        statRow('Move Speed', 'Emplaced', 0, accent);
     } else {
       const b = entity?.breed || BREEDS.zergling;
       $('pName').textContent = b.name;
@@ -204,25 +219,26 @@ export class UI {
     const e = this.inspect.entity;
     const g = this.game;
     const up = $('btnUpgrade'), sell = $('btnSell'), stim = $('btnStim'), eject = $('btnEject');
-    const isMine = e && (e.kind === 'marine' || e.kind === 'wall' || e.kind === 'bunker');
+    const isGun = e && UNITS[e.kind];
+    const isMine = e && (isGun || e.kind === 'wall' || e.kind === 'bunker');
 
     sell.hidden = !isMine;
-    up.hidden = !(e && e.kind === 'marine' && !e.downed);
-    stim.hidden = !(e && e.kind === 'marine');
+    up.hidden = !(isGun && e.tiers.length > 1 && !e.downed);
+    stim.hidden = !(e && e.spec?.canStim);
     eject.hidden = !(e && e.bunker);
-    if (e?.kind === 'marine') {
+    if (e?.spec?.canStim) {
       stim.disabled = !g.stimUnlocked || e.dead || e.downed || e.stimT > 0;
       stim.textContent = g.stimUnlocked ? (e.stimT > 0 ? 'Stimming' : 'Stim (F)') : 'Stim locked · 20 kills';
     }
 
-    if (e?.kind === 'marine') {
+    if (isGun && e.tiers.length > 1) {
       const cost = e.upgradeCost;
       if (cost == null) {
         up.disabled = true;
         up.textContent = 'Max Rank';
       } else {
         up.disabled = g.minerals < cost || g.state !== 'build';
-        up.textContent = `Promote to ${MARINE_TIERS[e.tier + 1].rank} · ${cost}`;
+        up.textContent = `Promote to ${e.tiers[e.tier + 1].rank} · ${cost}`;
       }
     }
     if (isMine) {
@@ -236,7 +252,7 @@ export class UI {
   sync() {
     const g = this.game;
     $('rMinerals').textContent = g.minerals;
-    $('rWave').textContent = g.wave;
+    $('rWave').textContent = g.level;
     $('rKills').textContent = g.kills;
     const pct = Math.max(0, g.core.hp / g.core.maxHp);
     $('rCore').textContent = Math.ceil(pct * 100) + '%';
@@ -250,7 +266,12 @@ export class UI {
       : '100%';
 
     $('btnWave').disabled = g.state !== 'build';
-    $('btnWave').textContent = g.state === 'build' ? `Launch Wave ${g.wave + 1}` : g.state === 'brief' ? 'Contact' : `Wave ${g.wave} in progress`;
+    $('btnWave').textContent = g.state === 'build' ? `Launch Level ${g.level}`
+      : g.state === 'brief' ? 'Contact'
+      : g.state === 'victory' ? 'Sector secure'
+      : g.state === 'defeat' ? 'Outpost lost'
+      : `Level ${g.level} of ${LEVEL_COUNT}`;
+    this.syncAir();
     $('btnScv').hidden = !g.scv?.dead;
     $('btnScv').disabled = g.minerals < ECON.scvCost;
     $('btnScv').textContent = `Rebuild SCV · ${ECON.scvCost}`;
@@ -264,9 +285,12 @@ export class UI {
 
   hideReel() { this.say(''); }
 
-  showBanner() {
-    $('bannerTitle').textContent = 'Outpost Overrun';
-    $('bannerText').textContent = `The swarm broke through on wave ${this.game.wave} after ${this.game.kills} kills.`;
+  showBanner(win) {
+    $('bannerTitle').textContent = win ? 'Sector Secure' : 'Outpost Overrun';
+    $('bannerTitle').classList.toggle('is-win', !!win);
+    $('bannerText').textContent = win
+      ? `Ten canyons held. ${this.game.kills} bugs down.`
+      : `The swarm broke through on level ${this.game.level} after ${this.game.kills} kills.`;
     $('banner').hidden = false;
   }
 
@@ -284,6 +308,21 @@ export class UI {
     this.say(`<b>${title}.</b> ${note}`);
   }
 
+  setAirArmed(on) {
+    $('btnAir').classList.toggle('btn--armed', !!on);
+  }
+
+  syncAir() {
+    const g = this.game;
+    const btn = $('btnAir');
+    const fighting = g.state === 'wave' || g.state === 'brief';
+    const ready = g.airStrikeReady;
+    btn.disabled = !fighting || !ready;
+    if (!fighting) btn.textContent = `Air Strike (${AIR_STRIKE.key})`;
+    else if (!ready) btn.textContent = `Air Strike ${Math.ceil(g.airStrikeCd)}s`;
+    else btn.textContent = `Air Strike (${AIR_STRIKE.key})`;
+  }
+
   update(dt) {
     this.portrait.update(dt);
     const g = this.game;
@@ -292,5 +331,6 @@ export class UI {
     $('rCore').style.color = pct > 0.5 ? '' : pct > 0.25 ? '#f0b23c' : '#ff5a4a';
     $('rMinerals').textContent = g.minerals;
     $('rKills').textContent = g.kills;
+    this.syncAir();
   }
 }

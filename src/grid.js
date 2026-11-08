@@ -1,4 +1,4 @@
-import { COLS, ROWS, CELL, BREAK_COST, CORE, SPAWN, ROCKS } from './config.js';
+import { COLS, ROWS, CELL, BREAK_COST, CORE_HP } from './config.js';
 
 const SQRT2 = Math.SQRT2;
 
@@ -9,7 +9,9 @@ export class Grid {
     this.cells = new Uint8Array(COLS * ROWS);
     this.occupants = new Array(COLS * ROWS).fill(null);
     this.version = 0;
-    this.reset();
+    this.spawn = { x: 0, y: 7 };
+    this.core = { x: 22, y: 7, w: 2, h: 2, hp: CORE_HP };
+    this.cells.fill(CELL.ROCK);
   }
 
   idx(x, y) { return y * COLS + x; }
@@ -17,15 +19,22 @@ export class Grid {
   get(x, y) { return this.inside(x, y) ? this.cells[this.idx(x, y)] : CELL.ROCK; }
   occupant(x, y) { return this.inside(x, y) ? this.occupants[this.idx(x, y)] : null; }
 
-  reset() {
-    this.cells.fill(CELL.OPEN);
+  load(layout) {
+    this.spawn = layout.spawn;
+    this.core = layout.core;
+    this.cells.fill(CELL.ROCK);
     this.occupants.fill(null);
-    for (const [x, y] of ROCKS) if (this.inside(x, y)) this.cells[this.idx(x, y)] = CELL.ROCK;
-    for (let dy = 0; dy < CORE.h; dy++) {
-      for (let dx = 0; dx < CORE.w; dx++) this.cells[this.idx(CORE.x + dx, CORE.y + dy)] = CELL.CORE;
+    for (const [x, y] of layout.open) {
+      if (this.inside(x, y)) this.cells[this.idx(x, y)] = CELL.OPEN;
     }
-    this.cells[this.idx(SPAWN.x, SPAWN.y)] = CELL.SPAWN;
-    this.cells[this.idx(SPAWN.x, SPAWN.y + 1)] = CELL.SPAWN;
+    const c = layout.core;
+    for (let dy = 0; dy < c.h; dy++) {
+      for (let dx = 0; dx < c.w; dx++) {
+        if (this.inside(c.x + dx, c.y + dy)) this.cells[this.idx(c.x + dx, c.y + dy)] = CELL.CORE;
+      }
+    }
+    if (this.inside(layout.spawn.x, layout.spawn.y)) this.cells[this.idx(layout.spawn.x, layout.spawn.y)] = CELL.SPAWN;
+    if (this.inside(layout.spawn.x, layout.spawn.y + 1)) this.cells[this.idx(layout.spawn.x, layout.spawn.y + 1)] = CELL.SPAWN;
     this.version++;
   }
 
@@ -41,9 +50,10 @@ export class Grid {
   buildable(x, y) {
     if (!this.inside(x, y)) return false;
     if (this.cells[this.idx(x, y)] !== CELL.OPEN) return false;
-    // keep the hatchery mouth and the bunker doorway clear
-    if (x <= 1 && Math.abs(y - SPAWN.y) <= 2) return false;
-    if (x >= CORE.x - 1 && x <= CORE.x + CORE.w && y >= CORE.y - 1 && y <= CORE.y + CORE.h) return false;
+    const s = this.spawn;
+    if (Math.abs(x - s.x) <= 1 && Math.abs(y - s.y) <= 2) return false;
+    const c = this.core;
+    if (x >= c.x - 1 && x <= c.x + c.w && y >= c.y - 1 && y <= c.y + c.h) return false;
     return true;
   }
 
@@ -159,7 +169,7 @@ export class Grid {
   }
 
   route(fromX, fromY) {
-    const cells = this.findPath(fromX, fromY, CORE.x, CORE.y);
+    const cells = this.findPath(fromX, fromY, this.core.x, this.core.y);
     return this.smooth(cells);
   }
 
@@ -167,7 +177,7 @@ export class Grid {
   wouldFullyBlock(x, y) {
     const prev = this.cells[this.idx(x, y)];
     this.cells[this.idx(x, y)] = CELL.WALL;
-    const path = this.findPath(SPAWN.x, SPAWN.y, CORE.x, CORE.y);
+    const path = this.findPath(this.spawn.x, this.spawn.y, this.core.x, this.core.y);
     const open = path && path.every((c) => !this.blocked(c.x, c.y));
     this.cells[this.idx(x, y)] = prev;
     return !open;

@@ -1,6 +1,8 @@
 import * as THREE from 'three';
-import { CELL, MARINE_TIERS, MARINE_INFO, BREEDS, CORE } from './config.js';
-import { buildMarine, buildBug, buildWall, buildBunker, buildScv, buildCore } from './models.js';
+import { CELL, UNITS, BREEDS } from './config.js';
+import { buildMarine, buildGoliath, buildTank, buildBug, buildWall, buildBunker, buildScv, buildCore } from './models.js';
+
+const MODEL = { marine: buildMarine, goliath: buildGoliath, tank: buildTank };
 
 const TAU = Math.PI * 2;
 const _v = new THREE.Vector3();
@@ -55,8 +57,11 @@ class HealthBar {
 /* ------------------------------------------------------------------ */
 
 export class Marine {
-  constructor(tx, ty, armory) {
-    this.kind = 'marine';
+  constructor(kind, tx, ty, armory) {
+    this.kind = kind;
+    this.spec = UNITS[kind];
+    this.tiers = this.spec.tiers;
+    this.info = this.spec.info;
     this.tx = tx; this.ty = ty;
     this.tier = 0;
     this.x = tx + 0.5; this.z = ty + 0.5;
@@ -80,43 +85,44 @@ export class Marine {
 
     this.obj.position.set(this.x, 0, this.z);
     this.obj.add(this.stimLight);
-    this.model = buildMarine(0);
+    this.model = MODEL[kind](0);
     this.obj.add(this.model);
 
     this.ring = new THREE.Mesh(
       new THREE.RingGeometry(0.42, 0.5, 28).rotateX(-Math.PI / 2),
-      new THREE.MeshBasicMaterial({ color: 0x5ad7ff, transparent: true, opacity: 0.85, depthWrite: false })
+      new THREE.MeshBasicMaterial({ color: this.spec.accent, transparent: true, opacity: 0.85, depthWrite: false })
     );
     this.ring.position.y = 0.02;
     this.ring.visible = false;
     this.obj.add(this.ring);
 
-    this.bar = new HealthBar(this.obj, 0.62, 0.08, 1.28);
+    const barY = kind === 'goliath' ? 1.62 : kind === 'tank' ? 0.78 : 1.28;
+    this.bar = new HealthBar(this.obj, kind === 'tank' ? 0.78 : 0.62, 0.08, barY);
     this.applyStats(armory);
     this.hp = this.stats.hp;
   }
 
   applyStats(armory) {
-    const base = MARINE_TIERS[this.tier];
+    const base = this.tiers[this.tier];
     const s = {
       hp: base.hp, damage: base.damage, attackSpeed: base.attackSpeed,
-      range: base.range, armor: MARINE_INFO.armor
+      range: base.range, armor: this.info.armor
     };
-    for (const u of armory) u.apply(s);
+    if (this.spec.armory) for (const u of armory) u.apply(s);
     const ratio = this.stats ? this.hp / this.stats.hp : 1;
     this.stats = s;
     this.hp = Math.min(s.hp, s.hp * ratio);
   }
 
   get maxHp() { return this.stats.hp; }
-  get upgradeCost() { return MARINE_TIERS[this.tier].upgradeCost; }
-  get rank() { return MARINE_TIERS[this.tier].rank; }
+  get upgradeCost() { return this.tiers[this.tier].upgradeCost; }
+  get rank() { return this.tiers[this.tier].rank; }
 
   upgrade(armory) {
-    if (this.tier >= MARINE_TIERS.length - 1) return false;
+    if (this.tier >= this.tiers.length - 1) return false;
     this.tier++;
     const old = this.model;
-    this.model = buildMarine(this.tier);
+    this.model = MODEL[this.kind](this.tier);
     this.model.rotation.y = old.rotation.y;
     this.obj.remove(old);
     this.obj.add(this.model);
@@ -184,10 +190,18 @@ export class Marine {
       this.cooldown = Math.min(this.cooldown, 0.1);
     }
 
-    this.model.rotation.y = -this.yaw;
-    ud.torso.position.x = -this.recoil * 0.045;
-    ud.weapon.rotation.z = this.recoil * 0.34;
-    ud.torso.position.y = 0.73 + Math.sin(t * 2.2) * 0.008;
+    if (this.spec.turret) {
+      this.model.rotation.y = -rest;
+      ud.torso.rotation.y = -normAngle(this.yaw - rest);
+      const baseX = ud.weapon.userData.baseX ?? (ud.weapon.userData.baseX = ud.weapon.position.x);
+      ud.weapon.position.x = baseX - this.recoil * 0.12;
+    } else {
+      this.model.rotation.y = -this.yaw;
+      ud.torso.position.x = -this.recoil * (this.kind === 'goliath' ? 0.03 : 0.045);
+      ud.weapon.rotation.z = this.recoil * (this.kind === 'goliath' ? 0.08 : 0.34);
+    }
+    if (ud.torso.userData.baseY == null) ud.torso.userData.baseY = ud.torso.position.y;
+    ud.torso.position.y = ud.torso.userData.baseY + Math.sin(t * 2.2) * 0.008;
 
     this.bar.set(this.hp / this.maxHp, game.camera);
   }
@@ -206,7 +220,7 @@ export class Marine {
     for (const z of game.zerglings) {
       if (z.dead) continue;
       if (this.distTo(z) > this.stats.range || !this.inArc(z)) continue;
-      const score = -Math.hypot(z.x - (CORE.x + 1), z.z - (CORE.y + 1)) + (z.breedId === 'tanker' ? 2 : 0);
+      const score = -Math.hypot(z.x - game.core.x, z.z - game.core.z) + (z.breedId === 'tanker' ? 2 : 0);
       if (score > bestScore) { bestScore = score; best = z; }
     }
     return best;
@@ -215,23 +229,28 @@ export class Marine {
   fire(game) {
     this.recoil = 1;
     const ud = this.model.userData;
-    let muzzle;
+    const locals = [];
     if (this.bunker) {
       const f = this.bunker.facing;
-      muzzle = new THREE.Vector3(this.x + Math.cos(f) * 0.55, 0.38, this.z + Math.sin(f) * 0.55);
+      locals.push(new THREE.Vector3(this.x + Math.cos(f) * 0.55, 0.38, this.z + Math.sin(f) * 0.55));
     } else {
       ud.weapon.updateWorldMatrix(true, false);
-      muzzle = ud.weapon.userData.muzzle.clone().applyMatrix4(ud.weapon.matrixWorld);
+      const pts = ud.weapon.userData.muzzles || [ud.weapon.userData.muzzle];
+      for (const p of pts) locals.push(p.clone().applyMatrix4(ud.weapon.matrixWorld));
     }
-    game.fx.muzzleFlash(muzzle, -this.yaw);
-    game.spawnTracer(muzzle, this.target, this.stats.damage, this);
-    game.stage.kick(0.45);
-    game.sfx.gauss();
+    for (const muzzle of locals) {
+      game.fx.muzzleFlash(muzzle, -this.yaw);
+      if (this.spec.shell) game.spawnShell(muzzle, this.target.x, this.target.z, this.stats.damage, this.spec.splash);
+      else game.spawnTracer(muzzle, this.target, this.stats.damage, this);
+    }
+    game.stage.kick(this.spec.shell ? 1.3 : 0.45);
+    if (this.spec.shell) game.sfx.cannon();
+    else game.sfx.gauss();
     if (!game.called) { game.called = true; game.voice.say('acquired'); }
   }
 
   stim(game) {
-    if (!game.stimUnlocked || this.dead || this.downed || this.stimT > 0) return false;
+    if (!this.spec.canStim || !game.stimUnlocked || this.dead || this.downed || this.stimT > 0) return false;
     this.stimT = 4.2;
     this.hp = Math.max(1, this.hp - 12);
     game.voice.say('stim');
@@ -343,13 +362,14 @@ export class Wall {
 }
 
 export class Core {
-  constructor() {
+  constructor(spec) {
     this.kind = 'core';
-    this.tx = CORE.x; this.ty = CORE.y;
-    this.x = CORE.x + CORE.w / 2;
-    this.z = CORE.y + CORE.h / 2;
-    this.maxHp = CORE.hp;
-    this.hp = CORE.hp;
+    this.tx = spec.x; this.ty = spec.y;
+    this.w = spec.w; this.h = spec.h;
+    this.x = spec.x + spec.w / 2;
+    this.z = spec.y + spec.h / 2;
+    this.maxHp = spec.hp;
+    this.hp = spec.hp;
     this.dead = false;
 
     this.obj = new THREE.Group();
@@ -357,8 +377,8 @@ export class Core {
     this.model = buildCore();
     this.obj.add(this.model);
 
-    this.light = new THREE.PointLight(0x5ad7ff, 8, 9, 2);
-    this.light.position.set(0, 1.4, 0);
+    this.light = new THREE.PointLight(0xffc56a, 6, 7, 2);
+    this.light.position.set(1.0, 0.7, 0);
     this.obj.add(this.light);
 
     this.bar = new HealthBar(this.obj, 1.6, 0.12, 2.1);
@@ -371,9 +391,9 @@ export class Core {
     const pulse = 1 + Math.sin(game.time * 2.4) * 0.1;
     ud.reactor.scale.setScalar(pulse);
     ud.reactor.material.emissiveIntensity = 2.6 * pulse;
-    ud.reactor.material.color.setHex(pct < 0.35 ? 0xffb0a0 : 0x9ae8ff);
-    ud.reactor.material.emissive.setHex(pct < 0.35 ? 0xff4a35 : 0x3cc8ff);
-    this.light.color.setHex(pct < 0.35 ? 0xff5a4a : 0x5ad7ff);
+    ud.reactor.material.color.setHex(pct < 0.35 ? 0xffb0a0 : 0xffe7a2);
+    ud.reactor.material.emissive.setHex(pct < 0.35 ? 0xff4a35 : 0xffa020);
+    this.light.color.setHex(pct < 0.35 ? 0xff5a4a : 0xffc56a);
     this.bar.set(pct, game.camera, true);
   }
 
@@ -517,7 +537,7 @@ export class Zergling {
 
   rangedPrey(game) {
     let best = null, bestD = this.breed.range;
-    const pile = [...game.walls, ...game.bunkers, ...game.marines.filter((m) => !m.dead && !m.downed), game.core];
+    const pile = [...game.walls, ...game.bunkers, ...game.gunners.filter((m) => !m.dead && !m.downed), game.core];
     for (const s of pile) {
       if (!s || s.dead) continue;
       const d = Math.hypot(s.x - this.x, s.z - this.z);
@@ -604,8 +624,10 @@ export class Zergling {
     // only commit to full speed once roughly facing the right way
     const align = Math.cos(this.yaw - want);
     const spd = this.speed * Math.max(0.35, align);
-    this.x += Math.cos(this.yaw) * spd * dt;
-    this.z += Math.sin(this.yaw) * spd * dt;
+    const nx = this.x + Math.cos(this.yaw) * spd * dt;
+    const nz = this.z + Math.sin(this.yaw) * spd * dt;
+    if (game.grid.get(Math.floor(nx), Math.floor(this.z)) !== CELL.ROCK) this.x = nx;
+    if (game.grid.get(Math.floor(this.x), Math.floor(nz)) !== CELL.ROCK) this.z = nz;
     this.moving = spd / this.speed;
     this.gait += dt * spd * 6.5;
 
@@ -813,6 +835,117 @@ export class Acid {
     }
     this.x += dx / d * step; this.y += dy / d * step; this.z += dz / d * step;
     this.mesh.position.set(this.x, this.y, this.z);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  SIEGE SHELL                                                        */
+/* ------------------------------------------------------------------ */
+
+const SHELL_GEO = new THREE.SphereGeometry(0.09, 8, 6);
+const SHELL_MAT = new THREE.MeshBasicMaterial({ color: 0xffc14a });
+
+const BOMB_GEO = new THREE.CylinderGeometry(0.07, 0.11, 0.42, 6);
+const BOMB_MAT = new THREE.MeshBasicMaterial({ color: 0xff7a3a });
+const MARK_GEO = new THREE.RingGeometry(0.55, 0.72, 32).rotateX(-Math.PI / 2);
+const MARK_MAT = new THREE.MeshBasicMaterial({
+  color: 0xff5a4a, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide
+});
+
+export class AirBomb {
+  constructor(tx, tz, damage, radius, delay) {
+    this.tx = tx;
+    this.tz = tz;
+    this.damage = damage;
+    this.radius = radius;
+    this.delay = delay;
+    this.t = 0;
+    this.dead = false;
+    this.falling = false;
+    this.y = 9.5;
+    this.mesh = new THREE.Mesh(BOMB_GEO, BOMB_MAT);
+    this.mesh.visible = false;
+    this.mesh.position.set(tx, this.y, tz);
+    this.mark = new THREE.Mesh(MARK_GEO, MARK_MAT.clone());
+    this.mark.position.set(tx, 0.06, tz);
+    this.mark.scale.setScalar(radius * 0.55);
+  }
+
+  update(dt, game) {
+    this.t += dt;
+    this.mark.material.opacity = 0.35 + Math.abs(Math.sin(this.t * 10)) * 0.5;
+    this.mark.rotation.y += dt * 2.4;
+
+    if (!this.falling) {
+      if (this.t < this.delay) return;
+      this.falling = true;
+      this.mesh.visible = true;
+      game.sfx.airstrikeDrop();
+    }
+
+    this.y -= 22 * dt;
+    this.mesh.position.set(this.tx, this.y, this.tz);
+    this.mesh.rotation.x += dt * 8;
+    if (this.y > 0.2) return;
+
+    this.dead = true;
+    game.scene.remove(this.mesh);
+    game.scene.remove(this.mark);
+    this.mark.material.dispose();
+    game.fx.explosion({ x: this.tx, y: 0.4, z: this.tz }, 1.55);
+    game.fx.decal(this.tx, this.tz, this.radius * 0.55, 0x2a1a12, 0.55);
+    game.sfx.cannonHit();
+    game.stage.kick(3.2);
+    for (const bug of game.zerglings) {
+      if (bug.dead) continue;
+      const d = Math.hypot(bug.x - this.tx, bug.z - this.tz);
+      if (d > this.radius) continue;
+      const fall = 1 - (d / this.radius) * 0.45;
+      bug.takeDamage(Math.max(1, Math.round(this.damage * fall)), game, Math.atan2(bug.z - this.tz, bug.x - this.tx));
+    }
+  }
+}
+
+export class Shell {
+  constructor(from, tx, tz, damage, radius) {
+    this.x = from.x; this.y = from.y; this.z = from.z;
+    this.tx = tx; this.tz = tz;
+    this.damage = damage;
+    this.radius = radius;
+    this.speed = 14;
+    this.dead = false;
+    this.travel = Math.max(0.001, Math.hypot(tx - from.x, tz - from.z));
+    this.mesh = new THREE.Mesh(SHELL_GEO, SHELL_MAT);
+    this.mesh.position.set(this.x, this.y, this.z);
+  }
+
+  update(dt, game) {
+    const dx = this.tx - this.x, dz = this.tz - this.z;
+    const d = Math.hypot(dx, dz);
+    const step = this.speed * dt;
+    if (d <= step) {
+      this.dead = true;
+      this.boom(game);
+      return;
+    }
+    this.x += (dx / d) * step;
+    this.z += (dz / d) * step;
+    const k = 1 - d / this.travel;
+    this.y = 0.4 + Math.sin(Math.min(1, Math.max(0, k)) * Math.PI) * 0.85;
+    this.mesh.position.set(this.x, this.y, this.z);
+  }
+
+  boom(game) {
+    game.fx.explosion({ x: this.tx, y: 0.35, z: this.tz }, 1.15);
+    game.sfx.cannonHit();
+    game.stage.kick(2.2);
+    for (const bug of game.zerglings) {
+      if (bug.dead) continue;
+      const d = Math.hypot(bug.x - this.tx, bug.z - this.tz);
+      if (d > this.radius) continue;
+      const fall = 1 - (d / this.radius) * 0.4;
+      bug.takeDamage(Math.max(1, Math.round(this.damage * fall)), game, Math.atan2(bug.z - this.tz, bug.x - this.tx));
+    }
   }
 }
 

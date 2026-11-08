@@ -172,7 +172,7 @@ export class Stage {
 
     const grid = new THREE.Mesh(
       new THREE.PlaneGeometry(COLS, ROWS),
-      new THREE.MeshBasicMaterial({ map: gridTexture(), transparent: true, opacity: 0.1, depthWrite: false })
+      new THREE.MeshBasicMaterial({ map: gridTexture(), transparent: true, opacity: 0.2, depthWrite: false })
     );
     grid.rotation.x = -Math.PI / 2;
     grid.position.set(CX, 0.012, CZ);
@@ -231,6 +231,15 @@ export class Stage {
   }
 
   spin(delta) { this.yaw += delta; }
+
+  /** Pan focus in screen space: +sx = right, +sy = down. */
+  pan(sx, sy) {
+    const fx = Math.cos(this.yaw), fz = Math.sin(this.yaw);
+    this.focus.x += fx * sy + fz * sx;
+    this.focus.z += fz * sy - fx * sx;
+    this.focus.x = Math.max(-4, Math.min(COLS + 4, this.focus.x));
+    this.focus.z = Math.max(-4, Math.min(ROWS + 4, this.focus.z));
+  }
 
   resetView() {
     this.yaw = Math.PI / 2;
