@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terran Defense — Zerg Incursion</title>
+<link rel="stylesheet" href="src/style.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/build/three.module.js",
+    "three/addons/": "./vendor/three/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div class="app">
+
+  <header class="hud">
+    <div class="hud__brand">
+      <div class="hud__sigil">T</div>
+      <div>
+        <h1>Terran Defense</h1>
+        <p>Mar Sara · Outpost Delta</p>
+      </div>
+    </div>
+
+    <div class="hud__readouts">
+      <div class="readout readout--mineral"><span class="readout__k">Minerals</span><span class="readout__v" id="rMinerals">0</span></div>
+      <div class="readout"><span class="readout__k">Wave</span><span class="readout__v" id="rWave">0</span></div>
+      <div class="readout readout--zerg"><span class="readout__k">Kills</span><span class="readout__v" id="rKills">0</span></div>
+      <div class="readout"><span class="readout__k">Command Center</span><span class="readout__v" id="rCore">100%</span></div>
+    </div>
+
+    <div class="hud__controls">
+      <button id="btnSound" class="btn btn--icon" title="Sound">ON</button>
+      <button id="btnSpeed" class="btn btn--icon" title="Game speed">1x</button>
+      <button id="btnRestart" class="btn">Restart</button>
+      <button id="btnWave" class="btn btn--primary">Launch Wave 1</button>
+    </div>
+  </header>
+
+  <main class="stage">
+    <canvas id="game"></canvas>
+    <div id="overlay" class="overlay"></div>
+    <div class="stage__vignette"></div>
+    <div id="toasts" class="toasts"></div>
+    <div id="tip" class="tip"></div>
+
+    <div class="buildbar" id="buildBar"></div>
+
+    <div id="banner" class="banner" hidden>
+      <div class="banner__inner">
+        <h2 id="bannerTitle">Outpost Overrun</h2>
+        <p id="bannerText"></p>
+        <button id="bannerBtn" class="btn btn--primary">Rebuild Outpost</button>
+      </div>
+    </div>
+  </main>
+
+  <aside class="panel" data-faction="marine">
+    <div class="panel__tabs">
+      <button class="tab tab--active" data-unit="marine">Marine</button>
+      <button class="tab" data-unit="zergling">Zergling</button>
+    </div>
+
+    <div class="portrait">
+      <canvas id="portrait"></canvas>
+      <div class="portrait__scan"></div>
+      <div class="portrait__tag" id="pFaction">Terran Dominion</div>
+    </div>
+
+    <div class="panel__head">
+      <h2 id="pName">Terran Marine</h2>
+      <p id="pRole">Private · Tier 1 of 4</p>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="actions">
+      <button id="btnUpgrade" class="btn btn--gold" hidden>Promote</button>
+      <button id="btnSell" class="btn btn--ghost" hidden>Salvage</button>
+    </div>
+
+    <div class="armory">
+      <div class="armory__row">
+        <span class="armory__k">Armory</span>
+        <span class="armory__v" id="armoryLabel">U-238 Shells</span>
+      </div>
+      <div class="armory__bar"><i id="armoryFill"></i></div>
+      <p class="armory__note" id="armoryNote"></p>
+    </div>
+
+    <p class="bio" id="pBio"></p>
+    <p class="quote" id="pQuote"></p>
+  </aside>
+
+</div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
