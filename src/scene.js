@@ -112,8 +112,10 @@ export class Stage {
 
     this.camera = new THREE.PerspectiveCamera(42, 1, 0.5, 200);
     this.yaw = Math.PI / 2;
-    this.pitch = 0.88;
-    this.dist = 24;
+    this.pitch = 0.62;
+    this.dist = 15;
+    this.minDist = 3.2;
+    this.maxDist = 46;
     this.focus = new THREE.Vector3(CX, 0, CZ);
     this.shake = 0;
     this.updateCamera();
@@ -223,14 +225,27 @@ export class Stage {
     return Math.max(needV / tanV, needH / tanH) * 1.06;
   }
 
-  resize(w, h, refit = false) {
+  zoomBy(factor) {
+    this.userZoomed = true;
+    this.dist = Math.max(this.minDist, Math.min(this.maxDist, this.dist * factor));
+  }
+
+  spin(delta) { this.yaw += delta; }
+
+  resetView() {
+    this.yaw = Math.PI / 2;
+    this.pitch = 0.62;
+    this.dist = 15;
+    this.focus.set(CX, 0, CZ);
+    this.userZoomed = true;
+  }
+
+  resize(w, h) {
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h, false);
     this.composer.setSize(w, h);
-    this.maxDist = this.fitDistance() * 1.35;
-    if (refit || !this.userZoomed) this.dist = this.fitDistance();
-    this.dist = Math.min(this.dist, this.maxDist);
+    this.dist = Math.max(this.minDist, Math.min(this.maxDist, this.dist));
   }
 
   render() { this.composer.render(); }

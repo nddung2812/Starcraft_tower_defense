@@ -4,6 +4,7 @@ import { Stage } from './scene.js';
 import { Game } from './game.js';
 import { UI } from './ui.js';
 import { sfx } from './audio.js';
+import { voice } from './voice.js';
 
 const canvas = document.getElementById('game');
 const stage = new Stage(canvas);
@@ -53,6 +54,14 @@ selRange.position.y = 0.04;
 selRange.visible = false;
 stage.scene.add(selRange);
 
+const focusRing = new THREE.Mesh(
+  new THREE.RingGeometry(0.34, 0.46, 4).rotateX(-Math.PI / 2).rotateY(Math.PI / 4),
+  new THREE.MeshBasicMaterial({ color: 0xff5a4a, transparent: true, opacity: 0.95, depthWrite: false, side: THREE.DoubleSide })
+);
+focusRing.position.y = 0.05;
+focusRing.visible = false;
+stage.scene.add(focusRing);
+
 /* ---------------- input ---------------- */
 
 const ndc = new THREE.Vector2();
@@ -79,12 +88,18 @@ function entityAt(tile) {
   if (!tile) return null;
   const occ = game.grid.occupant(tile.x, tile.y);
   if (occ && !occ.dead) return occ;
+  if (game.scv && !game.scv.dead && Math.hypot(game.scv.x - tile.world.x, game.scv.z - tile.world.z) < 0.7) return game.scv;
   if (tile.x >= game.core.tx && tile.x < game.core.tx + 2 && tile.y >= game.core.ty && tile.y < game.core.ty + 2) return game.core;
-  let best = null, bd = 0.62;
+  let best = null, bd = 0.7;
   for (const z of game.zerglings) {
     if (z.dead) continue;
     const d = Math.hypot(z.x - (tile.world.x), z.z - (tile.world.z));
     if (d < bd) { bd = d; best = z; }
+  }
+  for (const m of game.marines) {
+    if (!m.downed) continue;
+    const d = Math.hypot(m.x - tile.world.x, m.z - tile.world.z);
+    if (d < bd) { bd = d; best = m; }
   }
   return best;
 }
@@ -109,8 +124,8 @@ function select(e) {
   selRing.visible = true;
   selRing.position.set(e.x, 0.03, e.z);
   selRing.scale.setScalar(e.kind === 'core' ? 2.1 : 1);
-  selRing.material.color.setHex(e.kind === 'zergling' ? 0xc06bff : 0x5ad7ff);
-  selRange.visible = e.kind === 'marine';
+  selRing.material.color.setHex(e.kind === 'zergling' ? 0xc06bff : e.kind === 'scv' ? 0xe2b13c : 0x5ad7ff);
+  selRange.visible = e.kind === 'marine' && !e.bunker;
   if (e.kind === 'marine') {
     selRange.position.set(e.x, 0.04, e.z);
     selRange.scale.setScalar(e.stats.range);
@@ -119,15 +134,11 @@ function select(e) {
 }
 
 function updateTip() {
-  if (placing) {
-    ui.tip(placing === 'wall'
-      ? 'Click to lay <b>bunker walls</b> — drag to build a run. The swarm will chew through whatever is cheapest.'
-      : 'Click to emplace a <b>Marine</b>. Right-click or Esc to cancel.');
-  } else if (game.state === 'build') {
-    ui.tip('Build your fort, then <b>launch the wave</b>. Every kill pays for the next upgrade.');
-  } else {
-    ui.tip('Wave in progress — click any unit to inspect it.');
-  }
+  if (game.state !== 'build') { ui.tip(''); return; }
+  if (placing === 'wall') ui.tip('Walls redirect the swarm. Drag to lay a run.');
+  else if (placing === 'marine') ui.tip('Place a Marine. He shoots whatever enters his circle.');
+  else if (placing === 'bunker') ui.tip('Bunker faces the bugs. Put a Marine in it for the armour.');
+  else ui.tip('The rocks are the gates. Fortify a gap, then launch.');
 }
 
 canvas.addEventListener('pointermove', (ev) => {
@@ -135,8 +146,8 @@ canvas.addEventListener('pointermove', (ev) => {
     const dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
     drag.moved += Math.abs(dx) + Math.abs(dy);
     if (drag.mode === 'orbit') {
-      stage.yaw += dx * 0.006;
-      stage.pitch = Math.max(0.42, Math.min(1.45, stage.pitch + dy * 0.005));
+      stage.spin(dx * 0.012);
+      stage.pitch = Math.max(0.28, Math.min(1.25, stage.pitch + dy * 0.006));
     } else if (drag.mode === 'pan') {
       const k = stage.dist * 0.0016;
       const fx = Math.cos(stage.yaw), fz = Math.sin(stage.yaw);
@@ -171,32 +182,44 @@ canvas.addEventListener('pointermove', (ev) => {
 
 function tryPlace(t) {
   if (!placing) return;
-  const ok = placing === 'wall' ? game.placeWall(t.x, t.y) : game.placeMarine(t.x, t.y);
-  if (!ok) {
-    sfx.deny();
-    return;
-  }
-  if (placing === 'marine') setPlacing(null);
+  const ok = placing === 'wall' ? game.placeWall(t.x, t.y)
+    : placing === 'bunker' ? game.placeBunker(t.x, t.y)
+    : game.placeMarine(t.x, t.y);
+  if (!ok) { sfx.deny(); return; }
+  if (placing !== 'wall') setPlacing(null);
 }
 
 canvas.addEventListener('pointerdown', (ev) => {
   sfx.resume();
+  voice.unlock();
   canvas.setPointerCapture(ev.pointerId);
   drag.on = true;
   drag.x = ev.clientX; drag.y = ev.clientY; drag.moved = 0;
 
-  if (ev.button === 2) { drag.mode = 'orbit'; return; }
-  if (ev.button === 1 || ev.shiftKey) { drag.mode = 'pan'; return; }
+  if (ev.button === 2 || ev.button === 1 || ev.altKey) { drag.mode = 'orbit'; return; }
+  if (ev.shiftKey) { drag.mode = 'pan'; return; }
 
   const t = tileAt(ev);
-  if (placing && t) { drag.mode = 'build'; tryPlace(t); return; }
-  drag.mode = 'select';
+  if (placing && t && ev.button === 0) { drag.mode = 'build'; tryPlace(t); return; }
+  drag.mode = ev.button === 0 ? 'orbit' : 'select';
 });
 
 canvas.addEventListener('pointerup', (ev) => {
   if (drag.mode === 'select' && drag.moved < 6) {
     const t = tileAt(ev);
-    select(entityAt(t));
+    const e = entityAt(t);
+    const sel = game.selected;
+    if (sel?.kind === 'marine' && e?.kind === 'bunker') game.garrison(sel, e);
+    else if (sel?.kind === 'scv' && e && (e.kind === 'wall' || e.kind === 'bunker') && e.hp < e.maxHp) {
+      sel.order = { type: 'repair', target: e };
+      voice.say('repair');
+    } else if (sel?.kind === 'scv' && e?.kind === 'marine' && e.downed) {
+      sel.order = { type: 'revive', target: e };
+      voice.say('repair');
+    } else if ((game.state === 'wave' || game.state === 'brief') && e?.kind === 'zergling') {
+      game.focus = e;
+      select(e);
+    } else select(e);
   }
   drag.on = false;
   drag.mode = null;
@@ -209,14 +232,27 @@ canvas.addEventListener('contextmenu', (ev) => {
 
 canvas.addEventListener('wheel', (ev) => {
   ev.preventDefault();
-  stage.userZoomed = true;
-  stage.dist = Math.max(7, Math.min(stage.maxDist, stage.dist + Math.sign(ev.deltaY) * stage.dist * 0.09));
+  stage.zoomBy(ev.deltaY > 0 ? 1.12 : 0.88);
 }, { passive: false });
+
+document.getElementById('camLeft').addEventListener('click', () => stage.spin(-0.4));
+document.getElementById('camRight').addEventListener('click', () => stage.spin(0.4));
+document.getElementById('camIn').addEventListener('click', () => stage.zoomBy(0.82));
+document.getElementById('camOut').addEventListener('click', () => stage.zoomBy(1.22));
+document.getElementById('camReset').addEventListener('click', () => stage.resetView());
 
 window.addEventListener('keydown', (ev) => {
   if (ev.key === '1') setPlacing('wall');
   if (ev.key === '2') setPlacing('marine');
-  if (ev.key === 'Escape') { setPlacing(null); select(null); }
+  if (ev.key === '3') setPlacing('bunker');
+  if (ev.key === 'f' || ev.key === 'F') {
+    if (game.selected?.kind === 'marine') game.selected.stim(game);
+  }
+  if (ev.key === 'q' || ev.key === 'Q') stage.spin(-0.35);
+  if (ev.key === 'e' || ev.key === 'E') stage.spin(0.35);
+  if (ev.key === '-' || ev.key === '_') stage.zoomBy(1.15);
+  if (ev.key === '=' || ev.key === '+') stage.zoomBy(0.87);
+  if (ev.key === 'Escape') { setPlacing(null); game.focus = null; select(null); }
   if (ev.code === 'Space') { ev.preventDefault(); sfx.resume(); game.startWave(); }
   if (ev.key === 'u' || ev.key === 'U') {
     if (game.selected?.kind === 'marine') game.upgradeMarine(game.selected);
@@ -232,10 +268,11 @@ game.on('restart', () => {
   setPlacing(null);
   select(null);
   ui.hideBanner();
+  ui.hideReel();
   ui.sync();
 });
 game.on('change', () => {
-  if (game.selected?.dead) select(null);
+  if (game.selected?.dead && !game.selected.downed) select(null);
   if (game.selected) {
     selRing.position.set(game.selected.x, 0.03, game.selected.z);
     if (game.selected.kind === 'marine') selRange.scale.setScalar(game.selected.stats.range);
@@ -274,7 +311,7 @@ let last = performance.now();
 function frame(now) {
   const raw = Math.min(0.05, (now - last) / 1000);
   last = now;
-  const dt = raw * game.speed;
+  const dt = raw * game.speed * (game.drama || 1);
 
   game.update(dt);
 
@@ -285,6 +322,12 @@ function frame(now) {
     if (selRange.visible) selRange.position.set(game.selected.x, 0.04, game.selected.z);
   } else if (game.selected?.dead) {
     select(null);
+  }
+
+  focusRing.visible = !!(game.focus && !game.focus.dead);
+  if (focusRing.visible) {
+    focusRing.position.set(game.focus.x, 0.06, game.focus.z);
+    focusRing.rotation.y += raw * 2;
   }
 
   if (cursor.visible) {

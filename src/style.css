@@ -25,12 +25,12 @@ html, body {
 
 .app {
   height: 100%;
-  padding: 14px;
+  padding: 12px;
   display: grid;
-  gap: 12px;
-  grid-template-columns: minmax(0, 1fr) 330px;
-  grid-template-rows: auto minmax(0, 1fr);
-  grid-template-areas: "hud hud" "stage panel";
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas: "hud hud" "stage panel" "dock panel";
 }
 
 /* ---------------- HUD ---------------- */
@@ -132,8 +132,29 @@ html, body {
 
 #game { display: block; width: 100%; height: 100%; }
 
-.overlay, .stage__vignette { position: absolute; inset: 0; pointer-events: none; }
-.stage__vignette { box-shadow: inset 0 0 160px rgba(0, 0, 0, .8); }
+.overlay { position: absolute; inset: 0; pointer-events: none; }
+
+.cam {
+  position: absolute;
+  top: 12px;
+  right: 22px;
+  display: flex;
+  gap: 4px;
+  z-index: 2;
+}
+.cam__btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  font: inherit;
+  font-size: 16px;
+  color: #eaf5ff;
+  background: rgba(6, 12, 18, .72);
+  border: 1px solid var(--line);
+  cursor: pointer;
+}
+.cam__btn--wide { width: auto; padding: 0 10px; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
+.cam__btn:hover { background: rgba(28, 52, 74, .9); }
 
 .ftext {
   position: absolute;
@@ -143,33 +164,35 @@ html, body {
   letter-spacing: .04em;
   text-shadow: 0 2px 4px rgba(0, 0, 0, .9);
   pointer-events: none;
-  white-space: nowrap;
+  white-space: normal;
 }
 .ftext.dmg { color: #9ef0c0; }
 .ftext.dmg-self { color: #ff8a7a; }
 .ftext.cash { color: var(--ok); font-size: 15px; }
 
-.tip {
-  position: absolute;
-  left: 50%; bottom: 14px;
-  transform: translateX(-50%);
-  padding: 7px 16px;
-  font-size: 11px;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: #bcd4e8;
-  background: rgba(5, 10, 16, .82);
-  border: 1px solid var(--line);
-  pointer-events: none;
-}
-.tip b { color: var(--terran); }
-
-.buildbar {
-  position: absolute;
-  left: 14px; bottom: 14px;
+.dock {
+  grid-area: dock;
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 12px;
+  min-height: 74px;
+  padding: 8px 10px;
+  background: rgba(8, 14, 22, .92);
+  border: 1px solid var(--line);
 }
+
+.buildbar { display: flex; gap: 8px; }
+
+.status {
+  margin: 0;
+  flex: 1;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.status b { color: var(--terran); font-weight: 600; }
+
+.toasts { display: flex; flex-direction: column; gap: 4px; max-width: 240px; }
 
 .card {
   position: relative;
@@ -202,14 +225,7 @@ html, body {
   font-size: 9px; color: var(--muted);
 }
 
-.toasts {
-  position: absolute;
-  right: 14px; top: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  pointer-events: none;
-}
+.toasts { pointer-events: none; }
 
 .toast {
   min-width: 230px;
@@ -228,6 +244,12 @@ html, body {
 .toast--unlock { border-left-color: var(--gold); }
 .toast--out { opacity: 0; transform: translateX(20px); }
 @keyframes slide { from { opacity: 0; transform: translateX(24px); } }
+
+.btn--stim {
+  color: #2a1004; font-weight: 700;
+  background: linear-gradient(145deg, #ffb07a, #e2582a);
+  border-color: transparent;
+}
 
 .banner[hidden] { display: none; }
 .banner {
@@ -330,7 +352,7 @@ html, body {
 .quote { margin: 0; font-size: 11px; font-style: italic; color: var(--accent); opacity: .85; }
 
 @media (max-width: 1040px) {
-  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "hud" "stage" "panel"; overflow-y: auto; height: auto; }
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "hud" "stage" "dock" "panel"; overflow-y: auto; height: auto; }
   body { overflow: auto; }
-  .stage { height: 60vh; }
+  .stage { height: 62vh; }
 }

@@ -44,11 +44,14 @@
   <main class="stage">
     <canvas id="game"></canvas>
     <div id="overlay" class="overlay"></div>
-    <div class="stage__vignette"></div>
-    <div id="toasts" class="toasts"></div>
-    <div id="tip" class="tip"></div>
 
-    <div class="buildbar" id="buildBar"></div>
+    <div class="cam" aria-label="Camera">
+      <button id="camLeft" class="cam__btn" title="Rotate left">↺</button>
+      <button id="camRight" class="cam__btn" title="Rotate right">↻</button>
+      <button id="camOut" class="cam__btn" title="Zoom out">−</button>
+      <button id="camIn" class="cam__btn" title="Zoom in">+</button>
+      <button id="camReset" class="cam__btn cam__btn--wide" title="Reset view">View</button>
+    </div>
 
     <div id="banner" class="banner" hidden>
       <div class="banner__inner">
@@ -58,6 +61,12 @@
       </div>
     </div>
   </main>
+
+  <footer class="dock">
+    <div class="buildbar" id="buildBar"></div>
+    <p id="status" class="status"></p>
+    <div id="toasts" class="toasts"></div>
+  </footer>
 
   <aside class="panel" data-faction="marine">
     <div class="panel__tabs">
@@ -80,7 +89,10 @@
 
     <div class="actions">
       <button id="btnUpgrade" class="btn btn--gold" hidden>Promote</button>
+      <button id="btnStim" class="btn btn--stim" hidden>Stim (F)</button>
+      <button id="btnEject" class="btn" hidden>Leave Bunker</button>
       <button id="btnSell" class="btn btn--ghost" hidden>Salvage</button>
+      <button id="btnScv" class="btn" hidden>Rebuild SCV</button>
     </div>
 
     <div class="armory">

@@ -1,10 +1,11 @@
 import * as THREE from 'three';
-import { CELL, BUILD, ECON, ARMORY, CORE, SPAWN, ROCKS, COLS, ROWS, waveSpec, MARINE_TIERS } from './config.js';
+import { CELL, BUILD, ECON, ARMORY, CORE, SPAWN, ROCKS, BRIEFINGS, wavePlan } from './config.js';
 import { Grid } from './grid.js';
-import { Marine, Zergling, Wall, Core, Tracer } from './entities.js';
+import { Marine, Zergling, Wall, Bunker, Scv, Core, Tracer } from './entities.js';
 import { buildHatchery, buildRock } from './models.js';
 import { Fx } from './fx.js';
 import { sfx } from './audio.js';
+import { voice } from './voice.js';
 
 export class Game {
   constructor(stage) {
@@ -13,6 +14,7 @@ export class Game {
     this.camera = stage.camera;
     this.fx = new Fx(stage.scene);
     this.sfx = sfx;
+    this.voice = voice;
     this.grid = new Grid();
 
     this.world = new THREE.Group();
@@ -44,20 +46,26 @@ export class Game {
   /* ---------------- lifecycle ---------------- */
 
   reset() {
-    for (const e of [...(this.marines || []), ...(this.zerglings || []), ...(this.walls || [])]) {
+    for (const e of [...(this.marines || []), ...(this.zerglings || []), ...(this.walls || []), ...(this.bunkers || [])]) {
       this.world.remove(e.obj);
     }
     if (this.core) this.world.remove(this.core.obj);
+    if (this.scv) this.world.remove(this.scv.obj);
     for (const t of this.tracers || []) this.scene.remove(t.mesh);
+    for (const a of this.acids || []) this.scene.remove(a.mesh);
     this.fx.clear();
 
     this.grid.reset();
     this.marines = [];
     this.zerglings = [];
     this.walls = [];
+    this.bunkers = [];
     this.tracers = [];
+    this.acids = [];
     this.core = new Core();
     this.world.add(this.core.obj);
+    this.scv = new Scv(20.5, 10.5);
+    this.world.add(this.scv.obj);
 
     this.minerals = ECON.startMinerals;
     this.kills = 0;
@@ -67,9 +75,14 @@ export class Game {
     this.queue = [];
     this.spawnTimer = 0;
     this.armory = [];
+    this.stimUnlocked = false;
     this.selected = null;
     this.placing = null;
+    this.focus = null;
     this.speed = 1;
+    this.drama = 1;
+    this.called = false;
+    this.briefT = 0;
 
     this.refreshRoute();
     this.emit('change');
@@ -82,7 +95,7 @@ export class Game {
   canAfford(cost) { return this.minerals >= cost; }
 
   placeWall(tx, ty) {
-    if (!this.grid.buildable(tx, ty) || !this.canAfford(BUILD.wall.cost)) return false;
+    if (this.state !== 'build' || !this.grid.buildable(tx, ty) || !this.canAfford(BUILD.wall.cost)) return false;
     const w = new Wall(tx, ty, BUILD.wall.hp);
     this.grid.set(tx, ty, CELL.WALL, w);
     this.walls.push(w);
@@ -96,7 +109,7 @@ export class Game {
   }
 
   placeMarine(tx, ty) {
-    if (!this.grid.buildable(tx, ty) || !this.canAfford(BUILD.marine.cost)) return false;
+    if (this.state !== 'build' || !this.grid.buildable(tx, ty) || !this.canAfford(BUILD.marine.cost)) return false;
     const m = new Marine(tx, ty, this.armory);
     m.restYaw = Math.atan2(CORE.y + 1 - m.z, SPAWN.x - m.x);
     m.yaw = m.restYaw;
@@ -112,11 +125,82 @@ export class Game {
     return true;
   }
 
+  placeBunker(tx, ty) {
+    if (this.state !== 'build' || !this.grid.buildable(tx, ty) || !this.canAfford(BUILD.bunker.cost)) return false;
+    const facing = Math.atan2((SPAWN.y + 1) - (ty + 0.5), (SPAWN.x + 0.5) - (tx + 0.5));
+    const b = new Bunker(tx, ty, BUILD.bunker.hp, facing);
+    this.grid.set(tx, ty, CELL.BUNKER, b);
+    this.bunkers.push(b);
+    this.world.add(b.obj);
+    this.minerals -= BUILD.bunker.cost;
+    this.fx.ring({ x: b.x, z: b.z }, 1.5, 0xe8b44a);
+    sfx.place();
+    this.refreshRoute();
+    this.emit('change');
+    return true;
+  }
+
+  garrison(marine, bunker) {
+    if (this.state !== 'build' || marine.bunker || marine.downed || marine.dead) return false;
+    if (bunker.garrison.length >= 2) return false;
+    this.grid.clear(marine.tx, marine.ty);
+    marine.bunker = bunker;
+    bunker.garrison.push(marine);
+    marine.obj.visible = false;
+    sfx.place();
+    this.refreshRoute();
+    this.emit('change');
+    return true;
+  }
+
+  eject(marine, forced = false) {
+    if (!marine.bunker) return false;
+    if (!forced && this.state !== 'build') return false;
+    const b = marine.bunker;
+    b.garrison = b.garrison.filter((m) => m !== marine);
+    marine.bunker = null;
+    const spot = this.openNear(b.tx, b.ty);
+    if (spot) {
+      marine.tx = spot.x; marine.ty = spot.y;
+      marine.x = spot.x + 0.5; marine.z = spot.y + 0.5;
+      this.grid.set(spot.x, spot.y, CELL.TOWER, marine);
+    }
+    marine.obj.visible = true;
+    marine.obj.position.set(marine.x, 0, marine.z);
+    this.refreshRoute();
+    this.emit('change');
+    return true;
+  }
+
+  openNear(tx, ty) {
+    for (let r = 1; r <= 3; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (this.grid.buildable(tx + dx, ty + dy)) return { x: tx + dx, y: ty + dy };
+        }
+      }
+    }
+    return null;
+  }
+
+  rebuildScv() {
+    if (!this.scv.dead || !this.canAfford(ECON.scvCost)) return false;
+    this.world.remove(this.scv.obj);
+    this.minerals -= ECON.scvCost;
+    this.scv = new Scv(20.5, 10.5);
+    this.world.add(this.scv.obj);
+    sfx.place();
+    this.emit('change');
+    return true;
+  }
+
   sell(entity) {
-    if (this.state === 'wave') return false;
-    const value = entity.kind === 'wall'
-      ? Math.round(BUILD.wall.cost * ECON.refundRate)
-      : Math.round(entity.invested * ECON.refundRate);
+    if (this.state !== 'build') return false;
+    if (entity.kind === 'bunker') entity.garrison.slice().forEach((m) => this.eject(m));
+    const cost = entity.kind === 'wall' ? BUILD.wall.cost
+      : entity.kind === 'bunker' ? BUILD.bunker.cost
+      : entity.invested;
+    const value = Math.round(cost * ECON.refundRate);
     this.removeStructure(entity);
     this.minerals += value;
     this.fx.label({ x: entity.x, y: 1, z: entity.z }, '+' + value, 'cash');
@@ -140,9 +224,13 @@ export class Game {
   }
 
   removeStructure(e) {
-    this.grid.clear(e.tx, e.ty);
+    if (e.kind === 'marine' && e.bunker) {
+      e.bunker.garrison = e.bunker.garrison.filter((m) => m !== e);
+      e.bunker = null;
+    } else this.grid.clear(e.tx, e.ty);
     this.world.remove(e.obj);
     if (e.kind === 'wall') this.walls = this.walls.filter((w) => w !== e);
+    else if (e.kind === 'bunker') this.bunkers = this.bunkers.filter((b) => b !== e);
     else this.marines = this.marines.filter((m) => m !== e);
     if (this.selected === e) this.selected = null;
     this.refreshRoute();
@@ -150,7 +238,10 @@ export class Game {
 
   onStructureLost(e) {
     this.grid.clear(e.tx, e.ty);
-    this.walls = this.walls.filter((w) => w !== e);
+    if (e.kind === 'bunker') {
+      e.garrison.slice().forEach((m) => this.eject(m, true));
+      this.bunkers = this.bunkers.filter((b) => b !== e);
+    } else this.walls = this.walls.filter((w) => w !== e);
     setTimeout(() => this.world.remove(e.obj), 0);
     if (this.selected === e) this.selected = null;
     this.refreshRoute();
@@ -162,25 +253,32 @@ export class Game {
   startWave() {
     if (this.state !== 'build') return;
     this.wave++;
-    const spec = waveSpec(this.wave);
-    this.queue = [];
-    for (let i = 0; i < spec.count; i++) {
-      this.queue.push({ at: i * spec.gap, hpScale: spec.hpScale, speedScale: spec.speedScale });
-    }
+    this.queue = wavePlan(this.wave);
     this.spawnTimer = 0;
-    this.state = 'wave';
+    this.briefT = 3.15;
+    this.briefMark = 4;
+    this.called = false;
+    this.state = 'brief';
     this.selected = null;
     sfx.alarm();
+    voice.say('contact');
+    const card = BRIEFINGS[this.wave] || {
+      kicker: 'Outpost Delta',
+      title: `Wave ${this.wave}`,
+      body: 'The swarm is in the trench. Hold the line.'
+    };
+    this.emit('brief', card);
     this.emit('change');
-    this.emit('wave', this.wave);
   }
 
-  onKill() {
+  onKill(bug) {
     this.kills++;
-    this.minerals += ECON.perKill;
+    this.minerals += ECON.perKill * (bug?.breed?.bounty || 1);
+    if (this.kills % 6 === 0) voice.say('kill');
     const next = this.nextArmory;
     if (next && this.kills >= next.kills) {
       this.armory.push(next);
+      if (next.id === 'stim') this.stimUnlocked = true;
       for (const m of this.marines) m.applyStats(this.armory);
       sfx.unlock();
       this.emit('unlock', next);
@@ -198,6 +296,8 @@ export class Game {
 
   completeWave() {
     this.state = 'build';
+    this.drama = 1;
+    this.focus = null;
     const bonus = ECON.waveClearBase + this.wave * ECON.waveClearPerWave;
     this.minerals += bonus;
     this.fx.label({ x: this.core.x, y: 2.6, z: this.core.z }, '+' + bonus + ' minerals', 'cash');
@@ -205,6 +305,11 @@ export class Game {
     this.refreshRoute();
     this.emit('change');
     this.emit('cleared', { wave: this.wave, bonus });
+    this.emit('hold', {
+      kicker: 'Casualty report',
+      title: 'Outpost holds',
+      body: `Wave ${this.wave} broken. ${this.kills} bugs down. +${bonus} minerals.`
+    });
   }
 
   /* ---------------- route preview ---------------- */
@@ -246,14 +351,30 @@ export class Game {
         : 0.1;
     }
 
+    if (this.state === 'brief') {
+      const prev = Math.ceil(this.briefT);
+      this.briefT -= dt;
+      const now = Math.ceil(Math.max(0, this.briefT));
+      if (now !== prev && now > 0 && now <= 3) this.emit('count', now);
+      if (this.briefT <= 0) {
+        this.state = 'wave';
+        this.spawnTimer = 0;
+        voice.say('breach');
+        this.fx.ring({ x: SPAWN.x + 0.6, z: SPAWN.y + 1 }, 2.4, 0xc06bff);
+        this.emit('count', 0);
+        this.emit('change');
+      }
+    }
+
     if (this.state === 'wave') {
       this.spawnTimer += dt;
       while (this.queue.length && this.queue[0].at <= this.spawnTimer) {
         const s = this.queue.shift();
+        const spread = s.breed === 'zergling' ? 1.3 : 0.4;
         const z = new Zergling(
-          SPAWN.x + 0.5 + (Math.random() - 0.5) * 0.5,
-          SPAWN.y + 1 + (Math.random() - 0.5) * 1.2,
-          s.hpScale, s.speedScale
+          SPAWN.x + 0.6 + (Math.random() - 0.5) * 0.4,
+          SPAWN.y + 1 + (Math.random() - 0.5) * spread,
+          s.breed, s.hpScale, s.speedScale
         );
         this.zerglings.push(z);
         this.world.add(z.obj);
@@ -263,14 +384,23 @@ export class Game {
 
     for (const m of this.marines) m.update(dt, this);
     for (const w of this.walls) w.update(dt, this);
+    for (const b of this.bunkers) b.update(dt, this);
     for (const z of this.zerglings) z.update(dt, this);
+    if (this.scv) this.scv.update(dt, this);
     this.core.update(dt, this);
     for (const t of this.tracers) t.update(dt, this);
+    for (const a of this.acids) a.update(dt, this);
 
     for (let i = this.tracers.length - 1; i >= 0; i--) {
       if (this.tracers[i].dead) {
         this.scene.remove(this.tracers[i].mesh);
         this.tracers.splice(i, 1);
+      }
+    }
+    for (let i = this.acids.length - 1; i >= 0; i--) {
+      if (this.acids[i].dead) {
+        this.scene.remove(this.acids[i].mesh);
+        this.acids.splice(i, 1);
       }
     }
     for (let i = this.zerglings.length - 1; i >= 0; i--) {
@@ -283,7 +413,7 @@ export class Game {
     for (let i = this.marines.length - 1; i >= 0; i--) {
       const m = this.marines[i];
       if (m.dead && m.deathT > 1.8) {
-        this.grid.clear(m.tx, m.ty);
+        if (!m.bunker) this.grid.clear(m.tx, m.ty);
         this.world.remove(m.obj);
         this.marines.splice(i, 1);
         this.refreshRoute();
@@ -291,7 +421,11 @@ export class Game {
       }
     }
 
-    if (this.state === 'wave' && !this.queue.length && !this.zerglings.some((z) => !z.dead)) {
+    const alive = this.zerglings.filter((z) => !z.dead).length;
+    this.drama = this.state === 'wave' && !this.queue.length && alive === 1 ? 0.38 : 1;
+    if (this.focus && this.focus.dead) this.focus = null;
+
+    if (this.state === 'wave' && !this.queue.length && alive === 0) {
       this.completeWave();
     }
 

@@ -25,6 +25,8 @@ export const MAT = {
   bone: new THREE.MeshStandardMaterial({ color: 0xddcba1, metalness: 0.15, roughness: 0.55 }),
   boneLit: new THREE.MeshStandardMaterial({ color: 0xf4ead0, metalness: 0.2, roughness: 0.4 }),
   eye: new THREE.MeshStandardMaterial({ color: 0xffb04a, emissive: 0xff7a10, emissiveIntensity: 4 }),
+  acid: new THREE.MeshStandardMaterial({ color: 0xb6ff3a, emissive: 0x86e010, emissiveIntensity: 2.2, roughness: 0.35 }),
+  scv: new THREE.MeshStandardMaterial({ color: 0xe2b13c, metalness: 0.4, roughness: 0.5 }),
 
   wall: new THREE.MeshStandardMaterial({ color: 0x6d777d, metalness: 0.75, roughness: 0.55 }),
   wallTrim: new THREE.MeshStandardMaterial({ color: 0xe8a72c, metalness: 0.5, roughness: 0.5 }),
@@ -220,117 +222,112 @@ export function buildMarine(tier = 0) {
 /*  ZERGLING — faces +X, ~0.8 units long, low to the ground            */
 /* ------------------------------------------------------------------ */
 
+/** Vertical scythe in the XY plane: +X is forward, +Y is up. */
 function scytheGeometry() {
   const shape = new THREE.Shape();
-  shape.moveTo(0, -0.05);
-  shape.quadraticCurveTo(0.26, -0.04, 0.46, 0.1);
-  shape.quadraticCurveTo(0.3, 0.0, 0.02, 0.06);
+  shape.moveTo(0, 0.0);
+  shape.quadraticCurveTo(0.2, 0.14, 0.4, 0.02);
+  shape.quadraticCurveTo(0.22, 0.05, 0.0, -0.035);
   shape.closePath();
   const geo = new THREE.ExtrudeGeometry(shape, {
-    depth: 0.035, bevelEnabled: true, bevelSize: 0.012, bevelThickness: 0.012, bevelSegments: 2, curveSegments: 8
+    depth: 0.026, bevelEnabled: true, bevelSize: 0.007, bevelThickness: 0.008, bevelSegments: 1, curveSegments: 7
   });
-  geo.translate(0, 0, -0.0175);
-  geo.rotateX(Math.PI / 2);
+  geo.translate(0, 0, -0.013);
   geo.computeVertexNormals();
   return geo;
 }
 
+/** Capsule that extends outward (+Z) and a little down, so the leg is a leg. */
 function zergLegGeometry() {
-  const thigh = new THREE.CapsuleGeometry(0.035, 0.16, 3, 8);
-  thigh.rotateZ(Math.PI / 2);
-  thigh.translate(0.08, 0, 0);
+  const thigh = new THREE.CapsuleGeometry(0.03, 0.13, 3, 7);
+  thigh.rotateX(Math.PI / 2);
+  thigh.translate(0, -0.03, 0.085);
   return thigh;
 }
 
-export function buildZergling() {
+export function buildZergling(tint = null) {
   const root = new THREE.Group();
   const body = new THREE.Group();
   root.add(body);
 
-  // thorax + head + tail baked into one mesh
-  const thorax = new THREE.SphereGeometry(0.17, 18, 14);
-  thorax.scale(1.5, 0.78, 1);
-  const neck = new THREE.SphereGeometry(0.12, 14, 12);
-  neck.scale(1.1, 0.85, 1);
-  const headGeo = new THREE.ConeGeometry(0.1, 0.24, 10);
+  const flesh = tint ? MAT.flesh.clone() : MAT.flesh;
+  if (tint) flesh.color.setHex(tint);
+
+  const thorax = new THREE.SphereGeometry(0.15, 16, 12);
+  thorax.scale(1.55, 1.05, 0.72);
+  const neck = new THREE.SphereGeometry(0.1, 12, 10);
+  neck.scale(1.15, 0.85, 0.7);
+  const headGeo = new THREE.ConeGeometry(0.09, 0.26, 9);
   headGeo.rotateZ(-Math.PI / 2);
-  const hipGeo = new THREE.SphereGeometry(0.11, 14, 12);
-  hipGeo.scale(1.1, 0.9, 1);
+  const hipGeo = new THREE.SphereGeometry(0.1, 12, 10);
+  hipGeo.scale(1.05, 0.9, 0.75);
 
   const shell = new THREE.Mesh(merged([
-    [thorax, T(0, 0, 0)],
-    [neck, T(0.2, 0.01, 0)],
-    [headGeo, T(0.37, -0.01, 0)],
-    [hipGeo, T(-0.22, -0.01, 0)]
-  ]), MAT.flesh);
+    [thorax, T(0, 0.02, 0)],
+    [neck, T(0.2, 0.03, 0)],
+    [headGeo, T(0.4, 0.02, 0)],
+    [hipGeo, T(-0.2, 0.0, 0)]
+  ]), flesh);
   shell.castShadow = true;
   body.add(shell);
 
-  // bone carapace ridge
   const plates = [];
   for (let i = 0; i < 4; i++) {
-    const p = new THREE.SphereGeometry(0.085 + i * 0.006, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2);
-    p.scale(1, 0.62, 1.15);
-    plates.push([p, T(-0.17 + i * 0.12, 0.08, 0)]);
+    const p = new THREE.SphereGeometry(0.07 + i * 0.008, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2);
+    p.scale(1.05, 0.55, 0.7);
+    plates.push([p, T(-0.14 + i * 0.11, 0.12, 0)]);
   }
-  for (let i = 0; i < 3; i++) {
-    const spike = new THREE.ConeGeometry(0.022, 0.1, 6);
-    plates.push([spike, TR(-0.1 + i * 0.12, 0.15, 0, 0, 0, 0.5)]);
-  }
-  const crest = new THREE.SphereGeometry(0.075, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2);
-  crest.scale(1.3, 0.5, 0.95);
-  plates.push([crest, T(0.3, 0.04, 0)]);
+  const crest = new THREE.SphereGeometry(0.07, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2);
+  crest.scale(1.4, 0.45, 0.55);
+  plates.push([crest, T(0.3, 0.08, 0)]);
   const carapace = new THREE.Mesh(merged(plates), MAT.bone);
   carapace.castShadow = true;
   body.add(carapace);
 
-  // eyes
   for (const s of [-1, 1]) {
-    const e = new THREE.Mesh(new THREE.SphereGeometry(0.026, 8, 6), MAT.eye);
-    e.position.set(0.38, 0.03, s * 0.058);
+    const e = new THREE.Mesh(new THREE.SphereGeometry(0.024, 8, 6), MAT.eye);
+    e.position.set(0.42, 0.05, s * 0.045);
     body.add(e);
   }
-  // mandibles
   for (const s of [-1, 1]) {
-    const m = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.13, 6), MAT.boneLit);
-    m.position.set(0.5, -0.02, s * 0.05);
+    const m = new THREE.Mesh(new THREE.ConeGeometry(0.016, 0.12, 5), MAT.boneLit);
+    m.position.set(0.52, 0.0, s * 0.04);
     m.rotation.z = -Math.PI / 2;
-    m.rotation.y = -s * 0.35;
+    m.rotation.y = -s * 0.4;
     body.add(m);
   }
 
-  // kaiser blades
   const scythe = scytheGeometry();
   const blades = [];
   for (const s of [-1, 1]) {
     const pivot = new THREE.Group();
-    pivot.position.set(0.14, 0.06, s * 0.14);
+    pivot.position.set(0.16, 0.08, s * 0.1);
     const b = new THREE.Mesh(scythe, MAT.boneLit);
     b.castShadow = true;
-    b.rotation.y = s * 0.55;
+    b.rotation.x = s * 0.7;
     pivot.add(b);
     pivot.userData.side = s;
     body.add(pivot);
     blades.push(pivot);
   }
 
-  // four legs, each a hip pivot with a lower segment
   const legGeo = zergLegGeometry();
   const legs = [];
-  const anchors = [[-0.16, -1], [-0.16, 1], [0.1, -1], [0.1, 1]];
+  const anchors = [[-0.08, -1], [-0.08, 1], [0.12, -1], [0.12, 1]];
   anchors.forEach(([ax, s], i) => {
     const hip = new THREE.Group();
-    hip.position.set(ax, 0.02, s * 0.12);
+    hip.position.set(ax, 0.0, s * 0.08);
+    if (s < 0) hip.scale.z = -1;
     const upper = new THREE.Mesh(legGeo, MAT.fleshDark);
     hip.add(upper);
     const knee = new THREE.Group();
-    knee.position.set(0.17, 0, 0);
-    const lower = new THREE.Mesh(legGeo, MAT.flesh);
-    lower.scale.set(0.9, 0.75, 0.75);
+    knee.position.set(0, -0.02, 0.15);
+    const lower = new THREE.Mesh(legGeo, flesh);
+    lower.scale.set(0.75, 0.75, 0.85);
     knee.add(lower);
-    const claw = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.07, 5), MAT.bone);
-    claw.rotation.z = -Math.PI / 2;
-    claw.position.set(0.2, 0, 0);
+    const claw = new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.07, 5), MAT.bone);
+    claw.rotation.x = Math.PI / 2;
+    claw.position.set(0, -0.02, 0.12);
     knee.add(claw);
     hip.add(knee);
     hip.userData = { side: s, knee, phase: (i % 2 ? Math.PI : 0) + (i > 1 ? Math.PI * 0.55 : 0) };
@@ -338,28 +335,39 @@ export function buildZergling() {
     legs.push(hip);
   });
 
-  // tail
   const tail = new THREE.Group();
-  tail.position.set(-0.3, 0.0, 0);
-  const tailGeo = new THREE.CapsuleGeometry(0.035, 0.18, 3, 8);
+  tail.position.set(-0.28, 0.02, 0);
+  const tailGeo = new THREE.CapsuleGeometry(0.03, 0.16, 3, 6);
   tailGeo.rotateZ(Math.PI / 2);
-  tailGeo.translate(-0.09, 0, 0);
-  const t1 = new THREE.Mesh(tailGeo, MAT.flesh);
-  tail.add(t1);
+  tailGeo.translate(-0.08, 0, 0);
+  tail.add(new THREE.Mesh(tailGeo, flesh));
   const tail2 = new THREE.Group();
-  tail2.position.set(-0.2, 0, 0);
+  tail2.position.set(-0.18, 0, 0);
   const t2 = new THREE.Mesh(tailGeo, MAT.fleshDark);
-  t2.scale.set(0.9, 0.7, 0.7);
+  t2.scale.set(0.85, 0.65, 0.65);
   tail2.add(t2);
-  const barb = new THREE.Mesh(new THREE.ConeGeometry(0.028, 0.1, 6), MAT.bone);
+  const barb = new THREE.Mesh(new THREE.ConeGeometry(0.024, 0.09, 5), MAT.bone);
   barb.rotation.z = Math.PI / 2;
-  barb.position.set(-0.21, 0, 0);
+  barb.position.set(-0.18, 0, 0);
   tail2.add(barb);
   tail.add(tail2);
   body.add(tail);
 
-  body.position.y = 0.24;
+  body.position.y = 0.28;
   root.userData = { body, legs, blades, tail, tail2 };
+  return root;
+}
+
+export function buildBug(breed) {
+  const tint = { warrior: 0x3d2038, hopper: 0x8a5a32, tanker: 0x2c4a28 }[breed] || null;
+  const root = buildZergling(tint);
+  if (breed === 'tanker') {
+    const sac = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 10), MAT.acid);
+    sac.position.set(-0.05, 0.22, 0);
+    sac.scale.set(1.1, 0.8, 0.9);
+    root.userData.body.add(sac);
+    root.userData.sac = sac;
+  }
   return root;
 }
 
@@ -369,14 +377,36 @@ export function buildZergling() {
 
 export function buildWall() {
   const g = new THREE.Group();
-  const slab = mesh(box(0.88, 0.62, 0.88, 0.06, 3), MAT.wall, 0, 0.31, 0);
+  const paint = MAT.wall.clone();
+  const slab = mesh(box(0.88, 0.62, 0.88, 0.06, 3), paint, 0, 0.31, 0);
   g.add(slab);
   const stripe = mesh(box(0.9, 0.12, 0.9, 0.02), MAT.wallTrim, 0, 0.44, 0);
   g.add(stripe);
   for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
     g.add(mesh(box(0.12, 0.66, 0.12, 0.03), MAT.steelDark, x * 0.38, 0.33, z * 0.38));
   }
-  g.userData.slab = slab;
+  g.userData.paint = paint;
+  return g;
+}
+
+export function buildBunker() {
+  const g = new THREE.Group();
+  const paint = MAT.wall.clone();
+  g.add(mesh(box(0.98, 0.42, 0.98, 0.05), paint, 0, 0.21, 0));
+  g.add(mesh(box(0.62, 0.2, 0.72, 0.04), MAT.steelDark, -0.04, 0.48, 0));
+  g.add(mesh(box(0.06, 0.1, 0.5, 0.015), MAT.gunmetal, 0.48, 0.3, 0));
+  g.add(mesh(box(0.22, 0.05, 0.22, 0.015), MAT.wallTrim, 0, 0.6, 0));
+  g.add(mesh(new THREE.SphereGeometry(0.035, 8, 6), MAT.lamp, 0.3, 0.58, 0.22));
+  g.userData.paint = paint;
+  return g;
+}
+
+export function buildScv() {
+  const g = new THREE.Group();
+  g.add(mesh(box(0.46, 0.22, 0.36, 0.04), MAT.scv, 0, 0.2, 0));
+  g.add(mesh(box(0.18, 0.14, 0.22, 0.03), MAT.steel, 0.16, 0.32, 0));
+  g.add(mesh(box(0.16, 0.08, 0.1, 0.02), MAT.gunmetal, 0.36, 0.16, 0));
+  for (const s of [-1, 1]) g.add(mesh(box(0.36, 0.09, 0.1, 0.02), MAT.steelDark, 0, 0.06, s * 0.18));
   return g;
 }
 

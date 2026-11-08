@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { CELL, MARINE_TIERS, MARINE_INFO, ZERG_INFO, CORE } from './config.js';
-import { buildMarine, buildZergling, buildWall, buildCore, MAT } from './models.js';
+import { CELL, MARINE_TIERS, MARINE_INFO, BREEDS, CORE } from './config.js';
+import { buildMarine, buildBug, buildWall, buildBunker, buildScv, buildCore } from './models.js';
 
 const TAU = Math.PI * 2;
 const _v = new THREE.Vector3();
@@ -11,6 +11,9 @@ function angleLerp(a, b, t) {
 }
 
 function mitigate(damage, armor) { return Math.max(1, damage - armor); }
+
+function normAngle(a) { return ((a + Math.PI) % TAU + TAU) % TAU - Math.PI; }
+function clampAngle(a, lim) { const d = normAngle(a); return Math.max(-lim, Math.min(lim, d)); }
 
 /* ------------------------------------------------------------------ */
 
@@ -63,12 +66,20 @@ export class Marine {
     this.hurt = 0;
     this.target = null;
     this.dead = false;
+    this.downed = false;
+    this.downT = 0;
     this.deathT = 0;
     this.spawnT = 0;
     this.invested = 0;
-
+    this.stimT = 0;
+    this.bunker = null;
+    this.warned = false;
+    this.stimLight = new THREE.PointLight(0xff6633, 0, 3.2, 2);
+    this.stimLight.position.y = 0.9;
     this.obj = new THREE.Group();
+
     this.obj.position.set(this.x, 0, this.z);
+    this.obj.add(this.stimLight);
     this.model = buildMarine(0);
     this.obj.add(this.model);
 
@@ -118,6 +129,8 @@ export class Marine {
     this.spawnT = Math.min(1, this.spawnT + dt * 3);
     this.recoil = Math.max(0, this.recoil - dt * 8);
     this.hurt = Math.max(0, this.hurt - dt * 4);
+    this.stimT = Math.max(0, this.stimT - dt);
+    this.stimLight.intensity = this.stimT > 0 ? 3.5 + Math.sin(game.time * 28) * 1.6 : 0;
     const t = game.time;
 
     if (this.dead) {
@@ -129,25 +142,45 @@ export class Marine {
       return;
     }
 
+    if (this.downed) {
+      this.downT -= dt;
+      this.model.rotation.z = 1.15;
+      this.model.position.y = -0.18;
+      this.bar.set(0.02, game.camera, true);
+      if (this.downT <= 0) this.finishDeath(game);
+      return;
+    }
+
+    if (this.bunker) {
+      this.x = this.bunker.x;
+      this.z = this.bunker.z;
+      this.obj.visible = false;
+    } else {
+      this.obj.visible = true;
+      this.obj.position.set(this.x, 0, this.z);
+    }
+
     const grow = this.spawnT * this.spawnT * (3 - 2 * this.spawnT);
     this.model.scale.setScalar(grow);
 
-    if (!this.target || this.target.dead || this.distTo(this.target) > this.stats.range) {
+    if (!this.target || this.target.dead || this.distTo(this.target) > this.stats.range || !this.inArc(this.target)) {
       this.target = this.acquire(game);
     }
 
     const ud = this.model.userData;
+    const rest = this.bunker ? this.bunker.facing : (this.restYaw ?? -Math.PI / 2);
     if (this.target) {
-      const want = Math.atan2(this.target.z - this.z, this.target.x - this.x);
+      let want = Math.atan2(this.target.z - this.z, this.target.x - this.x);
+      if (this.bunker) want = rest + clampAngle(want - rest, 0.65);
       this.yaw = angleLerp(this.yaw, want, Math.min(1, dt * 9));
       this.cooldown -= dt;
-      const aligned = Math.abs(((want - this.yaw + Math.PI) % TAU + TAU) % TAU - Math.PI) < 0.3;
+      const aligned = Math.abs(normAngle(want - this.yaw)) < 0.3;
       if (this.cooldown <= 0 && aligned) {
         this.fire(game);
-        this.cooldown = this.stats.attackSpeed;
+        this.cooldown = this.stats.attackSpeed * (this.stimT > 0 ? 0.45 : 1);
       }
     } else {
-      this.yaw = angleLerp(this.yaw, this.restYaw ?? -Math.PI / 2, Math.min(1, dt * 2));
+      this.yaw = angleLerp(this.yaw, rest, Math.min(1, dt * 2));
       this.cooldown = Math.min(this.cooldown, 0.1);
     }
 
@@ -155,20 +188,25 @@ export class Marine {
     ud.torso.position.x = -this.recoil * 0.045;
     ud.weapon.rotation.z = this.recoil * 0.34;
     ud.torso.position.y = 0.73 + Math.sin(t * 2.2) * 0.008;
-    ud.visor.material.emissiveIntensity = 0.9 + Math.sin(t * 3 + this.tx) * 0.25;
 
     this.bar.set(this.hp / this.maxHp, game.camera);
+  }
+
+  inArc(e) {
+    if (!this.bunker || !e) return true;
+    return Math.abs(normAngle(Math.atan2(e.z - this.z, e.x - this.x) - this.bunker.facing)) < 0.72;
   }
 
   distTo(e) { return Math.hypot(e.x - this.x, e.z - this.z); }
 
   acquire(game) {
+    const focus = game.focus;
+    if (focus && !focus.dead && this.distTo(focus) <= this.stats.range && this.inArc(focus)) return focus;
     let best = null, bestScore = -Infinity;
     for (const z of game.zerglings) {
       if (z.dead) continue;
-      if (this.distTo(z) > this.stats.range) continue;
-      // shoot whatever is deepest into the base first
-      const score = -Math.hypot(z.x - (CORE.x + 1), z.z - (CORE.y + 1));
+      if (this.distTo(z) > this.stats.range || !this.inArc(z)) continue;
+      const score = -Math.hypot(z.x - (CORE.x + 1), z.z - (CORE.y + 1)) + (z.breedId === 'tanker' ? 2 : 0);
       if (score > bestScore) { bestScore = score; best = z; }
     }
     return best;
@@ -177,29 +215,72 @@ export class Marine {
   fire(game) {
     this.recoil = 1;
     const ud = this.model.userData;
-    ud.weapon.updateWorldMatrix(true, false);
-    const muzzle = ud.weapon.userData.muzzle.clone().applyMatrix4(ud.weapon.matrixWorld);
+    let muzzle;
+    if (this.bunker) {
+      const f = this.bunker.facing;
+      muzzle = new THREE.Vector3(this.x + Math.cos(f) * 0.55, 0.38, this.z + Math.sin(f) * 0.55);
+    } else {
+      ud.weapon.updateWorldMatrix(true, false);
+      muzzle = ud.weapon.userData.muzzle.clone().applyMatrix4(ud.weapon.matrixWorld);
+    }
     game.fx.muzzleFlash(muzzle, -this.yaw);
     game.spawnTracer(muzzle, this.target, this.stats.damage, this);
-    game.stage.kick(0.5);
+    game.stage.kick(0.45);
     game.sfx.gauss();
+    if (!game.called) { game.called = true; game.voice.say('acquired'); }
+  }
+
+  stim(game) {
+    if (!game.stimUnlocked || this.dead || this.downed || this.stimT > 0) return false;
+    this.stimT = 4.2;
+    this.hp = Math.max(1, this.hp - 12);
+    game.voice.say('stim');
+    game.fx.ring({ x: this.x, z: this.z }, 1.4, 0xff8844);
+    return true;
   }
 
   takeDamage(amount, game, fromAngle) {
-    const dealt = mitigate(amount, this.stats.armor);
+    if (this.downed) { this.finishDeath(game); return; }
+    const dealt = mitigate(amount, this.stats.armor + (this.bunker ? 2 : 0));
     this.hp -= dealt;
     this.hurt = 1;
     game.fx.sparks({ x: this.x, y: 0.6, z: this.z }, fromAngle + Math.PI, 6, [1, 0.8, 0.5], 4);
     game.fx.label({ x: this.x, y: 1.3, z: this.z }, '-' + dealt, 'dmg-self');
     game.sfx.impact();
+    if (!this.warned && this.hp < this.maxHp * 0.45 && this.hp > 0) {
+      this.warned = true;
+      game.voice.say('hit');
+    }
     if (this.hp <= 0 && !this.dead) {
       this.hp = 0;
-      this.dead = true;
-      game.fx.explosion({ x: this.x, y: 0.5, z: this.z }, 0.9);
-      game.fx.chunks({ x: this.x, y: 0.6, z: this.z }, 9, 0x2f74a8);
-      game.stage.kick(3);
-      game.sfx.marineDown();
+      this.downed = true;
+      this.downT = 9;
+      this.target = null;
+      if (this.bunker) game.eject(this, true);
+      game.voice.say('down');
+      game.stage.kick(1.4);
     }
+  }
+
+  finishDeath(game) {
+    if (this.dead) return;
+    this.downed = false;
+    this.dead = true;
+    this.obj.visible = true;
+    game.fx.explosion({ x: this.x, y: 0.5, z: this.z }, 0.8);
+    game.fx.chunks({ x: this.x, y: 0.6, z: this.z }, 8, 0x2f74a8);
+    game.stage.kick(2.4);
+    game.sfx.marineDown();
+  }
+
+  revive(game) {
+    this.downed = false;
+    this.warned = false;
+    this.hp = Math.round(this.maxHp * 0.5);
+    this.model.rotation.z = 0;
+    this.model.position.y = 0;
+    game.voice.say('revive');
+    game.fx.ring({ x: this.x, z: this.z }, 1.3, 0x5ef08a);
   }
 }
 
@@ -235,6 +316,13 @@ export class Wall {
       this.shake = Math.max(0, this.shake - dt * 5);
       this.model.position.x = (Math.random() - 0.5) * this.shake * 0.05;
       this.model.position.z = (Math.random() - 0.5) * this.shake * 0.05;
+    }
+    const dmg = 1 - this.hp / this.maxHp;
+    const paint = this.model.userData.paint;
+    if (paint) {
+      paint.color.setRGB(0.43 * (1 - dmg * 0.55), 0.47 * (1 - dmg * 0.45), 0.49 * (1 - dmg * 0.35));
+      paint.emissive.setHex(0xff6a2a);
+      paint.emissiveIntensity = dmg > 0.5 ? (dmg - 0.5) * 1.8 : 0;
     }
     this.bar.set(this.hp / this.maxHp, game.camera);
   }
@@ -308,14 +396,18 @@ export class Core {
 /* ------------------------------------------------------------------ */
 
 export class Zergling {
-  constructor(x, z, hpScale, speedScale) {
+  constructor(x, z, breedId, hpScale, speedScale) {
     this.kind = 'zergling';
+    this.breedId = breedId;
+    this.breed = BREEDS[breedId];
     this.x = x; this.z = z;
     this.yaw = 0;
-    this.maxHp = Math.round(ZERG_INFO.hp * hpScale);
+    this.maxHp = Math.round(this.breed.hp * hpScale);
     this.hp = this.maxHp;
-    this.speed = ZERG_INFO.speed * speedScale;
-    this.damage = ZERG_INFO.damage;
+    this.speed = this.breed.speed * speedScale;
+    this.damage = this.breed.damage;
+    this.armor = this.breed.armor;
+    this.scale = this.breed.scale;
     this.dead = false;
     this.deathT = 0;
     this.spawnT = 0;
@@ -328,12 +420,14 @@ export class Zergling {
     this.pathVersion = -1;
     this.target = null;
     this.repathIn = Math.random() * 0.4;
+    this.air = null;
+    this.jumpCd = 0;
 
     this.obj = new THREE.Group();
     this.obj.position.set(x, 0, z);
-    this.model = buildZergling();
+    this.model = buildBug(breedId);
     this.obj.add(this.model);
-    this.bar = new HealthBar(this.obj, 0.5, 0.07, 0.85);
+    this.bar = new HealthBar(this.obj, 0.5 * this.scale, 0.07, 0.55 + 0.35 * this.scale);
   }
 
   update(dt, game) {
@@ -345,24 +439,39 @@ export class Zergling {
       const k = Math.min(1, this.deathT / 0.8);
       this.model.rotation.z = k * 1.5;
       this.model.position.y = -k * 0.3;
-      this.model.scale.setScalar(1 - k * 0.25);
+      this.model.scale.setScalar(this.scale * (1 - k * 0.25));
       this.bar.group.visible = false;
       return;
     }
 
     this.spawnT = Math.min(1, this.spawnT + dt * 2.2);
-    this.model.scale.setScalar(0.35 + this.spawnT * 0.65);
+    this.jumpCd = Math.max(0, this.jumpCd - dt);
+    if (!this.air) this.model.scale.setScalar(this.scale * (0.35 + this.spawnT * 0.65));
+
+    if (this.air) {
+      this.fly(dt, game);
+      this.animate(dt, game);
+      this.bar.set(this.hp / this.maxHp, game.camera);
+      return;
+    }
 
     this.repathIn -= dt;
     if (!this.path || this.pathVersion !== game.grid.version || this.repathIn <= 0) {
       this.repath(game);
     }
 
-    const blocker = this.blockerAhead(game);
-    if (blocker) {
-      this.attack(blocker, dt, game);
+    if (game.scv && !game.scv.dead && Math.hypot(game.scv.x - this.x, game.scv.z - this.z) < 0.85) {
+      this.attack(game.scv, dt, game);
+    } else if (this.breed.ranged) {
+      const prey = this.rangedPrey(game);
+      if (prey) this.spit(prey, dt, game);
+      else this.advance(dt, game);
     } else {
-      this.advance(dt, game);
+      const blocker = this.blockerAhead(game);
+      if (blocker && this.breed.jump && blocker.kind === 'wall' && this.tryJump(blocker, game)) {
+        /* airborne next frame */
+      } else if (blocker) this.attack(blocker, dt, game);
+      else this.advance(dt, game);
     }
 
     this.animate(dt, game);
@@ -399,11 +508,65 @@ export class Zergling {
     this.yaw = angleLerp(this.yaw, want, Math.min(1, dt * 11));
     this.attackCd -= dt;
     if (this.attackCd <= 0) {
-      this.attackCd = ZERG_INFO.attackSpeed;
+      this.attackCd = this.breed.attackSpeed;
       this.swing = 1;
       victim.takeDamage(this.damage, game, want);
     }
     this.moving = 0;
+  }
+
+  rangedPrey(game) {
+    let best = null, bestD = this.breed.range;
+    const pile = [...game.walls, ...game.bunkers, ...game.marines.filter((m) => !m.dead && !m.downed), game.core];
+    for (const s of pile) {
+      if (!s || s.dead) continue;
+      const d = Math.hypot(s.x - this.x, s.z - this.z);
+      if (d < bestD) { bestD = d; best = s; }
+    }
+    return best;
+  }
+
+  spit(victim, dt, game) {
+    this.target = victim;
+    const want = Math.atan2(victim.z - this.z, victim.x - this.x);
+    this.yaw = angleLerp(this.yaw, want, Math.min(1, dt * 6));
+    this.attackCd -= dt;
+    this.moving = 0;
+    if (this.attackCd <= 0) {
+      this.attackCd = this.breed.attackSpeed;
+      game.acids.push(new Acid(this.x, 0.45, this.z, victim, this.damage));
+      const blob = game.acids[game.acids.length - 1];
+      game.scene.add(blob.mesh);
+      game.sfx.screech();
+    }
+  }
+
+  tryJump(blocker, game) {
+    if (this.jumpCd > 0) return false;
+    const dx = Math.sign(blocker.x - this.x);
+    const dz = Math.abs(blocker.x - this.x) > Math.abs(blocker.z - this.z) ? 0 : Math.sign(blocker.z - this.z);
+    const tx = blocker.tx + dx;
+    const tz = blocker.ty + dz;
+    if (!game.grid.inside(tx, tz) || game.grid.blocked(tx, tz)) return false;
+    this.air = { sx: this.x, sz: this.z, x: tx + 0.5, z: tz + 0.5, t: 0, dur: 0.48 };
+    this.jumpCd = 2.4;
+    return true;
+  }
+
+  fly(dt, game) {
+    const a = this.air;
+    a.t += dt;
+    const k = Math.min(1, a.t / a.dur);
+    this.x = a.sx + (a.x - a.sx) * k;
+    this.z = a.sz + (a.z - a.sz) * k;
+    this.obj.position.y = Math.sin(k * Math.PI) * 1.25;
+    this.moving = 1;
+    this.gait += dt * 14;
+    if (k >= 1) {
+      this.air = null;
+      this.obj.position.y = 0;
+      this.repath(game);
+    }
   }
 
   advance(dt, game) {
@@ -451,30 +614,32 @@ export class Zergling {
         (Math.random() - 0.5) * 0.5, 0.25 + Math.random() * 0.4, (Math.random() - 0.5) * 0.5,
         0.45, 0.07, [0.38, 0.3, 0.24], { drag: 1.6, grow: 0.25 });
     }
+    if (Math.random() < dt * 1.6 * this.moving) game.fx.decal(this.x, this.z, 0.28, 0x4a1848, 0.4);
   }
 
   animate(dt, game) {
     const ud = this.model.userData;
-    this.obj.position.set(this.x, 0, this.z);
+    const hop = this.air ? Math.sin(Math.min(1, this.air.t / this.air.dur) * Math.PI) * 1.25 : 0;
+    this.obj.position.set(this.x, hop, this.z);
     this.model.rotation.y = -this.yaw;
 
     const run = this.moving ?? 0;
+    const lift = this.air ? 0.15 : 1;
     for (const hip of ud.legs) {
       const ph = this.gait + hip.userData.phase;
-      hip.rotation.z = Math.sin(ph) * 0.55 * (0.25 + run);
-      hip.rotation.y = hip.userData.side * (0.4 + Math.cos(ph) * 0.18 * run);
-      hip.userData.knee.rotation.z = -0.5 - Math.max(0, Math.cos(ph)) * 0.7 * run;
+      hip.rotation.x = Math.sin(ph) * 0.55 * (0.2 + run) * lift;
+      hip.userData.knee.rotation.x = hip.userData.side * (0.35 + Math.max(0, Math.cos(ph)) * 0.45 * run);
     }
 
-    ud.body.position.y = 0.24 + Math.abs(Math.sin(this.gait)) * 0.035 * run;
-    ud.body.rotation.z = Math.sin(this.gait) * 0.05 * run;
+    ud.body.position.y = 0.28 + Math.abs(Math.sin(this.gait)) * 0.04 * run;
+    ud.body.rotation.z = Math.sin(this.gait) * 0.06 * run;
 
     const sw = this.swing;
     ud.blades.forEach((b) => {
       const s = b.userData.side;
-      b.rotation.y = s * (-0.1 + (1 - sw) * 0.35) + Math.sin(this.gait * 0.5) * 0.05;
-      b.rotation.z = -sw * 1.1;
-      b.position.x = 0.14 + sw * 0.08;
+      b.rotation.x = s * (0.7 + sw * 0.35);
+      b.rotation.z = -sw * 0.9;
+      b.position.x = 0.16 + sw * 0.06;
     });
 
     const sway = Math.sin(this.gait * 0.6) * 0.35 * (0.3 + run);
@@ -484,7 +649,7 @@ export class Zergling {
   }
 
   takeDamage(amount, game, fromAngle) {
-    const dealt = mitigate(amount, ZERG_INFO.armor);
+    const dealt = mitigate(amount, this.armor);
     this.hp -= dealt;
     this.hurt = 1;
     game.fx.blood({ x: this.x, y: 0.3, z: this.z }, fromAngle, 7);
@@ -499,6 +664,155 @@ export class Zergling {
       game.sfx.screech();
       game.onKill(this);
     }
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  BUNKER, SCV, ACID                                                  */
+/* ------------------------------------------------------------------ */
+
+export class Bunker {
+  constructor(tx, ty, hp, facing) {
+    this.kind = 'bunker';
+    this.tx = tx; this.ty = ty;
+    this.x = tx + 0.5; this.z = ty + 0.5;
+    this.maxHp = hp;
+    this.hp = hp;
+    this.facing = facing;
+    this.garrison = [];
+    this.dead = false;
+    this.spawnT = 0;
+    this.shake = 0;
+    this.obj = new THREE.Group();
+    this.obj.position.set(this.x, 0, this.z);
+    this.obj.rotation.y = -facing;
+    this.model = buildBunker();
+    this.obj.add(this.model);
+    this.bar = new HealthBar(this.obj, 0.7, 0.08, 0.85);
+  }
+
+  update(dt, game) {
+    this.spawnT = Math.min(1, this.spawnT + dt * 3);
+    this.model.scale.y = this.spawnT;
+    if (this.shake > 0) {
+      this.shake = Math.max(0, this.shake - dt * 5);
+      this.model.position.x = (Math.random() - 0.5) * this.shake * 0.04;
+    }
+    const dmg = 1 - this.hp / this.maxHp;
+    const paint = this.model.userData.paint;
+    if (paint) {
+      paint.emissive.setHex(0xff6a2a);
+      paint.emissiveIntensity = dmg > 0.45 ? (dmg - 0.45) * 2 : 0;
+    }
+    this.bar.set(this.hp / this.maxHp, game.camera);
+  }
+
+  takeDamage(amount, game, fromAngle) {
+    this.hp -= amount;
+    this.shake = 1;
+    game.fx.sparks({ x: this.x, y: 0.4, z: this.z }, fromAngle + Math.PI, 6, [0.9, 0.85, 0.7], 4);
+    game.sfx.impact();
+    if (this.hp <= 0 && !this.dead) {
+      this.dead = true;
+      game.fx.explosion({ x: this.x, y: 0.4, z: this.z }, 1);
+      game.fx.chunks({ x: this.x, y: 0.4, z: this.z }, 10, 0x6d777d);
+      game.stage.kick(3);
+      game.onStructureLost(this);
+    }
+  }
+}
+
+export class Scv {
+  constructor(x, z) {
+    this.kind = 'scv';
+    this.x = x; this.z = z;
+    this.yaw = 0;
+    this.maxHp = 70;
+    this.hp = 70;
+    this.speed = 1.9;
+    this.dead = false;
+    this.deathT = 0;
+    this.order = null;
+    this.channel = 0;
+    this.obj = new THREE.Group();
+    this.model = buildScv();
+    this.obj.add(this.model);
+    this.bar = new HealthBar(this.obj, 0.5, 0.06, 0.55);
+  }
+
+  update(dt, game) {
+    if (this.dead) {
+      this.deathT += dt;
+      this.model.rotation.z = Math.min(1.2, this.deathT * 3);
+      this.bar.group.visible = false;
+      return;
+    }
+    const o = this.order;
+    if (o && (o.target.dead || (o.type === 'revive' && !o.target.downed) || (o.type === 'repair' && o.target.hp >= o.target.maxHp))) {
+      this.order = null;
+    }
+    if (this.order) {
+      const t = this.order.target;
+      const dx = t.x - this.x, dz = t.z - this.z;
+      const d = Math.hypot(dx, dz);
+      this.yaw = angleLerp(this.yaw, Math.atan2(dz, dx), Math.min(1, dt * 8));
+      if (d > 0.85) {
+        this.x += Math.cos(this.yaw) * this.speed * dt;
+        this.z += Math.sin(this.yaw) * this.speed * dt;
+        this.channel = 0;
+      } else if (this.order.type === 'repair') {
+        t.hp = Math.min(t.maxHp, t.hp + 60 * dt);
+        if (Math.random() < dt * 8) game.fx.sparks({ x: t.x, y: 0.4, z: t.z }, 0, 2, [0.7, 0.95, 1], 2, 6);
+      } else {
+        this.channel += dt;
+        if (this.channel > 1.1) { t.revive(game); this.order = null; this.channel = 0; }
+      }
+    }
+    this.obj.position.set(this.x, 0, this.z);
+    this.model.rotation.y = -this.yaw;
+    this.bar.set(this.hp / this.maxHp, game.camera);
+  }
+
+  takeDamage(amount, game) {
+    this.hp -= amount;
+    if (this.hp <= 0 && !this.dead) {
+      this.hp = 0;
+      this.dead = true;
+      this.order = null;
+      game.fx.explosion({ x: this.x, y: 0.3, z: this.z }, 0.6);
+      game.stage.kick(2);
+      game.emit('change');
+    }
+  }
+}
+
+const ACID_GEO = new THREE.SphereGeometry(0.12, 8, 6);
+const ACID_MAT = new THREE.MeshBasicMaterial({ color: 0xb6ff3a });
+
+export class Acid {
+  constructor(x, y, z, target, damage) {
+    this.x = x; this.y = y; this.z = z;
+    this.target = target;
+    this.damage = damage;
+    this.speed = 7.5;
+    this.dead = false;
+    this.mesh = new THREE.Mesh(ACID_GEO, ACID_MAT);
+  }
+
+  update(dt, game) {
+    if (!this.target || this.target.dead) { this.dead = true; return; }
+    const dx = this.target.x - this.x, dy = 0.4 - this.y, dz = this.target.z - this.z;
+    const d = Math.hypot(dx, dy, dz);
+    const step = this.speed * dt;
+    if (d <= step) {
+      this.dead = true;
+      this.target.takeDamage(this.damage, game, Math.atan2(dz, dx));
+      game.fx.explosion({ x: this.target.x, y: 0.4, z: this.target.z }, 0.35);
+      game.fx.decal(this.target.x, this.target.z, 0.4, 0x6a9a20, 0.55);
+      return;
+    }
+    this.x += dx / d * step; this.y += dy / d * step; this.z += dz / d * step;
+    this.mesh.position.set(this.x, this.y, this.z);
   }
 }
 

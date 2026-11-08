@@ -51,7 +51,7 @@ export class Grid {
   cost(x, y) {
     const c = this.get(x, y);
     if (c === CELL.ROCK) return Infinity;
-    if (c === CELL.WALL || c === CELL.TOWER) return BREAK_COST;
+    if (c === CELL.WALL || c === CELL.TOWER || c === CELL.BUNKER) return BREAK_COST;
     return 0;
   }
 
