@@ -23,10 +23,8 @@ export class Game {
     this.world = new THREE.Group();
     this.scene.add(this.world);
 
-    this.hatchery = buildHatchery();
-    this.scene.add(this.hatchery);
-    this.hatchLight = new THREE.PointLight(0xc06bff, 7, 8, 2);
-    this.scene.add(this.hatchLight);
+    this.hatchGroup = new THREE.Group();
+    this.scene.add(this.hatchGroup);
 
     this.rockGroup = new THREE.Group();
     this.scene.add(this.rockGroup);
@@ -128,9 +126,15 @@ export class Game {
     this.scv = this.spawnScv();
     this.world.add(this.scv.obj);
 
-    const s = layout.spawn;
-    this.hatchery.position.set(s.x + 0.5, 0, s.y + 1);
-    this.hatchLight.position.set(s.x + 0.6, 0.7, s.y + 1);
+    this.hatchGroup.clear();
+    for (const s of this.grid.spawns) {
+      const h = buildHatchery();
+      h.position.set(s.x + 0.5, 0, s.y + 0.9);
+      const light = new THREE.PointLight(0xc06bff, 6, 7, 2);
+      light.position.set(0, 0.7, 0);
+      h.add(light);
+      this.hatchGroup.add(h);
+    }
     this.stage.focus.set(layout.focus.x, 0, layout.focus.z);
     if (!this.stage.userZoomed) this.stage.dist = 16.5;
     this.selected = null;
@@ -368,6 +372,8 @@ export class Game {
   startWave() {
     if (this.state !== 'build') return;
     this.queue = wavePlan(this.level);
+    const mouths = this.grid.spawns.length;
+    if (mouths > 1) this.queue.forEach((s, i) => { s.lane = Math.floor(i / 3) % mouths; });
     this.spawnTimer = 0;
     this.briefT = 3.15;
     this.called = false;
@@ -378,7 +384,9 @@ export class Game {
     this.emit('brief', {
       kicker: `Level ${this.level} of ${LEVEL_COUNT}`,
       title: this.layout.name,
-      body: this.layout.blurb
+      body: this.layout.blurb + (this.grid.spawns.length > 1
+        ? ` Breaches open from ${this.grid.spawns.length} directions.`
+        : '')
     });
     this.emit('change');
   }
@@ -480,8 +488,12 @@ export class Game {
     this.time += dt;
     if (this.airStrikeCd > 0) this.airStrikeCd = Math.max(0, this.airStrikeCd - dt);
 
-    this.hatchery.userData.ring.rotation.z += dt * 0.6;
-    this.hatchLight.intensity = 6 + Math.sin(this.time * 2) * 2;
+    const pulse = 6 + Math.sin(this.time * 2) * 2;
+    for (const h of this.hatchGroup.children) {
+      h.userData.ring.rotation.z += dt * 0.6;
+      const light = h.children.find((c) => c.isPointLight);
+      if (light) light.intensity = pulse;
+    }
 
     if (this.state === 'brief') {
       const prev = Math.ceil(this.briefT);
@@ -492,8 +504,7 @@ export class Game {
         this.state = 'wave';
         this.spawnTimer = 0;
         voice.say('breach');
-        const sp = this.grid.spawn;
-        this.fx.ring({ x: sp.x + 0.6, z: sp.y + 1 }, 2.4, 0xc06bff);
+        for (const sp of this.grid.spawns) this.fx.ring({ x: sp.x + 0.5, z: sp.y + 0.9 }, 2.2, 0xc06bff);
         this.emit('count', 0);
         this.emit('change');
       }
@@ -501,13 +512,13 @@ export class Game {
 
     if (this.state === 'wave') {
       this.spawnTimer += dt;
-      const sp = this.grid.spawn;
       while (this.queue.length && this.queue[0].at <= this.spawnTimer) {
         const s = this.queue.shift();
-        const spread = s.breed === 'zergling' ? 1.1 : 0.35;
+        const mouths = this.grid.spawns;
+        const sp = mouths[(s.lane || 0) % mouths.length];
         const z = new Zergling(
-          sp.x + 0.55 + (Math.random() - 0.5) * 0.35,
-          sp.y + 1 + (Math.random() - 0.5) * spread,
+          sp.x + 0.5 + (Math.random() - 0.5) * 0.28,
+          sp.y + 0.85 + (Math.random() - 0.5) * 0.28,
           s.breed, s.hpScale, s.speedScale
         );
         this.zerglings.push(z);

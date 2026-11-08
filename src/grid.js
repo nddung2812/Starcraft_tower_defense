@@ -10,6 +10,7 @@ export class Grid {
     this.occupants = new Array(COLS * ROWS).fill(null);
     this.version = 0;
     this.spawn = { x: 0, y: 7 };
+    this.spawns = [this.spawn];
     this.core = { x: 22, y: 7, w: 2, h: 2, hp: CORE_HP };
     this.cells.fill(CELL.ROCK);
   }
@@ -21,6 +22,7 @@ export class Grid {
 
   load(layout) {
     this.spawn = layout.spawn;
+    this.spawns = layout.spawns?.length ? layout.spawns : [layout.spawn];
     this.core = layout.core;
     this.cells.fill(CELL.ROCK);
     this.occupants.fill(null);
@@ -33,8 +35,10 @@ export class Grid {
         if (this.inside(c.x + dx, c.y + dy)) this.cells[this.idx(c.x + dx, c.y + dy)] = CELL.CORE;
       }
     }
-    if (this.inside(layout.spawn.x, layout.spawn.y)) this.cells[this.idx(layout.spawn.x, layout.spawn.y)] = CELL.SPAWN;
-    if (this.inside(layout.spawn.x, layout.spawn.y + 1)) this.cells[this.idx(layout.spawn.x, layout.spawn.y + 1)] = CELL.SPAWN;
+    for (const s of this.spawns) {
+      if (this.inside(s.x, s.y)) this.cells[this.idx(s.x, s.y)] = CELL.SPAWN;
+      if (this.inside(s.x, s.y + 1)) this.cells[this.idx(s.x, s.y + 1)] = CELL.SPAWN;
+    }
     this.version++;
   }
 
@@ -50,8 +54,9 @@ export class Grid {
   buildable(x, y) {
     if (!this.inside(x, y)) return false;
     if (this.cells[this.idx(x, y)] !== CELL.OPEN) return false;
-    const s = this.spawn;
-    if (Math.abs(x - s.x) <= 1 && Math.abs(y - s.y) <= 2) return false;
+    for (const s of this.spawns || [this.spawn]) {
+      if (Math.abs(x - s.x) <= 1 && Math.abs(y - s.y) <= 2) return false;
+    }
     const c = this.core;
     if (x >= c.x - 1 && x <= c.x + c.w && y >= c.y - 1 && y <= c.y + c.h) return false;
     return true;
@@ -67,8 +72,8 @@ export class Grid {
 
   blocked(x, y) { return this.cost(x, y) > 0; }
 
-  /** A* that treats player structures as expensive but breakable. */
-  findPath(sx, sy, tx, ty) {
+  /** A* . walk=true stays on open ground and will not chew through buildings. */
+  findPath(sx, sy, tx, ty, walk = false) {
     const n = COLS * ROWS;
     const g = new Float64Array(n).fill(Infinity);
     const f = new Float64Array(n).fill(Infinity);
@@ -102,10 +107,14 @@ export class Grid {
           if (!this.inside(nx, ny)) continue;
           const ni = this.idx(nx, ny);
           if (closed[ni]) continue;
-          const step = this.cost(nx, ny);
+          const price = (x, y) => {
+            if (!walk) return this.cost(x, y);
+            if (x === sx && y === sy) return 0;
+            return this.get(x, y) === CELL.OPEN ? 0 : Infinity;
+          };
+          const step = price(nx, ny);
           if (step === Infinity) continue;
-          // no squeezing diagonally between two solid corners
-          if (dx && dy && (this.cost(cx + dx, cy) === Infinity || this.cost(cx, cy + dy) === Infinity)) continue;
+          if (dx && dy && (price(cx + dx, cy) === Infinity || price(cx, cy + dy) === Infinity)) continue;
           const move = (dx && dy ? SQRT2 : 1) + step;
           const tentative = g[cur] + move;
           if (tentative < g[ni]) {
@@ -171,6 +180,13 @@ export class Grid {
   route(fromX, fromY) {
     const cells = this.findPath(fromX, fromY, this.core.x, this.core.y);
     return this.smooth(cells);
+  }
+
+  /** Cell centers a marine or tank can drive, staying on open ground. */
+  walkRoute(sx, sy, tx, ty) {
+    const cells = this.findPath(sx, sy, tx, ty, true);
+    if (!cells) return null;
+    return cells.map((c) => ({ x: c.x + 0.5, y: c.y + 0.5, cx: c.x, cy: c.y }));
   }
 
   /** Would placing here seal the swarm out entirely? (allowed, but worth warning about) */

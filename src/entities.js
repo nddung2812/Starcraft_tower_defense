@@ -79,6 +79,12 @@ export class Marine {
     this.stimT = 0;
     this.bunker = null;
     this.warned = false;
+    this.waypoints = null;
+    this.wp = 0;
+    this.goalTx = tx;
+    this.goalTy = ty;
+    this.driving = false;
+    this.trackDist = 0;
     this.stimLight = new THREE.PointLight(0xff6633, 0, 3.2, 2);
     this.stimLight.position.y = 0.9;
     this.obj = new THREE.Group();
@@ -96,7 +102,7 @@ export class Marine {
     this.ring.visible = false;
     this.obj.add(this.ring);
 
-    const barY = kind === 'goliath' ? 1.62 : kind === 'tank' ? 0.78 : 1.28;
+    const barY = kind === 'goliath' ? 1.62 : kind === 'tank' ? 0.98 : 1.28;
     this.bar = new HealthBar(this.obj, kind === 'tank' ? 0.78 : 0.62, 0.08, barY);
     this.applyStats(armory);
     this.hp = this.stats.hp;
@@ -131,6 +137,77 @@ export class Marine {
     return true;
   }
 
+  orderMove(tx, ty, game) {
+    if (!this.spec.mobile || this.dead || this.downed || this.bunker) return false;
+    if (!game.grid.inside(tx, ty) || game.grid.get(tx, ty) !== CELL.OPEN) return false;
+    const sx = Math.max(0, Math.min(game.grid.COLS - 1, Math.floor(this.x)));
+    const sy = Math.max(0, Math.min(game.grid.ROWS - 1, Math.floor(this.z)));
+    const path = game.grid.walkRoute(sx, sy, tx, ty);
+    if (!path || path.length < 2) return false;
+    if (game.grid.occupant(this.tx, this.ty) === this) game.grid.clear(this.tx, this.ty);
+    this.waypoints = path;
+    this.wp = 1;
+    this.goalTx = tx;
+    this.goalTy = ty;
+    this.driving = true;
+    return true;
+  }
+
+  stepMove(dt, game) {
+    if (!this.driving || !this.waypoints) return false;
+    const node = this.waypoints[this.wp];
+    if (!node) { this.finishMove(game); return false; }
+    const dx = node.x - this.x, dz = node.y - this.z;
+    const dist = Math.hypot(dx, dz);
+    if (dist < 0.07) {
+      this.wp++;
+      if (this.wp >= this.waypoints.length) this.finishMove(game);
+      return this.driving;
+    }
+    const want = Math.atan2(dz, dx);
+    this.restYaw = want;
+    const step = Math.min(dist, this.spec.speed * dt);
+    const nx = this.x + (dx / dist) * step;
+    const nz = this.z + (dz / dist) * step;
+    if (game.grid.get(Math.floor(nx), Math.floor(this.z)) !== CELL.ROCK) this.x = nx;
+    if (game.grid.get(Math.floor(this.x), Math.floor(nz)) !== CELL.ROCK) this.z = nz;
+    this.trackDist += step;
+    const treads = this.model.userData.treads;
+    if (treads) {
+      for (const tr of treads) {
+        let x = tr.userData.baseX + (this.trackDist % 0.16);
+        if (x > 0.48) x -= 0.96;
+        tr.position.x = x;
+      }
+    }
+    return true;
+  }
+
+  finishMove(game) {
+    this.driving = false;
+    this.waypoints = null;
+    let spot = null;
+    if (game.grid.inside(this.goalTx, this.goalTy) && game.grid.get(this.goalTx, this.goalTy) === CELL.OPEN) {
+      spot = { x: this.goalTx, y: this.goalTy };
+    } else {
+      const ox = Math.floor(this.x), oy = Math.floor(this.z);
+      for (let r = 0; r <= 2 && !spot; r++) {
+        for (let dy = -r; dy <= r && !spot; dy++) {
+          for (let dx = -r; dx <= r; dx++) {
+            const x = ox + dx, y = oy + dy;
+            if (game.grid.inside(x, y) && game.grid.get(x, y) === CELL.OPEN) { spot = { x, y }; break; }
+          }
+        }
+      }
+    }
+    if (!spot) return;
+    this.tx = spot.x;
+    this.ty = spot.y;
+    this.x = spot.x + 0.5;
+    this.z = spot.y + 0.5;
+    game.grid.set(spot.x, spot.y, CELL.TOWER, this);
+  }
+
   update(dt, game) {
     this.spawnT = Math.min(1, this.spawnT + dt * 3);
     this.recoil = Math.max(0, this.recoil - dt * 8);
@@ -157,6 +234,8 @@ export class Marine {
       return;
     }
 
+    const driving = this.bunker ? false : this.stepMove(dt, game);
+
     if (this.bunker) {
       this.x = this.bunker.x;
       this.z = this.bunker.z;
@@ -175,7 +254,11 @@ export class Marine {
 
     const ud = this.model.userData;
     const rest = this.bunker ? this.bunker.facing : (this.restYaw ?? -Math.PI / 2);
-    if (this.target) {
+    const holdFire = driving && !this.spec.turret;
+    if (holdFire) {
+      this.target = null;
+      this.yaw = angleLerp(this.yaw, rest, Math.min(1, dt * 8));
+    } else if (this.target) {
       let want = Math.atan2(this.target.z - this.z, this.target.x - this.x);
       if (this.bunker) want = rest + clampAngle(want - rest, 0.65);
       this.yaw = angleLerp(this.yaw, want, Math.min(1, dt * 9));
@@ -201,7 +284,8 @@ export class Marine {
       ud.weapon.rotation.z = this.recoil * (this.kind === 'goliath' ? 0.08 : 0.34);
     }
     if (ud.torso.userData.baseY == null) ud.torso.userData.baseY = ud.torso.position.y;
-    ud.torso.position.y = ud.torso.userData.baseY + Math.sin(t * 2.2) * 0.008;
+    const bob = driving ? Math.abs(Math.sin(t * (this.spec.turret ? 8 : 12))) * 0.035 : Math.sin(t * 2.2) * 0.008;
+    ud.torso.position.y = ud.torso.userData.baseY + bob;
 
     this.bar.set(this.hp / this.maxHp, game.camera);
   }

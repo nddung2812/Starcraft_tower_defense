@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BUILD, COLS, ROWS, UNITS, AIR_STRIKE } from './config.js';
+import { BUILD, CELL, COLS, ROWS, UNITS, AIR_STRIKE } from './config.js';
 import { Stage } from './scene.js';
 import { Game } from './game.js';
 import { UI } from './ui.js';
@@ -9,6 +9,7 @@ import { voice } from './voice.js';
 const canvas = document.getElementById('game');
 const stage = new Stage(canvas);
 const game = new Game(stage);
+window.game = game;
 const ui = new UI(game);
 
 game.viewport = { w: 1, h: 1 };
@@ -161,12 +162,12 @@ function select(e) {
 function updateTip() {
   if (game.state !== 'build') { ui.tip(''); return; }
   if (placing === 'wall') ui.tip('Walls redirect the swarm. Drag to lay a run. They cannot leave the canyon.');
-  else if (placing === 'marine') ui.tip('Place a Marine. He shoots whatever enters his circle.');
+  else if (placing === 'marine') ui.tip('Place a Marine. Select him and click open ground to move.');
   else if (placing === 'goliath') ui.tip('Goliath. Twin autocannons, long reach. Too big for a bunker.');
-  else if (placing === 'tank') ui.tip('Siege Tank. Slow cannon, wide blast. The heavy gun for a packed lane.');
+  else if (placing === 'tank') ui.tip('Siege Tank. Select it and click open ground to drive. Twin cannons, wide blast.');
   else if (placing === 'bunker') ui.tip('Bunker faces the bugs. Put a Marine in it for the armour.');
   else if (airAim) ui.tip(`Air Strike armed. Click the lane — ${AIR_STRIKE.damage} damage, ${AIR_STRIKE.radius.toFixed(1)} tile blast. ${AIR_STRIKE.cooldown}s cooldown.`);
-  else ui.tip(`${game.layout?.name || 'Canyon'}. Mountains lock the battle zone. Fortify the cut, then launch.`);
+  else ui.tip(`${game.layout?.name || 'Canyon'}. Select a Marine or Siege Tank, then click the canyon to move them.`);
 }
 
 function trackPointer(ev) {
@@ -221,6 +222,14 @@ canvas.addEventListener('pointermove', (ev) => {
       rangeRing.scale.setScalar(spec.tiers[0].range);
       rangeRing.material.color.setHex(spec.accent);
     }
+  } else if (game.selected?.spec?.mobile && !game.selected.dead && !game.selected.downed && !game.selected.bunker) {
+    const open = game.grid.get(hoverTile.x, hoverTile.y) === CELL.OPEN;
+    cursor.visible = true;
+    cursor.position.set(hoverTile.x + 0.5, 0, hoverTile.y + 0.5);
+    const col = open ? 0x5ad7ff : 0xff5a4a;
+    cursorPlate.material.color.setHex(col);
+    cursorEdge.material.color.setHex(col);
+    rangeRing.visible = false;
   } else {
     cursor.visible = false;
   }
@@ -280,6 +289,10 @@ canvas.addEventListener('pointerup', (ev) => {
     } else if ((game.state === 'wave' || game.state === 'brief') && e?.kind === 'zergling') {
       game.focus = e;
       select(e);
+    } else if (sel?.spec?.mobile && !e && t && !sel.dead && !sel.downed && !sel.bunker) {
+      if (sel.orderMove(t.x, t.y, game)) sfx.ui();
+      else if (game.grid.get(t.x, t.y) !== CELL.OPEN) select(null);
+      else sfx.deny();
     } else select(e);
   }
   drag.on = false;

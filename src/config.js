@@ -21,10 +21,10 @@ export const BREAK_COST = 9;
 
 export const BUILD = {
   wall: { id: 'wall', name: 'Bunker Wall', cost: 25, hp: 320, icon: 'W', key: '1', desc: 'Plasteel barricade. The swarm chews through it or goes around.' },
-  marine: { id: 'marine', name: 'Marine', cost: 100, icon: 'M', key: '2', desc: 'Emplaced Terran Marine. Promote him, stim him, or garrison a bunker.' },
+  marine: { id: 'marine', name: 'Marine', cost: 100, icon: 'M', key: '2', desc: 'Terran Marine. Select him and click the canyon to move. Promote, stim, or garrison a bunker.' },
   bunker: { id: 'bunker', name: 'Bunker', cost: 80, hp: 560, icon: 'B', key: '3', desc: 'Holds two Marines. Extra armour, a firing slit, and a facing you set by where you build it.' },
   goliath: { id: 'goliath', name: 'Goliath', cost: 175, icon: 'G', key: '4', desc: 'Walker with twin autocannons. Long reach. Too big for a bunker.' },
-  tank: { id: 'tank', name: 'Siege Tank', cost: 260, icon: 'H', key: '5', desc: 'Terran heavy armor. Slow cannon, wide blast. Holds a lane by itself.' }
+  tank: { id: 'tank', name: 'Siege Tank', cost: 260, icon: 'H', key: '5', desc: 'Silver heavy tank. Twin shock cannons. Select it and click the canyon to drive.' }
 };
 
 export const MARINE_TIERS = [
@@ -38,7 +38,7 @@ export const MARINE_INFO = {
   id: 'marine',
   name: 'Terran Marine',
   faction: 'Terran Dominion',
-  role: 'Emplaced Infantry',
+  role: 'Rifle Infantry',
   armor: 1,
   accent: '#5ad7ff',
   bio: 'Resocialised shock trooper sealed into CMC-300 powered combat armour. The C-14 "Impaler" gauss rifle fires 8mm spikes at hypersonic velocity.',
@@ -73,25 +73,25 @@ export const TANK_INFO = {
   role: 'Heavy Armor',
   armor: 3,
   accent: '#e2a84a',
-  bio: 'Arclite heavy tank. The 120mm shock cannon throws a blast that punishes a packed swarm. Slow to aim, ugly to be standing in front of.',
-  quote: '"Siege mode online."'
+  bio: 'Arclite siege tank in silver plate, red canopy, and twin shock cannons. It drives wherever the canyon is open. The blast punishes a packed swarm.',
+  quote: '"Shock cannon armed."'
 };
 
 export const UNITS = {
   marine: {
     id: 'marine', tiers: MARINE_TIERS, info: MARINE_INFO,
     shell: false, splash: 0, canBunker: true, canStim: true, armory: true, turret: false,
-    accent: 0x5ad7ff
+    mobile: true, speed: 2.15, accent: 0x5ad7ff
   },
   goliath: {
     id: 'goliath', tiers: GOLIATH_TIERS, info: GOLIATH_INFO,
     shell: false, splash: 0, canBunker: false, canStim: false, armory: false, turret: false,
-    accent: 0xc6e07a
+    mobile: false, speed: 0, accent: 0xc6e07a
   },
   tank: {
     id: 'tank', tiers: TANK_TIERS, info: TANK_INFO,
     shell: true, splash: 1.45, canBunker: false, canStim: false, armory: false, turret: true,
-    accent: 0xe2a84a
+    mobile: true, speed: 1.25, accent: 0xd21f28
   }
 };
 

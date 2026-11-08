@@ -44,8 +44,8 @@ class Portrait {
       this.camera.lookAt(0.05, 0.7, 0);
     } else if (kind === 'tank') {
       this.current = buildTank();
-      this.camera.position.set(1.35, 0.85, 2.7);
-      this.camera.lookAt(0.05, 0.26, 0);
+      this.camera.position.set(1.7, 1.05, 3.15);
+      this.camera.lookAt(0.05, 0.32, 0);
     } else {
       this.current = buildZergling();
       this.camera.position.set(0, 0.62, 1.7);
@@ -194,7 +194,7 @@ export class UI {
         statRow('Fire Rate', (1 / s.attackSpeed).toFixed(2) + '/s', (1 / s.attackSpeed) / 3.5, '#f0b23c') +
         statRow('Range', s.range.toFixed(1) + ' tiles', s.range / 8, accent) +
         (spec.splash ? statRow('Blast', spec.splash.toFixed(1) + ' tiles', spec.splash / 2, accent) : '') +
-        statRow('Move Speed', 'Emplaced', 0, accent);
+        statRow('Move Speed', spec.mobile ? spec.speed.toFixed(1) + ' t/s' : 'Emplaced', spec.speed / 3, accent);
     } else {
       const b = entity?.breed || BREEDS.zergling;
       $('pName').textContent = b.name;

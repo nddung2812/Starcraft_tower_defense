@@ -31,6 +31,53 @@ function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
 function key(x, y) { return y * COLS + x; }
 
+function sideDir(path, index) {
+  const a = path[Math.max(0, index - 1)];
+  const b = path[Math.min(path.length - 1, index + 1)];
+  const dx = b[0] - a[0], dy = b[1] - a[1];
+  const len = Math.hypot(dx, dy) || 1;
+  const px = -dy / len, py = dx / len;
+  if (Math.abs(px) >= Math.abs(py)) return [Math.sign(px) || 1, 0];
+  return [0, Math.sign(py) || 1];
+}
+
+function mouthAt(origin, dir, steps = 5) {
+  let x = origin[0], y = origin[1];
+  let last = null;
+  for (let step = 0; step < steps; step++) {
+    x += dir[0];
+    y += dir[1];
+    const cx = Math.floor(x), cy = Math.floor(y);
+    if (cx < 1 || cy < 1 || cx >= COLS - 1 || cy >= ROWS - 1) break;
+    last = [cx, cy];
+    if (cx <= 2 || cy <= 2 || cx >= COLS - 3 || cy >= ROWS - 3) break;
+  }
+  if (!last) return null;
+  return { x: clamp(last[0], 0, COLS - 2), y: clamp(last[1], 0, ROWS - 3) };
+}
+
+function carveSpur(open, origin, dir, mouth) {
+  const dx = dir[0], dy = dir[1];
+  const steps = Math.abs(mouth.x - Math.floor(origin[0])) + Math.abs(mouth.y - Math.floor(origin[1]));
+  let x = Math.floor(origin[0]), y = Math.floor(origin[1]);
+  for (let step = 0; step <= steps; step++) {
+    for (let oy = -1; oy <= 1; oy++) {
+      for (let ox = -1; ox <= 1; ox++) {
+        const ix = x + ox, iy = y + oy;
+        if (ix >= 0 && iy >= 0 && ix < COLS && iy < ROWS) open.add(key(ix, iy));
+      }
+    }
+    x += dx;
+    y += dy;
+  }
+  for (let oy = -1; oy <= 2; oy++) {
+    for (let ox = 0; ox <= 1; ox++) {
+      const ix = mouth.x + ox, iy = mouth.y + oy;
+      if (ix >= 0 && iy >= 0 && ix < COLS && iy < ROWS) open.add(key(ix, iy));
+    }
+  }
+}
+
 /** Carve one level: a dirt lane, locked rock everywhere else, random boulders and peaks. */
 export function carveLevel(level, seed) {
   const spec = LEVELS[(level - 1) % LEVELS.length];
@@ -68,8 +115,33 @@ export function carveLevel(level, seed) {
     }
   }
 
+  const spawns = [spawn];
+  const flanks = level >= 8 ? 2 : level >= 4 ? 1 : 0;
+  const taken = (mouth) => !mouth
+    || spawns.some((s) => Math.abs(s.x - mouth.x) + Math.abs(s.y - mouth.y) < 5)
+    || Math.abs(mouth.x - core.x) + Math.abs(mouth.y - core.y) < 5;
+  for (let f = 0; f < flanks; f++) {
+    const base = Math.max(1, Math.min(path.length - 2, Math.round(((f + 1) * (path.length - 1)) / (flanks + 1))));
+    let placed = false;
+    for (const shift of [0, 1, -1]) {
+      const idx = Math.max(1, Math.min(path.length - 2, base + shift));
+      const dir = sideDir(path, idx);
+      if (f === 1) { dir[0] *= -1; dir[1] *= -1; }
+      const options = [dir, [-dir[0], -dir[1]]];
+      for (const d of options) {
+        const mouth = mouthAt(path[idx], d);
+        if (taken(mouth)) continue;
+        carveSpur(open, path[idx], d, mouth);
+        spawns.push(mouth);
+        placed = true;
+        break;
+      }
+      if (placed) break;
+    }
+  }
+
   const grid = new Grid();
-  grid.load({ open: [...open].map((k) => [k % COLS, (k / COLS) | 0]), spawn, core });
+  grid.load({ open: [...open].map((k) => [k % COLS, (k / COLS) | 0]), spawn, spawns, core });
 
   const reserved = new Set();
   for (let dy = 0; dy < core.h; dy++) {
@@ -99,7 +171,7 @@ export function carveLevel(level, seed) {
     if (boulders.some(([bx, by]) => Math.abs(bx - x) + Math.abs(by - y) < 3)) continue;
     const i = grid.idx(x, y);
     grid.cells[i] = CELL.ROCK;
-    const route = grid.findPath(spawn.x, spawn.y, core.x, core.y);
+    const route = spawns.every((s) => grid.findPath(s.x, s.y, core.x, core.y));
     if (!route) { grid.cells[i] = CELL.OPEN; continue; }
     boulders.push([x, y]);
     open.delete(key(x, y));
@@ -124,6 +196,7 @@ export function carveLevel(level, seed) {
     blurb: spec.blurb,
     open: [...open].map((k) => [k % COLS, (k / COLS) | 0]),
     spawn,
+    spawns,
     core,
     peaks,
     boulders,

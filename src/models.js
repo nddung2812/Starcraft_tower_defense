@@ -11,6 +11,11 @@ export const MAT = {
   armorLit: new THREE.MeshStandardMaterial({ color: 0x4e97cc, metalness: 0.35, roughness: 0.38 }),
   olive: new THREE.MeshStandardMaterial({ color: 0x6d7644, metalness: 0.4, roughness: 0.55 }),
   oliveDark: new THREE.MeshStandardMaterial({ color: 0x3e4428, metalness: 0.45, roughness: 0.6 }),
+  tankSteel: new THREE.MeshStandardMaterial({ color: 0xd5dbe0, metalness: 0.78, roughness: 0.3 }),
+  tankTrim: new THREE.MeshStandardMaterial({ color: 0x8e989f, metalness: 0.72, roughness: 0.38 }),
+  tankRed: new THREE.MeshStandardMaterial({ color: 0xd21f28, metalness: 0.45, roughness: 0.4 }),
+  tankBlue: new THREE.MeshStandardMaterial({ color: 0x9ad4ff, emissive: 0x3aa6ff, emissiveIntensity: 2.4 }),
+  hazard: new THREE.MeshStandardMaterial({ color: 0xe2b423, metalness: 0.45, roughness: 0.48 }),
   steel: new THREE.MeshStandardMaterial({ color: 0xa7b0b5, metalness: 0.9, roughness: 0.32 }),
   steelDark: new THREE.MeshStandardMaterial({ color: 0x4a545b, metalness: 0.85, roughness: 0.42 }),
   gunmetal: new THREE.MeshStandardMaterial({ color: 0x2e363c, metalness: 0.8, roughness: 0.5 }),
@@ -287,33 +292,77 @@ export function buildTank() {
   const body = new THREE.Group();
   root.add(body);
 
+  const treads = [];
   for (const s of [-1, 1]) {
-    body.add(mesh(box(0.86, 0.16, 0.18, 0.03), MAT.gunmetal, 0, 0.1, s * 0.3));
-    body.add(mesh(box(0.9, 0.06, 0.2, 0.015), MAT.steelDark, 0, 0.04, s * 0.3));
-    for (let i = 0; i < 4; i++) {
-      body.add(mesh(box(0.08, 0.1, 0.22, 0.015), MAT.oliveDark, -0.3 + i * 0.2, 0.1, s * 0.3));
+    body.add(mesh(box(1.02, 0.18, 0.18, 0.03), MAT.gunmetal, 0, 0.11, s * 0.36));
+    body.add(mesh(box(1.06, 0.05, 0.2, 0.012), MAT.steelDark, 0, 0.03, s * 0.36));
+    body.add(mesh(box(0.1, 0.16, 0.2, 0.02), MAT.tankTrim, 0.46, 0.12, s * 0.36));
+    body.add(mesh(box(0.1, 0.16, 0.2, 0.02), MAT.tankTrim, -0.46, 0.12, s * 0.36));
+    for (let i = 0; i < 6; i++) {
+      const tread = mesh(box(0.06, 0.2, 0.2, 0.01), MAT.steelDark, -0.4 + i * 0.16, 0.12, s * 0.36);
+      tread.userData.baseX = tread.position.x;
+      body.add(tread);
+      treads.push(tread);
     }
   }
-  body.add(mesh(box(0.7, 0.16, 0.42, 0.04), MAT.olive, -0.02, 0.22, 0));
-  body.add(mesh(box(0.22, 0.1, 0.28, 0.02), MAT.oliveDark, 0.28, 0.2, 0));
+
+  body.add(mesh(box(0.78, 0.16, 0.5, 0.04), MAT.tankSteel, -0.04, 0.24, 0));
+  const nose = mesh(box(0.32, 0.1, 0.46, 0.03), MAT.tankSteel, 0.4, 0.2, 0);
+  nose.rotation.z = -0.42;
+  body.add(nose);
+  body.add(mesh(box(0.16, 0.08, 0.5, 0.02), MAT.tankTrim, -0.42, 0.26, 0));
+
+  for (const s of [-1, 1]) {
+    const plate = mesh(box(0.2, 0.035, 0.12, 0.008), MAT.tankRed, 0.46, 0.28, s * 0.12);
+    plate.rotation.z = -0.55;
+    plate.rotation.y = s * 0.55;
+    body.add(plate);
+  }
 
   const torso = new THREE.Group();
-  torso.position.set(-0.04, 0.32, 0);
+  torso.position.set(-0.06, 0.34, 0);
   body.add(torso);
-  torso.add(mesh(box(0.42, 0.18, 0.38, 0.04), MAT.olive, 0, 0.08, 0));
-  torso.add(mesh(box(0.18, 0.08, 0.18, 0.02), MAT.steel, 0.02, 0.2, 0));
-  torso.add(mesh(new THREE.SphereGeometry(0.035, 8, 6), MAT.lamp, -0.16, 0.16, 0.14));
+  torso.add(mesh(box(0.46, 0.16, 0.42, 0.05), MAT.tankSteel, 0.02, 0.08, 0));
+  torso.add(mesh(box(0.22, 0.08, 0.28, 0.02), MAT.tankTrim, -0.08, 0.18, 0));
+
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 12), MAT.tankRed);
+  dome.scale.set(1.05, 0.62, 0.95);
+  dome.position.set(-0.02, 0.2, 0.02);
+  dome.castShadow = true;
+  torso.add(dome);
+  const glass = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 8), MAT.visor);
+  glass.scale.set(1.1, 0.45, 0.7);
+  glass.position.set(0.08, 0.24, 0.02);
+  torso.add(glass);
+
+  for (let i = 0; i < 3; i++) {
+    torso.add(mesh(box(0.05, 0.02, 0.2, 0.004), i % 2 ? MAT.gunmetal : MAT.hazard, -0.2, 0.2, -0.08 + i * 0.06));
+  }
+  torso.add(mesh(new THREE.SphereGeometry(0.03, 8, 6), MAT.tankBlue, 0.12, 0.16, 0.18));
+  torso.add(mesh(new THREE.SphereGeometry(0.03, 8, 6), MAT.tankBlue, 0.12, 0.16, -0.18));
+  torso.add(mesh(new THREE.SphereGeometry(0.025, 8, 6), MAT.lamp, -0.22, 0.14, 0.16));
 
   const weapon = new THREE.Group();
-  weapon.position.set(0.16, 0.1, 0);
+  weapon.position.set(0.18, 0.12, 0);
   torso.add(weapon);
-  weapon.add(mesh(box(0.16, 0.12, 0.12, 0.025), MAT.steelDark, 0, 0, 0));
-  weapon.add(mesh(box(0.78, 0.08, 0.08, 0.02), MAT.gunmetal, 0.42, 0, 0));
-  weapon.add(mesh(box(0.1, 0.1, 0.1, 0.02), MAT.oliveDark, 0.78, 0, 0));
-  weapon.userData.muzzle = new THREE.Vector3(0.9, 0, 0);
+  weapon.add(mesh(box(0.16, 0.12, 0.28, 0.03), MAT.tankTrim, 0.02, 0, 0));
+  const barrel = new THREE.CylinderGeometry(0.055, 0.062, 0.7, 10);
+  barrel.rotateZ(Math.PI / 2);
+  barrel.translate(0.4, 0, 0);
+  for (const s of [-1, 1]) {
+    const gun = new THREE.Mesh(barrel, MAT.tankSteel);
+    gun.position.set(0, 0.02, s * 0.09);
+    gun.castShadow = true;
+    weapon.add(gun);
+    const brake = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.08, 8), MAT.gunmetal);
+    brake.rotateZ(Math.PI / 2);
+    brake.position.set(0.74, 0.02, s * 0.09);
+    weapon.add(brake);
+  }
+  weapon.userData.muzzle = new THREE.Vector3(0.78, 0.02, 0);
   weapon.userData.muzzles = [weapon.userData.muzzle];
 
-  root.userData = { body, torso, weapon };
+  root.userData = { body, torso, weapon, treads };
   return root;
 }
 
