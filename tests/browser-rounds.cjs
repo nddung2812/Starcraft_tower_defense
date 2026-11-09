@@ -12,7 +12,7 @@ const assert = require('node:assert/strict');
     await page.locator('#introBtn').click();
     const result = await page.evaluate(async () => {
       const g = game;
-      const { UNIT_SCALE } = await import('/src/config.js');
+      const { UNIT_SCALE, BUILD, ECON } = await import('/src/config.js');
       const marine = g.gunners[0];
       const initialScale = marine.model.scale.x;
       g.update(0.5);
@@ -25,19 +25,25 @@ const assert = require('node:assert/strict');
       const after = { time: g.time, countdown: g.briefT, x: marine.x, cooldown: marine.cooldown };
       const resumeLabel = document.getElementById('btnPause').textContent;
       document.getElementById('btnPause').click();
+      g.minerals = 23;
+      const carried = g.minerals;
+      const refund = [...g.gunners, ...g.walls, ...g.bunkers].reduce((total, unit) =>
+        total + (unit.kind === 'wall' || unit.kind === 'bunker' ? BUILD[unit.kind].cost : unit.invested), 0);
+      const bonus = ECON.waveClearBase + g.level * ECON.waveClearPerWave;
       g.completeWave();
-      const next = { level: g.level, state: g.state, countdown: g.briefT };
+      const next = { level: g.level, state: g.state, countdown: g.briefT, minerals: g.minerals };
       g.update(2.99);
       const beforeContact = g.state;
       g.update(0.02);
-      return { initialScale, grownScale, promotedScale, expectedScale: UNIT_SCALE * 0.56, frozen, after, resumeLabel, next, beforeContact, contact: g.state };
+      return { initialScale, grownScale, promotedScale, expectedScale: UNIT_SCALE * 0.56, frozen, after, resumeLabel, next, carried, refund, bonus, beforeContact, contact: g.state };
     });
     assert.equal(result.initialScale, result.expectedScale);
     assert.equal(result.grownScale, result.expectedScale);
     assert.equal(result.promotedScale, result.expectedScale);
     assert.deepEqual(result.frozen, result.after);
     assert.equal(result.resumeLabel, 'Resume');
-    assert.deepEqual(result.next, { level: 2, state: 'brief', countdown: 3 });
+    assert.deepEqual(result.next, { level: 2, state: 'brief', countdown: 3,
+      minerals: result.carried + result.refund + result.bonus });
     assert.equal(result.beforeContact, 'brief');
     assert.equal(result.contact, 'wave');
     await page.keyboard.press('Space');
@@ -53,6 +59,6 @@ const assert = require('node:assert/strict');
       await page.screenshot({ path: `/tmp/td-single-header-${width}.png` });
     }
     assert.deepEqual(errors, []);
-    console.log('PASS: automatic 3-second rounds, pause/resume and Space, frozen simulation, smaller Marines including promotions, one header on desktop/mobile');
+    console.log('PASS: automatic 3-second rounds, mineral carryover, pause/resume and Space, frozen simulation, smaller Marines including promotions, one header on desktop/mobile');
   } finally { await browser.close(); }
 })().catch(e => { console.error(e); process.exit(1); });

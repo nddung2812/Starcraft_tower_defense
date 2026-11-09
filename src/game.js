@@ -511,7 +511,7 @@ export class Game {
     this.emit('hold', {
       kicker: `Round ${prev} cleared — Round ${this.level} ready`,
       title: prevName,
-      body: `+${bonus} minerals, hardware returned. Round ${this.level} starts automatically in 3 seconds.`
+      body: `+${bonus} minerals, hardware returned. Unspent minerals carry forward. Round ${this.level} starts automatically in 3 seconds.`
     });
     this.startWave();
   }
