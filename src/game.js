@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CELL, BUILD, ECON, ARMORY, UNITS, AIR_STRIKE, TREASURE, TREASURE_RULES, wavePlan } from './config.js';
 import { Grid } from './grid.js';
-import { carveLevel } from './levels.js';
+import { carveLevel, MAP_VERSION } from './levels.js';
 import { Marine, Zergling, Wall, Bunker, Scv, Core, Tracer, Shell, AirBomb } from './entities.js';
 import { buildHatchery, buildRock, buildBoulder } from './models.js';
 import { buildTerrain } from './terrain.js';
@@ -78,6 +78,7 @@ export class Game {
   reset(seed = null) {
     this.wipeUnits();
     this.level = 1;
+    this.mapVersion = MAP_VERSION;
     this.mapSeed = Number.isInteger(seed) ? seed >>> 0 : (Math.random() * 0x7fffffff) >>> 0;
     this.minerals = ECON.startMinerals;
     this.kills = 0;
@@ -123,7 +124,7 @@ export class Game {
     this.bombs = [];
     this.fx.clear();
 
-    const layout = carveLevel(this.level, this.mapSeed);
+    const layout = carveLevel(this.level, this.mapSeed, this.mapVersion);
     this.layout = layout;
     this.grid.load(layout);
     this.stage.setMapSize(layout.cols, layout.rows);
@@ -165,8 +166,9 @@ export class Game {
     this.rockGroup.clear();
     if (this.zoneMesh) {
       this.scene.remove(this.zoneMesh);
-      this.zoneMesh.geometry.dispose();
-      this.zoneMesh.material.dispose();
+      const materials = new Set();
+      this.zoneMesh.traverse(o => { if (o.isMesh) { o.geometry.dispose(); materials.add(o.material); } });
+      for (const material of materials) material.dispose();
       this.zoneMesh = null;
     }
 
@@ -174,6 +176,7 @@ export class Game {
     const terrain = buildTerrain(layout.depth, (this.mapSeed ^ (this.level * 2654435761)) >>> 0, layout.cols, layout.rows);
     this.zoneMesh = terrain.mesh;
     this.heightAt = terrain.heightAt;
+    this.updateWater = terrain.update;
     this.scene.add(this.zoneMesh);
 
     const noise = (x, y, i) => (x * 92821 + y * 68917 + this.mapSeed + i * 17) >>> 0;
@@ -192,6 +195,7 @@ export class Game {
 
     // a few sharp spires standing on the high ground
     layout.peaks.forEach(([x, y], i) => {
+      if (terrain.lakes.some(l => Math.hypot(x + 0.5 - l.x, y + 0.5 - l.z) < l.radius * 1.3)) return;
       const n = noise(x, y, i + 101);
       const rock = buildRock(n);
       const s = 2.2 + (n % 9) / 8;
@@ -502,6 +506,7 @@ export class Game {
     const refund = this.recoverHardware();
     this.minerals += refund + bonus;
     this.level++;
+    this.mapVersion = MAP_VERSION;
     this.expireTreasureBoosts();
     this.loadLevel();
     this.state = 'build';
@@ -668,6 +673,7 @@ export class Game {
   update(dt) {
     if (this.paused) return;
     this.time += dt;
+    this.updateWater?.(this.time);
     if (this.airStrikeCd > 0) this.airStrikeCd = Math.max(0, this.airStrikeCd - dt);
     for (const p of this.pings) p.t += dt;
     if (this.pings.length && this.pings[0].t > 2.6) this.pings = this.pings.filter((p) => p.t <= 2.6);

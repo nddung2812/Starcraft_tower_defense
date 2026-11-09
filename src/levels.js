@@ -41,14 +41,58 @@ function rockDepth(cols, rows, isWalkable) {
 }
 
 const SECTORS = ['Ash Flats', 'Red Gully', 'Shale Run', 'Dust Basin', 'Scar Ridge', 'Cinder Pass', 'Hollow Reach', 'Iron Wash', 'Broken Mesa', 'Last Light'];
+export const MAP_VERSION = 2;
+
+/** Broad building areas separated by short necks; widths are measured in whole tiles. */
+function canyonWidths(cols, rng) {
+  const widths = [6, 4, 7, 3, 6, 2, 7];
+  // Rotate/reverse the sequence without ever putting both narrow sections together.
+  const offset = Math.floor(rng() * widths.length);
+  const ordered = widths.map((_, i) => widths[(i + offset) % widths.length]);
+  if (rng() < 0.5) ordered.reverse();
+  const start = 6, end = Math.floor(cols * 0.75);
+  const weights = ordered.map(w => w <= 3 ? 0 : 0.8 + rng() * 0.4);
+  const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+  const broadLength = end - start - 10;
+  let x = start;
+  const sections = ordered.map((width, i) => {
+    const from = x;
+    x += width <= 3 ? 5 : broadLength * weights[i] / totalWeight;
+    return { from, to: x, width };
+  });
+  return Array.from({ length: cols }, (_, tx) => {
+    const cx = tx + 0.5;
+    const i = sections.findIndex(s => cx < s.to);
+    const section = sections[i < 0 ? sections.length - 1 : i];
+    let width = section.width;
+    // Ease each edge over three columns, leaving real 2/3-tile plateaus in the necks.
+    if (i > 0 && cx < section.from + 1.5) {
+      const t = Math.max(0, Math.min(1, (cx - section.from + 1.5) / 3));
+      width = sections[i - 1].width * (1 - t) + width * t;
+    } else if (i >= 0 && i < sections.length - 1 && cx > section.to - 1.5) {
+      const t = Math.max(0, Math.min(1, (cx - section.to + 1.5) / 3));
+      width = width * (1 - t) + sections[i + 1].width * t;
+    }
+    // Keep the steep final convergence roomy enough for all approaches to meet.
+    return Math.max(cx >= end ? 4 : 2, Math.min(7, Math.round(width)));
+  });
+}
+
+function centerAt(path, x) {
+  let i = 1;
+  while (i < path.length - 1 && x > path[i][0]) i++;
+  const [ax, ay] = path[i - 1], [bx, by] = path[i];
+  const t = Math.max(0, Math.min(1, (x - ax) / (bx - ax)));
+  return { y: ay + (by - ay) * t, slope: (by - ay) / (bx - ax) };
+}
 
 /** Several separated western approaches converge only near the eastern command center. */
-export function carveLevel(level, seed) {
+export function carveLevel(level, seed, version = MAP_VERSION) {
+  if (version !== 1 && version !== MAP_VERSION) throw new Error('Unsupported map version');
   const { cols, rows, routeCount } = mapDimensions(level);
   const rng = mulberry32((seed ^ Math.imul(level, 0x9e3779b1)) >>> 0);
   const key = (x,y) => y * cols + x;
   const core = { x: cols - 5, y: Math.floor(rows / 2) - 1, w: 2, h: 2, hp: CORE_HP };
-  const radius = 1.75 + (cols - 56) / 100;
   const laneY = routeCount === 1 ? [Math.floor(rows / 2)]
     : Array.from({length: routeCount}, (_,i) => Math.round(rows * (0.18 + 0.64 * i / (routeCount - 1))));
   // The primary hive is central; every hive remains on the western edge.
@@ -61,9 +105,31 @@ export function carveLevel(level, seed) {
       [cols * 0.75,y + wiggle()], [cols - 7,core.y + 1], [core.x + 1,core.y + 1]];
   });
   const open = new Set();
-  const nearestLane = (x,y) => Math.min(...paths.map(path => distToPath(x,y,path)));
-  for (let y = 1; y < rows - 1; y++) for (let x = 1; x < cols - 1; x++) {
-    if (nearestLane(x + 0.5,y + 0.5) <= radius) open.add(key(x,y));
+  const protectedRoute = new Set();
+  if (version === 1) {
+    // Existing checkpoints retain their exact original terrain and boulder sequence.
+    const radius = 1.75 + (cols - 56) / 100;
+    for (let y = 1; y < rows - 1; y++) for (let x = 1; x < cols - 1; x++) {
+      if (Math.min(...paths.map(path => distToPath(x + 0.5, y + 0.5, path))) <= radius) open.add(key(x,y));
+    }
+  } else {
+    paths.forEach((path, lane) => {
+      const widths = canyonWidths(cols, mulberry32((seed ^ Math.imul(level, 0x9e3779b1) ^ Math.imul(lane + 1, 0x85ebca6b)) >>> 0));
+      for (let x = 1; x < cols - 1; x++) {
+        const center = centerAt(path, x + 0.5);
+        // Keep 2–7 exact tile rows in the canyon; widen the steep final convergence.
+        const width = x + 0.5 < cols * 0.75 ? widths[x]
+          : Math.max(widths[x], Math.round(widths[x] * Math.hypot(1, center.slope)));
+        const bottom = Math.round(center.y - width / 2);
+        const spine = Math.round(center.y - 1);
+        for (let y = bottom; y < bottom + width; y++) {
+          if (y >= 1 && y < rows - 1) open.add(key(x, y));
+        }
+        // Boulders can decorate shoulders, but never reduce a neck to a single tile.
+        protectedRoute.add(key(x, spine));
+        protectedRoute.add(key(x, spine + 1));
+      }
+    });
   }
   const carve = (cx,cy,r) => {
     for (let y = cy - r; y <= cy + r; y++) for (let x = cx - r; x <= cx + r; x++) {
@@ -81,7 +147,8 @@ export function carveLevel(level, seed) {
     }
   };
   const candidates = [...open].map((k) => [k % cols, Math.floor(k / cols)]).filter(([x, y]) =>
-    x > 5 && x < cols - 8 && spawns.every((s) => Math.hypot(x - s.x, y - s.y) > 4));
+    x > 5 && x < cols - 8 && !protectedRoute.has(key(x, y)) &&
+    spawns.every((s) => Math.hypot(x - s.x, y - s.y) > 4));
   shuffle(candidates);
   const boulders = [];
   const want = Math.min(30, Math.round(cols / 8 + level / 3));
@@ -119,7 +186,7 @@ export function carveLevel(level, seed) {
   const name = level <= AUTHORED_LEVELS ? LEVELS[level - 1].name
     : `${SECTORS[(level - AUTHORED_LEVELS - 1) % SECTORS.length]} · Sector ${level}`;
   return {
-    cols, rows, routeCount, paths, name,
+    cols, rows, routeCount, paths, name, mapVersion: version,
     blurb: `${cols}×${rows} battlefield. ${routeCount} western attack ${routeCount === 1 ? 'route converges' : 'routes converge'} on your base. Defend every approach.`,
     open: [...open].map((k) => [k % cols, Math.floor(k / cols)]),
     spawn, spawns, core, peaks, boulders, depth, focus

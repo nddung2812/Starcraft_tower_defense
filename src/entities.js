@@ -725,7 +725,10 @@ export class Zergling {
     const pts = game.grid.route(cx, cz);
     if (pts && pts.length) {
       this.path = pts;
-      this.wp = pts.length > 1 ? 1 : 0;
+      // A route is smoothed from tile centers, but the bug may be off-center
+      // after spawning or steering around the swarm. Visit this tile's center
+      // first if the direct shortcut would run through rock.
+      this.wp = pts.length > 1 && game.grid.clearWorldLine(this.x, this.z, pts[1].x, pts[1].y, true) ? 1 : 0;
     }
     this.pathVersion = game.grid.version;
     this.repathIn = 0.5 + Math.random() * 0.5;

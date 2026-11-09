@@ -206,7 +206,7 @@ export class Grid {
           const nx = cx + dx, ny = cy + dy;
           if (!this.inside(nx, ny)) continue;
           if (this.cost(nx, ny) === Infinity) continue;
-          if (dx && dy && (this.cost(cx - dx, cy) === Infinity || this.cost(cx, cy - dy) === Infinity)) continue;
+          if (dx && dy && (this.cost(cx + dx, cy) === Infinity || this.cost(cx, cy + dy) === Infinity)) continue;
           const ni = this.idx(nx, ny);
           const d = base + (dx && dy ? SQRT2 : 1);
           if (d < dist[ni]) {
@@ -233,16 +233,32 @@ export class Grid {
 
   /** Straight line of sight through non-blocking cells, used for path smoothing. */
   clearLine(ax, ay, bx, by) {
-    let x = ax, y = ay;
-    const dx = Math.abs(bx - ax), dy = Math.abs(by - ay);
-    const sx = ax < bx ? 1 : -1, sy = ay < by ? 1 : -1;
-    let err = dx - dy;
-    while (x !== bx || y !== by) {
+    return this.clearWorldLine(ax + 0.5, ay + 0.5, bx + 0.5, by + 0.5);
+  }
+
+  /** Check the exact route from a moving bug to its next waypoint. */
+  clearWorldLine(ax, ay, bx, by, allowBlockedEnd = false) {
+    // Walk every tile the segment touches. Bresenham can skip a
+    // rock at a shallow angle, making a smoothed waypoint impossible to reach.
+    let x = Math.floor(ax), y = Math.floor(ay);
+    const tx = Math.floor(bx), ty = Math.floor(by);
+    const dx = bx - ax, dy = by - ay;
+    const sx = Math.sign(dx), sy = Math.sign(dy);
+    const stepX = dx ? 1 / Math.abs(dx) : Infinity;
+    const stepY = dy ? 1 / Math.abs(dy) : Infinity;
+    let edgeX = sx > 0 ? (x + 1 - ax) * stepX : sx < 0 ? (ax - x) * stepX : Infinity;
+    let edgeY = sy > 0 ? (y + 1 - ay) * stepY : sy < 0 ? (ay - y) * stepY : Infinity;
+    while (x !== tx || y !== ty) {
       if (this.blocked(x, y)) return false;
-      const e2 = 2 * err;
-      if (e2 > -dy) { err -= dy; x += sx; }
-      if (e2 < dx) { err += dx; y += sy; }
-      if (this.blocked(x, y)) return false;
+      if (edgeX < edgeY - 1e-12) { x += sx; edgeX += stepX; }
+      else if (edgeY < edgeX - 1e-12) { y += sy; edgeY += stepY; }
+      else {
+        // A line exactly through a corner must not cut between solid tiles.
+        if (this.blocked(x + sx, y) || this.blocked(x, y + sy)) return false;
+        x += sx; y += sy;
+        edgeX += stepX; edgeY += stepY;
+      }
+      if (this.blocked(x, y) && !(allowBlockedEnd && x === tx && y === ty)) return false;
     }
     return true;
   }

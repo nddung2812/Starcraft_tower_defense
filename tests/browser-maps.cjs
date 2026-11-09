@@ -38,6 +38,19 @@ const path = require('node:path');
       }
       g.wipeUnits();g.level=5;g.state='build';g.loadLevel();g.completeWave();
       check(g.level===6&&g.grid.COLS===72&&g.stage.cols===72,'5→6 transition failed');
+      const {captureCheckpoint,restoreCheckpoint,validateCheckpoint}=await import('/src/checkpoints.js');
+      const {carveLevel,MAP_VERSION}=await import('/src/levels.js');
+      g.reset(12345);g.mapVersion=1;g.loadLevel();
+      const modern=carveLevel(1,12345);
+      const modernOpen=new Set(modern.open.map(([x,y])=>y*modern.cols+x));
+      const legacySpot=g.layout.open.find(([x,y])=>g.grid.buildable(x,y)&&!modernOpen.has(y*modern.cols+x));
+      check(legacySpot&&g.placeWall(...legacySpot),'No legacy-only placement to exercise');
+      const legacySave=captureCheckpoint(g,{player:'Legacy',quickDeployment:true,guideDismissed:false});
+      delete legacySave.mapVersion; // Original saves predate terrain versioning.
+      check(validateCheckpoint(legacySave),'Original checkpoint rejected');
+      restoreCheckpoint(g,legacySave);
+      check(g.mapVersion===1&&g.walls[0].tx===legacySpot[0]&&g.walls[0].ty===legacySpot[1],'Original terrain was not restored');
+      g.completeWave();check(g.mapVersion===MAP_VERSION&&g.layout.mapVersion===MAP_VERSION,'Next round did not adopt wider paths');
       g.reset(12345);check(g.grid.COLS===56&&g.stage.cols===56,'Restart did not shrink the map');
       g.stage.render=render;
       g.stage.focus.set(28,0,28);g.stage.pitch=1.1;g.stage.dist=g.stage.fitDistance();g.stage.updateCamera();g.stage.render();
@@ -47,7 +60,7 @@ const path = require('node:path');
     const mini=await page.locator('#minimap').boundingBox();
     await page.mouse.click(mini.x+mini.width-3,mini.y+mini.height/2);
     const clicked=await page.evaluate(()=>({x:game.stage.focus.x,z:game.stage.focus.z}));
-    assert.ok(clicked.x>53&&clicked.x<56);assert.ok(clicked.z>27&&clicked.z<29);
+    assert.ok(clicked.x>53&&clicked.x<56,JSON.stringify(clicked));assert.ok(clicked.z>27&&clicked.z<29,JSON.stringify(clicked));
     await page.evaluate(()=>{game.stage.focus.set(28,0,28);game.stage.updateCamera();game.stage.render();});
     await page.screenshot({path:path.join(os.tmpdir(),'td-map-overview.png')});
     assert.deepEqual(errors,[]);

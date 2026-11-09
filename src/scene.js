@@ -28,18 +28,14 @@ function groundTexture() {
     x.arc(rnd() * 1024, rnd() * 1024, 1 + rnd() * 4, 0, 6.28);
     x.fill();
   }
-  // dry cracks
-  x.strokeStyle = 'rgba(40,30,24,.25)';
-  for (let i = 0; i < 60; i++) {
-    x.lineWidth = 0.6 + rnd() * 1.6;
-    x.beginPath();
-    let px = rnd() * 1024, py = rnd() * 1024;
-    x.moveTo(px, py);
-    for (let k = 0; k < 7; k++) {
-      px += (rnd() - 0.5) * 120; py += (rnd() - 0.5) * 120;
-      x.lineTo(px, py);
-    }
-    x.stroke();
+  // Feathered moss and meadow patches blend into the worn earth.
+  for (let i = 0; i < 180; i++) {
+    const px = rnd() * 1024, py = rnd() * 1024, r = 35 + rnd() * 130;
+    const patch = x.createRadialGradient(px, py, 0, px, py, r);
+    patch.addColorStop(0, 'rgba(66,99,43,0.48)');
+    patch.addColorStop(0.6, 'rgba(77,105,48,0.22)');
+    patch.addColorStop(1, 'rgba(77,105,48,0)');
+    x.fillStyle = patch; x.fillRect(px - r, py - r, r * 2, r * 2);
   }
 
   const tex = new THREE.CanvasTexture(c);

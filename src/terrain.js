@@ -31,8 +31,8 @@ function fbm(x, y, seed) {
   return valueNoise(x / 9, y / 9, seed) * 0.6 + valueNoise(x / 4, y / 4, seed + 7) * 0.3 + valueNoise(x / 1.7, y / 1.7, seed + 13) * 0.1;
 }
 
-const LOW = new THREE.Color(0x6b5a44);     // dusty foothill, matches the lane dirt
-const MID = new THREE.Color(0x5e554b);     // weathered rock
+const LOW = new THREE.Color(0x536a3c);     // dusty foothill, matches the lane dirt
+const MID = new THREE.Color(0x667354);     // weathered rock
 const HIGH = new THREE.Color(0x9a8f7e);    // pale high ground
 const CLIFF = new THREE.Color(0x3f3933);   // steep faces
 
@@ -48,18 +48,47 @@ export function buildTerrain(depth, seed, cols = COLS, rows = ROWS) {
     return depth[cy * cols + cx] + out * 1.3;
   };
 
-  const vx = cols + 1 + MARGIN * 2, vy = rows + 1 + MARGIN * 2;
+  // Lakes stay inside blocked terrain, preserving every combat lane and build cell.
+  const lakes = [];
+  for (let z = 4; z < rows - 4; z += 3) {
+    for (let x = 4; x < cols - 4; x += 3) {
+      const d = cellDepth(x, z);
+      if (d < 3 || hash(x, z, seed + 43) < 0.45) continue;
+      const radius = Math.min(4.5, d - 0.7);
+      if (x < radius + 1 || z < radius + 1 || x + radius + 1 > cols || z + radius + 1 > rows) continue;
+      if (lakes.some(l => Math.hypot(l.x - x, l.z - z) < l.radius + radius + 5)) continue;
+      lakes.push({ x, z, radius, phase: hash(x, z, seed) * Math.PI * 2 });
+    }
+  }
+  const lakeDistance = (x, z, l) => {
+    const angle = Math.atan2(z - l.z, x - l.x);
+    const shore = 1 + 0.09 * Math.sin(angle * 3 + l.phase) + 0.05 * Math.cos(angle * 5 - l.phase);
+    return Math.hypot(x - l.x, (z - l.z) / 0.82) / (l.radius * shore);
+  };
+
+  const resolution = 3;
+  const vx = cols * resolution + 1, vy = rows * resolution + 1;
   const heights = new Float32Array(vx * vy);
   const pos = new Float32Array(vx * vy * 3);
   for (let j = 0; j < vy; j++) {
     for (let i = 0; i < vx; i++) {
-      const x = i - MARGIN, y = j - MARGIN;          // vertex sits at the corner of cells (x-1..x, y-1..y)
-      const d = Math.min(cellDepth(x - 1, y - 1), cellDepth(x, y - 1), cellDepth(x - 1, y), cellDepth(x, y));
+      const x = i / resolution, y = j / resolution;
+      const ax = Math.floor(x), ay = Math.floor(y), u = x - ax, v = y - ay;
+      const cornerDepth = (cx, cy) => Math.min(cellDepth(cx - 1, cy - 1), cellDepth(cx, cy - 1), cellDepth(cx - 1, cy), cellDepth(cx, cy));
+      const d = cornerDepth(ax, ay) * (1 - u) * (1 - v) + cornerDepth(ax + 1, ay) * u * (1 - v)
+        + cornerDepth(ax, ay + 1) * (1 - u) * v + cornerDepth(ax + 1, ay + 1) * u * v;
       let h = 0;
       if (d > 0) {
         const n = fbm(x, y, seed);
         h = PEAK * (1 - Math.exp(-d / RISE)) * (0.62 + 0.76 * n) + Math.min(1, d) * (n - 0.5) * 0.5;
         h = Math.max(0.12 * Math.min(1, d), h);
+      }
+      for (const lake of lakes) {
+        const distance = lakeDistance(x, y, lake);
+        if (distance < 1.35 && d > 0) {
+          const t = THREE.MathUtils.smoothstep(distance, 0.62, 1.35);
+          h = 0.04 + (h - 0.04) * t;
+        }
       }
       const k = j * vx + i;
       heights[k] = h;
@@ -74,8 +103,8 @@ export function buildTerrain(depth, seed, cols = COLS, rows = ROWS) {
       const a = j * vx + i, b = a + 1, c = a + vx, d = c + 1;
       if (heights[a] + heights[b] + heights[c] + heights[d] < 1e-4) {
         // flat quad: open ground, or a rock rib squeezed between lanes
-        const x = i - MARGIN, y = j - MARGIN;
-        if (x >= 0 && y >= 0 && x < cols && y < rows && depth[y * cols + x] > 0) flatRock.push([x, y]);
+        const x = i / resolution, y = j / resolution;
+        if (i % resolution === 0 && j % resolution === 0 && x < cols && y < rows && depth[y * cols + x] > 0) flatRock.push([x, y]);
         continue;
       }
       index.push(a, c, b, b, c, d);
@@ -98,7 +127,14 @@ export function buildTerrain(depth, seed, cols = COLS, rows = ROWS) {
     else c.copy(MID).lerp(HIGH, (t - 0.35) / 0.65);
     const steep = 1 - Math.max(0, nrm.getY(k));
     c.lerp(CLIFF, Math.min(0.75, steep * 1.4));
-    const grain = (hash(k, 3, seed) - 0.5) * 0.06;
+    const x = pos[k * 3], z = pos[k * 3 + 2];
+    const vegetation = valueNoise(x / 5, z / 5, seed + 81);
+    c.lerp(new THREE.Color(0x416735), Math.max(0, vegetation - 0.3) * (1 - steep) * 0.8);
+    for (const lake of lakes) {
+      const distance = lakeDistance(x, z, lake);
+      if (distance < 1.15) c.lerp(new THREE.Color(0x9d9970), (1 - THREE.MathUtils.smoothstep(distance, 0.7, 1.15)) * 0.65);
+    }
+    const grain = (hash(k, 3, seed) - 0.5) * 0.025;
     col[k * 3] = c.r + grain; col[k * 3 + 1] = c.g + grain; col[k * 3 + 2] = c.b + grain;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
@@ -110,7 +146,7 @@ export function buildTerrain(depth, seed, cols = COLS, rows = ROWS) {
   mesh.receiveShadow = true;
 
   const heightAt = (x, z) => {
-    const fi = x + MARGIN, fj = z + MARGIN;
+    const fi = x * resolution, fj = z * resolution;
     const i = Math.max(0, Math.min(vx - 2, Math.floor(fi))), j = Math.max(0, Math.min(vy - 2, Math.floor(fj)));
     const u = Math.min(1, Math.max(0, fi - i)), v = Math.min(1, Math.max(0, fj - j));
     const h00 = heights[j * vx + i], h10 = heights[j * vx + i + 1];
@@ -118,5 +154,40 @@ export function buildTerrain(depth, seed, cols = COLS, rows = ROWS) {
     return h00 * (1 - u) * (1 - v) + h10 * u * (1 - v) + h01 * (1 - u) * v + h11 * u * v;
   };
 
-  return { mesh, heightAt, flatRock };
+  const waterTime = { value: 0 };
+  const waterMaterial = new THREE.MeshStandardMaterial({
+    color: 0x327e82, roughness: 0.22, metalness: 0.3, transparent: true, opacity: 0.87,
+    depthWrite: false, side: THREE.DoubleSide
+  });
+  waterMaterial.onBeforeCompile = shader => {
+    shader.uniforms.waterTime = waterTime;
+    shader.vertexShader = 'varying vec3 waterPosition;\n' + shader.vertexShader;
+    shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nwaterPosition = position;');
+    shader.fragmentShader = 'uniform float waterTime; varying vec3 waterPosition;\n' + shader.fragmentShader;
+    shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      float shimmer = sin(waterPosition.x * 4.0 + waterPosition.y * 2.5 + waterTime) * cos(waterPosition.y * 5.0 - waterTime * 0.6);
+      diffuseColor.rgb *= 0.94 + shimmer * 0.08;`);
+    shader.fragmentShader = shader.fragmentShader.replace('#include <normal_fragment_begin>', `#include <normal_fragment_begin>
+      float ripples = sin(waterPosition.x * 5.0 + waterPosition.y * 2.8 + waterTime * 0.9);
+      float crossRipples = cos(waterPosition.y * 7.0 - waterPosition.x * 1.8 - waterTime * 0.7);
+      normal = normalize(normal + vec3(ripples * 0.065, crossRipples * 0.045, 0.0));`);
+  };
+  for (const lake of lakes) {
+    const shape = new THREE.Shape();
+    for (let i = 0; i <= 96; i++) {
+      const a = i / 96 * Math.PI * 2;
+      const r = lake.radius * (1 + 0.09 * Math.sin(a * 3 + lake.phase) + 0.05 * Math.cos(a * 5 - lake.phase));
+      const x = lake.x + Math.cos(a) * r, z = lake.z + Math.sin(a) * r * 0.82;
+      if (i === 0) shape.moveTo(x, -z); else shape.lineTo(x, -z);
+    }
+    const water = new THREE.Mesh(new THREE.ShapeGeometry(shape), waterMaterial);
+    water.rotation.x = -Math.PI / 2;
+    water.position.y = 0.23;
+    water.name = 'lake-water';
+    mesh.add(water);
+  }
+  // No lakes still needs no retained, unused GPU material.
+  if (!lakes.length) waterMaterial.dispose();
+  return { mesh, heightAt, flatRock, lakes, update: time => { waterTime.value = time; } };
+
 }

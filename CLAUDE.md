@@ -56,6 +56,12 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 
 ## Latest gameplay update (Nov 9, 2026)
 
+- Canyon width now varies along each approach: mostly 4–7 tiles, with short 2–3 tile necks
+  and gradual transitions. Boulders leave a two-tile spine clear; the final convergence widens
+  with its slope. Shapes remain reproducible from the seed. Map version 2 is used for new
+  rounds; existing checkpoints without a map version restore their original version-1 terrain
+  before adopting the wider generator on the next round.
+
 - Actual map progression (`mapDimensions` in config): levels 1–5 = 56×56, 6–10 = 72×72,
   11–15 = 88×88, 16–20 = 104×104, 21–25 = 120×120, 26+ = 128×128 maximum.
 - One simple western attack route at levels 1–5, two at levels 6–15, and three at level 16+.
@@ -208,6 +214,11 @@ late levels: real dimensions, disjoint middle approaches, connectivity, grid res
 swarm fields. `tests/browser-maps.cjs` uses the browser invocation above and checks exact
 terrain/ground extents, every lane receiving enemies, camera/minimap coordinates, level 5→6
 and restarting onto a smaller map.
+
+`node tests/map-widths.mjs` checks 216 maps for actual 2/3/4/6/7-tile sections, broad areas
+outnumbering necks, at least two clear tiles through necks after boulders, route reachability,
+and original-terrain fixtures. The browser map suite also restores an original checkpoint
+with a wall that would be invalid on the new terrain, then checks the next round uses version 2.
 
 Other useful checks from development:
 

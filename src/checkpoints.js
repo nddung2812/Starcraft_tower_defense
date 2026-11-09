@@ -1,6 +1,6 @@
 import { ARMORY, TREASURE, TREASURE_RULES, BUILD, UNITS, CELL } from './config.js';
 import { Grid } from './grid.js';
-import { carveLevel } from './levels.js';
+import { carveLevel, MAP_VERSION } from './levels.js';
 import { Marine, Wall, Bunker } from './entities.js';
 
 export const SAVE_KEY = 'td.checkpoint.v1';
@@ -15,6 +15,7 @@ export function captureCheckpoint(g, meta) {
   const snapshot = {
     version: 1, savedAt: Date.now(), ...meta,
     level: g.level, seed: g.mapSeed, minerals: g.minerals, kills: g.kills, time: g.time,
+    mapVersion: g.mapVersion,
     airStrikeCd: g.airStrikeCd, phase: g.state, coreHp: g.core.hp,
     armory: g.armory.map(a => a.id),
     treasure: g.treasureLoot.map(({ id, boxType, earnedLevel, expiresAfterLevel }) =>
@@ -39,6 +40,7 @@ export function validateCheckpoint(s) {
       !integer(s.level, 1, 100000) || !integer(s.seed, 0, 0xffffffff) ||
       !number(s.minerals) || !integer(s.kills) || !number(s.time) || !number(s.airStrikeCd) ||
       !['build', 'brief'].includes(s.phase) || !number(s.coreHp, 0.001)) return false;
+    if (s.mapVersion !== undefined && s.mapVersion !== 1 && s.mapVersion !== MAP_VERSION) return false;
     if (!Array.isArray(s.armory) || s.armory.length > ARMORY.length || new Set(s.armory).size !== s.armory.length ||
       !s.armory.every(id => ARMORY.some(a => a.id === id))) return false;
     if (!Array.isArray(s.treasure) || s.treasure.length > 10000 || !s.treasure.every(t =>
@@ -46,7 +48,7 @@ export function validateCheckpoint(s) {
       integer(t.earnedLevel, 1, s.level) && (t.boxType === 'gold' ? t.expiresAfterLevel === null :
         t.expiresAfterLevel === t.earnedLevel + TREASURE_RULES.silverRounds && t.expiresAfterLevel >= s.level))) return false;
     const grid = new Grid();
-    grid.load(carveLevel(s.level, s.seed));
+    grid.load(carveLevel(s.level, s.seed, s.mapVersion ?? 1));
     if (s.coreHp > grid.core.hp) return false;
     const pos = e => e && number(e.x, 0, grid.COLS - 0.001) && number(e.z, 0, grid.ROWS - 0.001);
     const tile = e => e && integer(e.tx, 0, grid.COLS - 1) && integer(e.ty, 0, grid.ROWS - 1);
@@ -99,6 +101,7 @@ export function restoreCheckpoint(g, s) {
   if (!validateCheckpoint(s)) throw Error('This saved run is incompatible or damaged.');
   g.wipeUnits();
   Object.assign(g, { level: s.level, mapSeed: s.seed, minerals: s.minerals, kills: s.kills, score: s.kills,
+    mapVersion: s.mapVersion ?? 1,
     time: s.time, airStrikeCd: s.airStrikeCd, state: 'build', paused: true, queue: [],
     armory: s.armory.map(id => ARMORY.find(a => a.id === id)),
     treasureLoot: s.treasure.map(({ id, boxType, earnedLevel, expiresAfterLevel }) =>

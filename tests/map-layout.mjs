@@ -1,7 +1,37 @@
 import assert from 'node:assert/strict';
 import { carveLevel } from '../src/levels.js';
 import { Grid } from '../src/grid.js';
-import { mapDimensions } from '../src/config.js';
+import { CELL, mapDimensions } from '../src/config.js';
+
+function assertRockFreeRoute(grid, spawn, core) {
+  let here = { x: spawn.x + 0.5, y: spawn.y + 0.85 };
+  for (let stretch = 0; stretch < grid.COLS; stretch++) {
+    const route = grid.route(Math.floor(here.x), Math.floor(here.y));
+    assert.ok(route.length > 1, 'Swarm route ended before the core');
+    const first = grid.clearWorldLine(here.x, here.y, route[1].x, route[1].y, true) ? 1 : 0;
+    for (let i = first; i < route.length; i++) {
+      const end = route[i];
+      const steps = Math.ceil(Math.hypot(end.x - here.x, end.y - here.y) * 40);
+      if (!steps) { here = end; continue; }
+      for (let step = 0; step <= steps; step++) {
+        const x = here.x + (end.x - here.x) * step / steps;
+        const y = here.y + (end.y - here.y) * step / steps;
+        assert.notEqual(grid.get(Math.floor(x), Math.floor(y)), CELL.ROCK,
+          `Swarm route crosses rock at ${x.toFixed(2)}, ${y.toFixed(2)}`);
+      }
+      here = end;
+    }
+    if (here.cx >= core.x && here.cx < core.x + core.w && here.cy >= core.y && here.cy < core.y + core.h) return;
+  }
+  assert.fail('Swarm route never reached the core');
+}
+
+const corner = new Grid(3, 3);
+corner.cells.fill(CELL.OPEN);
+corner.core = { x: 2, y: 0, w: 1, h: 1 };
+corner.set(2, 1, CELL.ROCK);
+assert.notEqual(corner.field().next[corner.idx(1, 1)], corner.idx(2, 0),
+  'Swarm flow must not cut diagonally past a rock corner');
 
 const grid = new Grid();
 let checked = 0;
@@ -32,6 +62,7 @@ for (const seed of [0, 12345, 0xffffffff]) {
       assert.ok(middle, 'Route skipped the middle of the map');
       middleRows.push(middle.y);
       assert.ok(Number.isFinite(grid.field().dist[grid.idx(spawn.x, spawn.y)]));
+      assertRockFreeRoute(grid, spawn, map.core);
     }
     middleRows.sort((a,b) => a-b);
     assert.ok(middleRows.slice(1).every((y,i) => y-middleRows[i] >= 4), 'Attack routes collapsed into one corridor');
