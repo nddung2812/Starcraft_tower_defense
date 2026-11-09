@@ -20,11 +20,11 @@ export const CELL = { OPEN: 0, WALL: 1, TOWER: 2, CORE: 3, SPAWN: 4, ROCK: 5, BU
 export const BREAK_COST = 9;
 
 export const BUILD = {
-  wall: { id: 'wall', name: 'Bunker Wall', cost: 25, hp: 320, icon: 'W', key: '1', desc: 'Plasteel barricade. The swarm chews through it or goes around.' },
-  marine: { id: 'marine', name: 'Marine', cost: 100, icon: 'M', key: '2', desc: 'Terran Marine. Select him and click the canyon to move. Promote, stim, or garrison a bunker.' },
-  bunker: { id: 'bunker', name: 'Bunker', cost: 80, hp: 560, icon: 'B', key: '3', desc: 'Holds two Marines. Extra armour, a firing slit, and a facing you set by where you build it.' },
-  goliath: { id: 'goliath', name: 'Goliath', cost: 175, icon: 'G', key: '4', desc: 'Walker with twin autocannons. Long reach. Too big for a bunker.' },
-  tank: { id: 'tank', name: 'Siege Tank', cost: 260, icon: 'H', key: '5', desc: 'Silver heavy tank. Twin shock cannons. Select it and click the canyon to drive.' }
+  wall: { id: 'wall', name: 'Bunker Wall', cost: 25, hp: 320, icon: 'W', key: 'W', desc: 'Plasteel barricade. The swarm chews through it or goes around.' },
+  marine: { id: 'marine', name: 'Marine', cost: 100, icon: 'M', key: 'M', desc: 'Terran Marine. Right-click the canyon to move him. Promote, stim, or garrison a bunker.' },
+  bunker: { id: 'bunker', name: 'Bunker', cost: 80, hp: 560, icon: 'B', key: 'B', desc: 'Holds two Marines. Extra armour, a firing slit, and a facing you set by where you build it.' },
+  goliath: { id: 'goliath', name: 'Goliath', cost: 175, icon: 'G', key: 'G', desc: 'Walker with twin autocannons. Long reach. Too big for a bunker.' },
+  tank: { id: 'tank', name: 'Siege Tank', cost: 260, icon: 'H', key: 'T', desc: 'Silver heavy tank. Twin shock cannons. Right-click the canyon to drive it.' }
 };
 
 export const MARINE_TIERS = [

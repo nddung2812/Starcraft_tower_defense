@@ -92,6 +92,9 @@ export class Game {
     this.called = false;
     this.briefT = 0;
     this.airStrikeCd = 0;
+    this.pings = [];
+    this.lastAlert = null;
+    this.alertMsgT = -99;
     this.loadLevel();
     this.emit('change');
   }
@@ -253,10 +256,13 @@ export class Game {
     return true;
   }
 
-  garrison(marine, bunker) {
-    if (this.state !== 'build' || marine.kind !== 'marine' || marine.bunker || marine.downed || marine.dead) return false;
-    if (bunker.garrison.length >= 2) return false;
-    this.grid.clear(marine.tx, marine.ty);
+  garrison(marine, bunker, force = false) {
+    if ((!force && this.state !== 'build') || marine.kind !== 'marine' || marine.bunker || marine.downed || marine.dead) return false;
+    if (bunker.dead || bunker.garrison.length >= 2) return false;
+    if (marine.isPlaced(this)) this.grid.clear(marine.tx, marine.ty);
+    marine.driving = false;
+    marine.waypoints = null;
+    marine.order = null;
     marine.bunker = bunker;
     bunker.garrison.push(marine);
     marine.obj.visible = false;
@@ -338,7 +344,7 @@ export class Game {
     if (e.bunker) {
       e.bunker.garrison = e.bunker.garrison.filter((m) => m !== e);
       e.bunker = null;
-    } else if (e.tx != null) this.grid.clear(e.tx, e.ty);
+    } else if (e.tx != null && this.grid.occupant(e.tx, e.ty) === e) this.grid.clear(e.tx, e.ty);
     this.world.remove(e.obj);
     if (e.kind === 'wall') this.walls = this.walls.filter((w) => w !== e);
     else if (e.kind === 'bunker') this.bunkers = this.bunkers.filter((b) => b !== e);
@@ -378,7 +384,6 @@ export class Game {
     this.briefT = 3.15;
     this.called = false;
     this.state = 'brief';
-    this.selected = null;
     sfx.alarm();
     voice.say('contact');
     this.emit('brief', {
@@ -482,11 +487,115 @@ export class Game {
     return true;
   }
 
+  /* ---------------- commands ---------------- */
+
+  /**
+   * Move a group. Each unit gets its own open tile around the clicked one so
+   * the squad fans out instead of queueing for one square.
+   * mode: 'move' ignores bugs on the way, 'amove' stops to shoot.
+   */
+  commandMove(units, tx, ty, mode = 'move') {
+    const walkers = units.filter((u) => u.kind === 'scv' ? !u.dead : (u.spec?.mobile && !u.dead && !u.downed));
+    if (!walkers.length) return 0;
+    const taken = new Set();
+    for (const m of this.gunners) {
+      if (m.driving && !walkers.includes(m)) taken.add(this.grid.idx(m.goalTx, m.goalTy));
+    }
+
+    // breadth-first fan-out over open ground from the nearest open tile to the click
+    const start = this.grid.nearestOpen(tx, ty, 4, taken);
+    if (!start) return 0;
+    const slots = [];
+    const seen = new Set([this.grid.idx(start.x, start.y)]);
+    const q = [start];
+    while (q.length && slots.length < walkers.length) {
+      const c = q.shift();
+      if (!taken.has(this.grid.idx(c.x, c.y))) slots.push(c);
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const x = c.x + dx, y = c.y + dy, k = this.grid.idx(x, y);
+        if (!this.grid.inside(x, y) || seen.has(k) || this.grid.get(x, y) !== CELL.OPEN) continue;
+        seen.add(k);
+        q.push({ x, y });
+      }
+    }
+
+    let n = 0;
+    const left = walkers.slice();
+    for (const slot of slots) {
+      // nearest remaining unit takes the slot
+      let bi = 0, bd = Infinity;
+      left.forEach((u, i) => {
+        const d = Math.hypot(u.x - (slot.x + 0.5), u.z - (slot.y + 0.5));
+        if (d < bd) { bd = d; bi = i; }
+      });
+      const u = left.splice(bi, 1)[0];
+      if (u.kind === 'scv') {
+        u.order = { type: 'move', x: slot.x + 0.5, z: slot.y + 0.5 };
+        u.route = null;
+        n++;
+        continue;
+      }
+      if (u.bunker) this.eject(u, true);
+      u.order = mode === 'amove' ? { type: 'amove' } : null;
+      if (u.orderMove(slot.x, slot.y, this)) n++;
+      else if (u.order?.type === 'amove') u.order = null;
+    }
+    return n;
+  }
+
+  commandAttack(units, target) {
+    let n = 0;
+    for (const u of units) if (u.spec && u.orderAttack(target, this)) n++;
+    return n;
+  }
+
+  /** Marines walk to the bunker and climb in; anyone else just goes next to it. */
+  commandGarrison(units, bunker) {
+    const marines = units.filter((u) => u.kind === 'marine' && !u.dead && !u.downed && !u.bunker);
+    const room = 2 - bunker.garrison.length;
+    const going = marines.slice(0, Math.max(0, room));
+    for (const m of going) {
+      const spot = this.grid.nearestOpen(bunker.tx, bunker.ty, 2);
+      if (!spot) continue;
+      if (Math.hypot(m.x - bunker.x, m.z - bunker.z) < 1.8 && !m.driving) {
+        this.garrison(m, bunker, true);
+        continue;
+      }
+      m.order = { type: 'garrison', bunker };
+      if (!m.orderMove(spot.x, spot.y, this)) m.order = null;
+    }
+    const rest = units.filter((u) => !going.includes(u));
+    if (rest.length) this.commandMove(rest, bunker.tx, bunker.ty);
+    return going.length;
+  }
+
+  commandStop(units) {
+    for (const u of units) {
+      if (u.kind === 'scv') { u.order = null; u.route = null; }
+      else if (u.stop) u.stop(this);
+    }
+  }
+
+  /** Something of ours is taking damage: ping the minimap, and say so now and then. */
+  alert(e) {
+    if (this.state !== 'wave' && this.state !== 'brief') return;
+    if ((e._pingT ?? -99) > this.time - 1.4) return;
+    e._pingT = this.time;
+    this.pings.push({ x: e.x, z: e.z, t: 0 });
+    this.lastAlert = { x: e.x, z: e.z };
+    if (this.time - this.alertMsgT > 7) {
+      this.alertMsgT = this.time;
+      this.emit('alert', e);
+    }
+  }
+
   /* ---------------- tick ---------------- */
 
   update(dt) {
     this.time += dt;
     if (this.airStrikeCd > 0) this.airStrikeCd = Math.max(0, this.airStrikeCd - dt);
+    for (const p of this.pings) p.t += dt;
+    if (this.pings.length && this.pings[0].t > 2.6) this.pings = this.pings.filter((p) => p.t <= 2.6);
 
     const pulse = 6 + Math.sin(this.time * 2) * 2;
     for (const h of this.hatchGroup.children) {
@@ -569,7 +678,7 @@ export class Game {
     for (let i = this.gunners.length - 1; i >= 0; i--) {
       const m = this.gunners[i];
       if (m.dead && m.deathT > 1.8) {
-        if (!m.bunker) this.grid.clear(m.tx, m.ty);
+        if (!m.bunker && this.grid.occupant(m.tx, m.ty) === m) this.grid.clear(m.tx, m.ty);
         this.world.remove(m.obj);
         this.gunners.splice(i, 1);
         this.emit('change');

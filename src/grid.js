@@ -110,7 +110,11 @@ export class Grid {
           const price = (x, y) => {
             if (!walk) return this.cost(x, y);
             if (x === sx && y === sy) return 0;
-            return this.get(x, y) === CELL.OPEN ? 0 : Infinity;
+            // squadmates step aside: walk through a friendly unit's tile, never through walls or bunkers
+            const c = this.get(x, y);
+            if (c === CELL.OPEN) return 0;
+            if (c === CELL.TOWER && !(x === tx && y === ty)) return 0.4;
+            return Infinity;
           };
           const step = price(nx, ny);
           if (step === Infinity) continue;
@@ -187,6 +191,25 @@ export class Grid {
     const cells = this.findPath(sx, sy, tx, ty, true);
     if (!cells) return null;
     return cells.map((c) => ({ x: c.x + 0.5, y: c.y + 0.5, cx: c.x, cy: c.y }));
+  }
+
+  /** Closest open (walkable, unoccupied) cell to (tx, ty), searching rings out to maxR. */
+  nearestOpen(tx, ty, maxR = 3, skip = null) {
+    for (let r = 0; r <= maxR; r++) {
+      let best = null, bd = Infinity;
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const x = tx + dx, y = ty + dy;
+          if (!this.inside(x, y) || this.get(x, y) !== CELL.OPEN) continue;
+          if (skip && skip.has(this.idx(x, y))) continue;
+          const d = dx * dx + dy * dy;
+          if (d < bd) { bd = d; best = { x, y }; }
+        }
+      }
+      if (best) return best;
+    }
+    return null;
   }
 
   /** Would placing here seal the swarm out entirely? (allowed, but worth warning about) */

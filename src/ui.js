@@ -93,6 +93,26 @@ function statRow(label, value, frac, color) {
     <span class="stat__v">${value}</span></div>`;
 }
 
+const COMMANDS = [
+  { id: 'attack', label: 'Attack', key: 'A' },
+  { id: 'stop', label: 'Stop', key: 'S' },
+  { id: 'air', label: 'Air Strike', key: 'R' },
+  { id: 'stim', label: 'Stim', key: 'F' },
+  { id: 'promote', label: 'Promote', key: 'U' },
+  { id: 'salvage', label: 'Salvage', key: 'X' },
+  { id: 'army', label: 'All Army', key: 'F2' },
+  { id: 'scv', label: 'SCV', key: 'F1' },
+  { id: 'wave', label: 'Launch', key: 'Space' }
+];
+
+const CHIP = { marine: 'M', goliath: 'G', tank: 'H', scv: 'S' };
+
+function unitLike(e) {
+  if (!e || e.dead) return false;
+  if (e.kind === 'scv') return true;
+  return !!UNITS[e.kind] && !e.downed && !e.bunker;
+}
+
 export class UI {
   constructor(game) {
     this.game = game;
@@ -110,6 +130,25 @@ export class UI {
     $('buildBar').addEventListener('click', (e) => {
       const btn = e.target.closest('[data-build]');
       if (btn) game.emit('pick', btn.dataset.build);
+    });
+
+    $('cmdCard').innerHTML = COMMANDS.map((c) => `
+      <button class="cmd" data-cmd="${c.id}" title="${c.label} (${c.key})">
+        <span class="cmd__label">${c.label}</span>
+        <span class="cmd__key">${c.key}</span>
+      </button>`).join('');
+    $('cmdCard').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-cmd]');
+      if (btn && !btn.disabled) game.emit('cmd', btn.dataset.cmd);
+    });
+
+    this.selList = [];
+    this.chipT = 0;
+    $('selGrid').addEventListener('click', (e) => {
+      const chip = e.target.closest('[data-i]');
+      const unit = chip && this.selList[+chip.dataset.i];
+      if (!unit) return;
+      game.emit(e.shiftKey ? 'deselect' : 'selectOnly', unit);
     });
 
     $('btnWave').addEventListener('click', () => game.startWave());
@@ -167,8 +206,8 @@ export class UI {
       $('pRole').textContent = bunker ? `${entity.garrison.length} / 2 garrisoned` : (entity.dead ? 'Destroyed' : 'Field Repair');
       $('pFaction').textContent = 'Terran Dominion';
       $('pBio').textContent = bunker
-        ? 'Select a Marine, then click the bunker. He fires through the slit, with extra armour, and only along its facing.'
-        : 'Select the SCV, then click a damaged wall or a downed Marine. Keep it out of the breach.';
+        ? 'Select Marines, then right-click the bunker. They walk in and fire through the slit, with extra armour, along its facing.'
+        : 'Right-click a damaged wall or a downed Marine to fix it, or the ground to move. Keep it out of the breach.';
       $('pQuote').textContent = bunker ? '"Hold this corridor."' : '"Job\'s done."';
       $('stats').innerHTML = statRow('Hit Points', Math.ceil(entity.hp) + ' / ' + entity.maxHp, entity.hp / entity.maxHp, '#5ef08a');
     } else if (UNITS[kind]) {
@@ -281,6 +320,64 @@ export class UI {
     });
 
     if (this.inspect.entity) this.renderStats(); else this.syncActions();
+    this.syncCommands();
+  }
+
+  /** Multi-select grid in the inspector: one chip per unit, with its health. */
+  setSelection(list) {
+    this.selList = list.slice(0, 24);
+    const grid = $('selGrid');
+    grid.hidden = list.length < 2;
+    $('selCount').textContent = list.length > 1 ? `${list.length} selected` : '';
+    grid.innerHTML = list.length < 2 ? '' : this.selList.map((e, i) => `
+      <button class="chip chip--${e.kind}" data-i="${i}" title="${e.kind === 'scv' ? 'SCV' : UNITS[e.kind]?.info.name || e.kind}">
+        <span class="chip__icon">${CHIP[e.kind] || '?'}</span>
+        <span class="chip__hp"><i></i></span>
+      </button>`).join('');
+    this.paintChips();
+    this.syncCommands();
+  }
+
+  paintChips() {
+    const bars = $('selGrid').querySelectorAll('.chip__hp i');
+    this.selList.forEach((e, i) => {
+      const bar = bars[i];
+      if (!bar) return;
+      const pct = Math.max(0, e.hp / e.maxHp);
+      bar.style.width = pct * 100 + '%';
+      bar.style.background = pct > 0.55 ? '#5ef08a' : pct > 0.25 ? '#f0b23c' : '#ff5a4a';
+    });
+  }
+
+  setArmed(id, on) {
+    document.querySelector(`[data-cmd="${id}"]`)?.classList.toggle('cmd--armed', !!on);
+  }
+
+  /** Grey out commands that make no sense for what's selected right now. */
+  syncCommands() {
+    const g = this.game;
+    const sel = g.selection || [];
+    const units = sel.filter(unitLike);
+    const guns = units.filter((u) => UNITS[u.kind]);
+    const primary = g.selected;
+    const fighting = g.state === 'wave' || g.state === 'brief';
+    const set = (id, on, label) => {
+      const b = document.querySelector(`[data-cmd="${id}"]`);
+      if (!b) return;
+      b.disabled = !on;
+      if (label) b.querySelector('.cmd__label').textContent = label;
+    };
+    set('attack', guns.length > 0);
+    set('stop', units.length > 0);
+    set('air', fighting && g.airStrikeReady, fighting && !g.airStrikeReady ? `Air ${Math.ceil(g.airStrikeCd)}s` : 'Air Strike');
+    set('stim', g.stimUnlocked && units.some((u) => u.kind === 'marine' && u.stimT <= 0));
+    const cost = primary && UNITS[primary.kind] && !primary.downed ? primary.upgradeCost : null;
+    set('promote', g.state === 'build' && cost != null && g.minerals >= cost);
+    const mine = primary && (UNITS[primary.kind] || primary.kind === 'wall' || primary.kind === 'bunker');
+    set('salvage', g.state === 'build' && !!mine);
+    set('army', g.gunners.some(unitLike));
+    set('scv', !!g.scv && !g.scv.dead);
+    set('wave', g.state === 'build' || (fighting && !!g.lastAlert), g.state === 'build' ? 'Launch' : 'Last Alert');
   }
 
   hideReel() { this.say(''); }
@@ -310,6 +407,7 @@ export class UI {
 
   setAirArmed(on) {
     $('btnAir').classList.toggle('btn--armed', !!on);
+    this.setArmed('air', on);
   }
 
   syncAir() {
@@ -332,5 +430,11 @@ export class UI {
     $('rMinerals').textContent = g.minerals;
     $('rKills').textContent = g.kills;
     this.syncAir();
+    this.chipT -= dt;
+    if (this.chipT <= 0) {
+      this.chipT = 0.2;
+      this.paintChips();
+      this.syncCommands();
+    }
   }
 }

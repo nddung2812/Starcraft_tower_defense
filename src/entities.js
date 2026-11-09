@@ -85,6 +85,8 @@ export class Marine {
     this.goalTy = ty;
     this.driving = false;
     this.trackDist = 0;
+    this.order = null;   // null | { type: 'attack', target } | { type: 'amove' } | { type: 'garrison', bunker }
+    this.chaseT = 0;
     this.stimLight = new THREE.PointLight(0xff6633, 0, 3.2, 2);
     this.stimLight.position.y = 0.9;
     this.obj = new THREE.Group();
@@ -166,7 +168,7 @@ export class Marine {
     }
     const want = Math.atan2(dz, dx);
     this.restYaw = want;
-    const step = Math.min(dist, this.spec.speed * dt);
+    const step = Math.min(dist, this.spec.speed * (this.stimT > 0 ? 1.5 : 1) * dt);
     const nx = this.x + (dx / dist) * step;
     const nz = this.z + (dz / dist) * step;
     if (game.grid.get(Math.floor(nx), Math.floor(this.z)) !== CELL.ROCK) this.x = nx;
@@ -183,9 +185,51 @@ export class Marine {
     return true;
   }
 
+  /** Standing on its own tile, as opposed to walking or garrisoned. */
+  isPlaced(game) { return game.grid.occupant(this.tx, this.ty) === this; }
+
+  /** Stop where you are: walk the last few steps onto the current tile and dig in. */
+  halt(game) {
+    if (!this.driving) return;
+    const cx = Math.floor(this.x), cy = Math.floor(this.z);
+    this.goalTx = cx;
+    this.goalTy = cy;
+    this.waypoints = [{ x: cx + 0.5, y: cy + 0.5, cx, cy }];
+    this.wp = 0;
+  }
+
+  stop(game) {
+    this.order = null;
+    this.halt(game);
+  }
+
+  /** Shoot this bug. Mobile units close the distance if it is out of range. */
+  orderAttack(target, game) {
+    if (this.dead || this.downed || !target || target.dead) return false;
+    this.order = { type: 'attack', target };
+    this.chaseT = 0;
+    return true;
+  }
+
+  /** Re-route toward an attack target that is out of range. */
+  chase(game) {
+    const t = this.order.target;
+    const goal = game.grid.nearestOpen(Math.floor(t.x), Math.floor(t.z), 3);
+    if (!goal) return;
+    if (this.driving && goal.x === this.goalTx && goal.y === this.goalTy) return;
+    this.orderMove(goal.x, goal.y, game);
+  }
+
   finishMove(game) {
     this.driving = false;
     this.waypoints = null;
+    const o = this.order;
+    if (o?.type === 'amove') this.order = null;
+    if (o?.type === 'garrison') {
+      this.order = null;
+      const b = o.bunker;
+      if (!b.dead && b.garrison.length < 2 && Math.hypot(b.x - this.x, b.z - this.z) < 1.8 && game.garrison(this, b, true)) return;
+    }
     let spot = null;
     if (game.grid.inside(this.goalTx, this.goalTy) && game.grid.get(this.goalTx, this.goalTy) === CELL.OPEN) {
       spot = { x: this.goalTx, y: this.goalTy };
@@ -234,7 +278,18 @@ export class Marine {
       return;
     }
 
-    const driving = this.bunker ? false : this.stepMove(dt, game);
+    let o = this.order;
+    if (o?.type === 'attack' && (!o.target || o.target.dead)) this.order = o = null;
+    if (o?.type === 'attack' && !this.bunker && this.spec.mobile) {
+      if (this.distTo(o.target) <= this.stats.range * 0.92) this.halt(game);
+      else {
+        this.chaseT -= dt;
+        if (this.chaseT <= 0) { this.chaseT = 0.6; this.chase(game); }
+      }
+    }
+    // attack-move: plant feet while something is in the sights, then carry on
+    const engaged = o?.type === 'amove' && this.driving && !!this.acquire(game);
+    const driving = this.bunker || engaged ? false : this.stepMove(dt, game);
 
     if (this.bunker) {
       this.x = this.bunker.x;
@@ -248,7 +303,8 @@ export class Marine {
     const grow = this.spawnT * this.spawnT * (3 - 2 * this.spawnT);
     this.model.scale.setScalar(grow);
 
-    if (!this.target || this.target.dead || this.distTo(this.target) > this.stats.range || !this.inArc(this.target)) {
+    const ordered = this.order?.type === 'attack' && this.target !== this.order.target;
+    if (ordered || !this.target || this.target.dead || this.distTo(this.target) > this.stats.range || !this.inArc(this.target)) {
       this.target = this.acquire(game);
     }
 
@@ -298,6 +354,8 @@ export class Marine {
   distTo(e) { return Math.hypot(e.x - this.x, e.z - this.z); }
 
   acquire(game) {
+    const mine = this.order?.type === 'attack' ? this.order.target : null;
+    if (mine && !mine.dead && this.distTo(mine) <= this.stats.range && this.inArc(mine)) return mine;
     const focus = game.focus;
     if (focus && !focus.dead && this.distTo(focus) <= this.stats.range && this.inArc(focus)) return focus;
     let best = null, bestScore = -Infinity;
@@ -350,6 +408,7 @@ export class Marine {
     game.fx.sparks({ x: this.x, y: 0.6, z: this.z }, fromAngle + Math.PI, 6, [1, 0.8, 0.5], 4);
     game.fx.label({ x: this.x, y: 1.3, z: this.z }, '-' + dealt, 'dmg-self');
     game.sfx.impact();
+    game.alert(this);
     if (!this.warned && this.hp < this.maxHp * 0.45 && this.hp > 0) {
       this.warned = true;
       game.voice.say('hit');
@@ -359,6 +418,9 @@ export class Marine {
       this.downed = true;
       this.downT = 9;
       this.target = null;
+      this.order = null;
+      this.driving = false;
+      this.waypoints = null;
       if (this.bunker) game.eject(this, true);
       game.voice.say('down');
       game.stage.kick(1.4);
@@ -384,6 +446,11 @@ export class Marine {
     this.model.position.y = 0;
     game.voice.say('revive');
     game.fx.ring({ x: this.x, z: this.z }, 1.3, 0x5ef08a);
+    // went down in the open: get up and dig in on the nearest tile
+    if (!this.bunker && !this.isPlaced(game)) {
+      this.driving = true;
+      this.halt(game);
+    }
   }
 }
 
@@ -431,6 +498,7 @@ export class Wall {
   }
 
   takeDamage(amount, game, fromAngle) {
+    game.alert(this);
     this.hp -= amount;
     this.shake = 1;
     game.fx.sparks({ x: this.x, y: 0.5, z: this.z }, fromAngle + Math.PI, 5, [0.9, 0.85, 0.7], 4);
@@ -482,6 +550,7 @@ export class Core {
   }
 
   takeDamage(amount, game, fromAngle) {
+    game.alert(this);
     this.hp -= amount;
     game.fx.sparks({ x: this.x, y: 0.9, z: this.z }, fromAngle + Math.PI, 8, [1, 0.6, 0.4], 5);
     game.fx.label({ x: this.x, y: 2.3, z: this.z }, '-' + amount, 'dmg-self');
@@ -564,8 +633,9 @@ export class Zergling {
       this.repath(game);
     }
 
-    if (game.scv && !game.scv.dead && Math.hypot(game.scv.x - this.x, game.scv.z - this.z) < 0.85) {
-      this.attack(game.scv, dt, game);
+    const loose = this.looseVictim(game);
+    if (loose) {
+      this.attack(loose, dt, game);
     } else if (this.breed.ranged) {
       const prey = this.rangedPrey(game);
       if (prey) this.spit(prey, dt, game);
@@ -592,6 +662,16 @@ export class Zergling {
     }
     this.pathVersion = game.grid.version;
     this.repathIn = 0.5 + Math.random() * 0.5;
+  }
+
+  /** An SCV, or a soldier caught walking in the open, close enough to bite. */
+  looseVictim(game) {
+    if (game.scv && !game.scv.dead && Math.hypot(game.scv.x - this.x, game.scv.z - this.z) < 0.85) return game.scv;
+    for (const m of game.gunners) {
+      if (m.dead || m.bunker || m.isPlaced(game)) continue;
+      if (Math.hypot(m.x - this.x, m.z - this.z) < 0.85) return m;
+    }
+    return null;
   }
 
   /** The next thing on the route we need to chew through, if any. */
@@ -814,6 +894,7 @@ export class Bunker {
   }
 
   takeDamage(amount, game, fromAngle) {
+    game.alert(this);
     this.hp -= amount;
     this.shake = 1;
     game.fx.sparks({ x: this.x, y: 0.4, z: this.z }, fromAngle + Math.PI, 6, [0.9, 0.85, 0.7], 4);
@@ -854,18 +935,19 @@ export class Scv {
       return;
     }
     const o = this.order;
-    if (o && (o.target.dead || (o.type === 'revive' && !o.target.downed) || (o.type === 'repair' && o.target.hp >= o.target.maxHp))) {
+    if (o?.target && (o.target.dead || (o.type === 'revive' && !o.target.downed) || (o.type === 'repair' && o.target.hp >= o.target.maxHp))) {
       this.order = null;
     }
     if (this.order) {
-      const t = this.order.target;
-      const dx = t.x - this.x, dz = t.z - this.z;
-      const d = Math.hypot(dx, dz);
-      this.yaw = angleLerp(this.yaw, Math.atan2(dz, dx), Math.min(1, dt * 8));
-      if (d > 0.85) {
-        this.x += Math.cos(this.yaw) * this.speed * dt;
-        this.z += Math.sin(this.yaw) * this.speed * dt;
+      const t = this.order.type === 'move' ? this.order : this.order.target;
+      const reach = this.order.type === 'move' ? 0.06 : 0.85;
+      const d = Math.hypot(t.x - this.x, t.z - this.z);
+      if (d > reach) {
+        this.walkToward(t, dt, game);
         this.channel = 0;
+      } else if (this.order.type === 'move') {
+        this.order = null;
+        this.route = null;
       } else if (this.order.type === 'repair') {
         t.hp = Math.min(t.maxHp, t.hp + 60 * dt);
         if (Math.random() < dt * 8) game.fx.sparks({ x: t.x, y: 0.4, z: t.z }, 0, 2, [0.7, 0.95, 1], 2, 6);
@@ -873,13 +955,42 @@ export class Scv {
         this.channel += dt;
         if (this.channel > 1.1) { t.revive(game); this.order = null; this.channel = 0; }
       }
+      if (this.order && d <= reach) this.yaw = angleLerp(this.yaw, Math.atan2(t.z - this.z, t.x - this.x), Math.min(1, dt * 8));
     }
     this.obj.position.set(this.x, 0, this.z);
     this.model.rotation.y = -this.yaw;
     this.bar.set(this.hp / this.maxHp, game.camera);
   }
 
+  /** Follow open ground toward a point, re-routing now and then; straight line for the last stretch. */
+  walkToward(goal, dt, game) {
+    this.repathIn = (this.repathIn ?? 0) - dt;
+    if (!this.route || this.repathIn <= 0 || this.routeGoal !== goal) {
+      this.routeGoal = goal;
+      this.repathIn = 0.8;
+      const sx = Math.max(0, Math.min(game.grid.COLS - 1, Math.floor(this.x)));
+      const sy = Math.max(0, Math.min(game.grid.ROWS - 1, Math.floor(this.z)));
+      const end = game.grid.nearestOpen(Math.floor(goal.x), Math.floor(goal.z), 2);
+      this.route = end ? game.grid.walkRoute(sx, sy, end.x, end.y) : null;
+      this.wp = 1;
+    }
+    let px = goal.x, pz = goal.z;
+    const node = this.route?.[this.wp];
+    if (node) {
+      if (Math.hypot(node.x - this.x, node.y - this.z) < 0.1) this.wp++;
+      const n = this.route[this.wp];
+      if (n) { px = n.x; pz = n.y; }
+    }
+    const dx = px - this.x, dz = pz - this.z;
+    const d = Math.hypot(dx, dz) || 1;
+    this.yaw = angleLerp(this.yaw, Math.atan2(dz, dx), Math.min(1, dt * 10));
+    const step = Math.min(d, this.speed * dt);
+    this.x += (dx / d) * step;
+    this.z += (dz / d) * step;
+  }
+
   takeDamage(amount, game) {
+    game.alert(this);
     this.hp -= amount;
     if (this.hp <= 0 && !this.dead) {
       this.hp = 0;

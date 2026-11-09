@@ -45,6 +45,8 @@
   <main class="stage">
     <canvas id="game"></canvas>
     <div id="overlay" class="overlay"></div>
+    <div id="selbox" class="selbox" hidden></div>
+    <canvas id="minimap" class="minimap" title="Minimap — click to look, right-click to send selected units"></canvas>
 
     <div class="cam" aria-label="Camera">
       <button id="camLeft" class="cam__btn" title="Rotate left">↺</button>
@@ -67,6 +69,7 @@
     <div class="buildbar" id="buildBar"></div>
     <p id="status" class="status"></p>
     <div id="toasts" class="toasts"></div>
+    <div class="cmdcard" id="cmdCard" aria-label="Commands"></div>
   </footer>
 
   <aside class="panel" data-faction="marine">
@@ -86,7 +89,10 @@
     <div class="panel__head">
       <h2 id="pName">Terran Marine</h2>
       <p id="pRole">Private · Tier 1 of 4</p>
+      <p class="selcount" id="selCount"></p>
     </div>
+
+    <div class="selgrid" id="selGrid" hidden></div>
 
     <div class="stats" id="stats"></div>
 
