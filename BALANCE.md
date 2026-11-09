@@ -107,3 +107,28 @@ artillery, and the displayed roster. Existing browser suites cover combat target
 save restoration, bosses, treasure, round flow and challenges. These establish combat
 contracts and regressions; extended player playtesting is still needed for late-run
 balance as permanent treasure stacks and enemy HP grow.
+
+
+## Base research, bonus hives, and laser (Nov 10, 2026)
+
+- Base research costs 200 minerals initially, then 350, 500, and +150 per further level.
+  Every research level adds 15 percentage points of health and damage to all current and
+  future combat units. Patch Rigs gain health too. Promotions and Lineguard loot apply first;
+  research multiplies the result. Existing health percentages are preserved. Research lasts
+  for the run and is included in checkpoints, independently of hardware refunds.
+- After all queued enemies, bosses, and reinforcements are cleared, a 15-second bonus phase
+  keeps the current battlefield active. Hives become attackable by units, artillery, strikes,
+  and the laser. Each hive has 300 + 45 × (round − 1) HP and pays 100 + 25 × (round − 1)
+  minerals once when destroyed. Hive destruction does not increase the bug kill score.
+  The full window remains available even if every hive is destroyed. The next canyon then
+  starts with the existing three-second briefing. Locate Hive jumps the camera to a live target.
+- Base laser starts at 0%, charges for 90 simulation seconds, and holds one shot at 100%.
+  Click Fire Laser (or L), then click a direction on the battlefield. One red beam extends from
+  the base to the map edge and applies 600 damage once to every enemy along its path, including
+  aircraft; normal enemy armor still applies. The beam has a 0.8-tile half-width plus target
+  radius. Firing resets charge to zero; canceling aim costs nothing. Charge carries into the
+  next canyon and is stored in checkpoints. Pausing freezes both charging and the bonus timer.
+  New runs reset research and energy. Combat/bonus-phase Save & quit replays the saved start
+  of the round, using that checkpoint's research and charge.
+- `tests/browser-base.cjs` checks research, old/new checkpoints, bonus timing and rewards,
+  bosses and multiple hives, laser damage/charging/carryover, mouse controls and mobile layout.

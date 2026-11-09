@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { CELL, BUILD, ECON, ARMORY, UNITS, AIR_STRIKE, TREASURE, TREASURE_RULES, wavePlan } from './config.js';
+import { CELL, BUILD, ECON, ARMORY, UNITS, AIR_STRIKE, TREASURE, TREASURE_RULES, baseUpgradeCost, applyBaseUpgrade, HIVE_RAID, BASE_LASER, wavePlan } from './config.js';
 import { Grid } from './grid.js';
 import { carveLevel, MAP_VERSION } from './levels.js';
-import { Marine, Zergling, Wall, Bunker, Scv, Core, Tracer, Shell, AirBomb } from './entities.js';
-import { buildHatchery, buildRock, buildBoulder } from './models.js';
+import { Marine, Zergling, Wall, Bunker, Scv, Core, Hive, Tracer, Shell, AirBomb } from './entities.js';
+import { buildRock, buildBoulder } from './models.js';
 import { buildTerrain } from './terrain.js';
 import { Fx } from './fx.js';
 import { sfx } from './audio.js';
@@ -81,6 +81,8 @@ export class Game {
     this.mapVersion = MAP_VERSION;
     this.mapSeed = Number.isInteger(seed) ? seed >>> 0 : (Math.random() * 0x7fffffff) >>> 0;
     this.minerals = ECON.startMinerals;
+    this.baseLevel = 0;
+    this.laserCharge = 0;
     this.kills = 0;
     this.score = 0;
     this.time = 0;
@@ -108,6 +110,8 @@ export class Game {
 
   loadLevel() {
     this.assault.reset();
+    this.raidT = 0;
+    this.raidEarned = 0;
     for (const z of this.zerglings) this.world.remove(z.obj);
     this.zerglings = [];
     for (const t of this.tracers) this.scene.remove(t.mesh);
@@ -139,14 +143,8 @@ export class Game {
     this.world.add(this.scv.obj);
 
     this.hatchGroup.clear();
-    for (const s of this.grid.spawns) {
-      const h = buildHatchery();
-      h.position.set(s.x + 0.5, 0, s.y + 0.9);
-      const light = new THREE.PointLight(0xc06bff, 6, 7, 2);
-      light.position.set(0, 0.7, 0);
-      h.add(light);
-      this.hatchGroup.add(h);
-    }
+    this.hives = this.grid.spawns.map(s => new Hive(s, this.level));
+    for (const hive of this.hives) this.hatchGroup.add(hive.obj);
     this.stage.focus.set(layout.focus.x, 0, layout.focus.z);
     this.stage.homeFocus.copy(this.stage.focus);
     if (!this.stage.userZoomed) this.stage.dist = 14;
@@ -157,9 +155,9 @@ export class Game {
     const c = this.grid.core;
     const spots = [[c.x - 1, c.y], [c.x - 1, c.y + 1], [c.x + 2, c.y], [c.x + 2, c.y + 1], [c.x, c.y - 1], [c.x, c.y + 2]];
     for (const [x, y] of spots) {
-      if (this.grid.inside(x, y) && this.grid.get(x, y) === CELL.OPEN) return new Scv(x + 0.5, y + 0.5);
+      if (this.grid.inside(x, y) && this.grid.get(x, y) === CELL.OPEN) return new Scv(x + 0.5, y + 0.5, this.baseLevel);
     }
-    return new Scv(c.x + 1, c.y + 0.5);
+    return new Scv(c.x + 1, c.y + 0.5, this.baseLevel);
   }
 
   rebuildTerrain(layout) {
@@ -208,6 +206,30 @@ export class Game {
 
   /* ---------------- economy + building ---------------- */
 
+  get baseUpgradeCost() { return baseUpgradeCost(this.baseLevel); }
+  get combatTargets() { return this.state === 'raid' ? this.hives : this.zerglings; }
+
+  upgradeBase() {
+    if (!['build', 'brief', 'wave', 'raid'].includes(this.state) || this.core.dead || !this.canAfford(this.baseUpgradeCost)) return false;
+    this.minerals -= this.baseUpgradeCost;
+    this.baseLevel++;
+    for (const unit of this.gunners) {
+      unit.baseLevel = this.baseLevel;
+      unit.applyStats(this.marineUpgrades);
+    }
+    if (this.scv) {
+      const ratio = this.scv.hp / this.scv.maxHp;
+      const stats = { hp: 70 };
+      applyBaseUpgrade(stats, this.baseLevel);
+      this.scv.maxHp = stats.hp;
+      this.scv.hp = stats.hp * ratio;
+    }
+    this.fx.ring({ x: this.core.x, z: this.core.z }, 3, 0xffd36a);
+    sfx.upgrade();
+    this.emit('change');
+    return true;
+  }
+
   get marineUpgrades() { return [...this.armory, ...this.treasureLoot]; }
 
   get nextArmory() { return ARMORY.find((a) => !this.armory.includes(a)); }
@@ -216,7 +238,7 @@ export class Game {
 
   /** Before or during a fight, on open ground, and not on top of a bug (it would be sealed inside). */
   canBuildAt(tx, ty) {
-    if (this.state !== 'build' && this.state !== 'brief' && this.state !== 'wave') return false;
+    if (!['build', 'brief', 'wave', 'raid'].includes(this.state)) return false;
     if (!this.grid.buildable(tx, ty)) return false;
     for (const z of this.zerglings) {
       if (!z.dead && z.x > tx - 0.2 && z.x < tx + 1.2 && z.z > ty - 0.2 && z.z < ty + 1.2) return false;
@@ -240,7 +262,7 @@ export class Game {
   placeGunner(kind, tx, ty) {
     const spec = BUILD[kind];
     if (!spec || !this.canBuildAt(tx, ty) || !this.canAfford(spec.cost)) return false;
-    const m = new Marine(kind, tx, ty, this.marineUpgrades);
+    const m = new Marine(kind, tx, ty, this.marineUpgrades, this.baseLevel);
     const sp = this.grid.spawn;
     m.restYaw = Math.atan2((sp.y + 1) - m.z, (sp.x + 0.5) - m.x);
     m.yaw = m.restYaw;
@@ -495,6 +517,16 @@ export class Game {
     this.emit('over', false);
   }
 
+  startRaid() {
+    this.state = 'raid';
+    this.raidT = HIVE_RAID.duration;
+    this.raidEarned = 0;
+    this.drama = 1;
+    this.focus = null;
+    this.assault.clearMarks();
+    this.emit('change');
+  }
+
   completeWave() {
     this.drama = 1;
     this.focus = null;
@@ -533,11 +565,40 @@ export class Game {
     this.shells.push(s);
   }
 
+  get laserReady() { return this.laserCharge >= BASE_LASER.chargeTime; }
+
+  fireLaser(x, z) {
+    if (this.paused || !this.laserReady || this.core.dead || !['wave', 'raid'].includes(this.state)) return false;
+    const dx = x - this.core.x, dz = z - this.core.z;
+    const distance = Math.hypot(dx, dz);
+    if (!Number.isFinite(distance) || distance < 0.1) return false;
+    const ux = dx / distance, uz = dz / distance;
+    const edgeX = ux > 0 ? (this.grid.COLS - this.core.x) / ux : ux < 0 ? -this.core.x / ux : Infinity;
+    const edgeZ = uz > 0 ? (this.grid.ROWS - this.core.z) / uz : uz < 0 ? -this.core.z / uz : Infinity;
+    const length = Math.min(edgeX, edgeZ);
+    this.laserCharge = 0;
+    this.fx.laser(this.core, { x: this.core.x + ux * length, z: this.core.z + uz * length }, BASE_LASER.duration);
+    // Resolve the whole line once: no projectile stops at the first enemy.
+    for (const target of this.combatTargets.slice()) {
+      if (target.dead) continue;
+      const tx = target.x - this.core.x, tz = target.z - this.core.z;
+      const along = tx * ux + tz * uz;
+      const across = Math.abs(tx * uz - tz * ux);
+      const radius = target.kind === 'hive' ? 1 : 0.35 * (target.scale || 1);
+      if (along < 0 || along > length || across > BASE_LASER.halfWidth + radius) continue;
+      target.takeDamage(BASE_LASER.damage, this, Math.atan2(uz, ux));
+    }
+    sfx.cannon();
+    this.stage.kick(4);
+    this.emit('change');
+    return true;
+  }
+
   get airStrikeReady() { return this.airStrikeCd <= 0; }
 
   callAirStrike(x, z) {
     if (!this.airStrikeReady) return false;
-    if (this.state !== 'wave' && this.state !== 'brief') return false;
+    if (!['wave', 'brief', 'raid'].includes(this.state)) return false;
     this.airStrikeCd = AIR_STRIKE.cooldown;
     this.fx.ring({ x, z }, AIR_STRIKE.radius * 1.15, 0xff5a4a);
     sfx.airstrike();
@@ -671,19 +732,24 @@ export class Game {
   /* ---------------- tick ---------------- */
 
   update(dt) {
-    if (this.paused) return;
+    if (this.paused || this.state === 'defeat') return;
+    this.laserCharge = Math.min(BASE_LASER.chargeTime, this.laserCharge + dt);
+    if (this.laserCharge >= BASE_LASER.chargeTime - 1e-9) this.laserCharge = BASE_LASER.chargeTime;
     this.time += dt;
     this.updateWater?.(this.time);
     if (this.airStrikeCd > 0) this.airStrikeCd = Math.max(0, this.airStrikeCd - dt);
     for (const p of this.pings) p.t += dt;
     if (this.pings.length && this.pings[0].t > 2.6) this.pings = this.pings.filter((p) => p.t <= 2.6);
 
-    const pulse = 6 + Math.sin(this.time * 2) * 2;
-    for (const h of this.hatchGroup.children) {
-      h.userData.ring.rotation.z += dt * 0.6;
-      const light = h.children.find((c) => c.isPointLight);
-      if (light) light.intensity = pulse;
+    // Finish an expired raid before projectiles can award any late bounty.
+    if (this.state === 'raid') {
+      this.raidT = Math.max(0, this.raidT - dt);
+      if (this.raidT <= 1e-9) {
+        this.completeWave();
+        return;
+      }
     }
+    for (const hive of this.hives) hive.update(dt, this);
 
     if (this.state === 'brief') {
       const prev = Math.ceil(this.briefT);
@@ -774,7 +840,7 @@ export class Game {
     if (this.focus && this.focus.dead) this.focus = null;
 
     if (this.state === 'wave' && !this.assault.pending && !this.queue.length && alive === 0) {
-      this.completeWave();
+      this.startRaid();
     }
 
     this.fx.update(dt, this.camera, this.viewport);

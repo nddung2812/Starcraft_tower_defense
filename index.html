@@ -60,8 +60,18 @@
   </header>
 
 
+  <section id="baseControls" class="base-controls" aria-label="Base upgrades and abilities" hidden>
+    <div class="base-research"><button id="btnBaseUpgrade" class="btn btn--gold" type="button">Upgrade base · 200 minerals</button><span id="baseBonus"></span></div>
+    <div class="base-laser"><button id="btnLaser" class="btn" type="button" aria-pressed="false">Laser · 0%</button><span id="laserHint">90s charge · one piercing shot</span></div>
+    <div id="raidHud" class="raid-hud" hidden>
+      <strong id="raidCountdown" role="timer"></strong><span id="raidStatus"></span>
+      <button id="btnLocateHive" class="btn" type="button">Locate hive ↗</button>
+    </div>
+  </section>
+
   <main class="stage">
-    <canvas id="game"></canvas>
+    <canvas id="game" aria-label="Battlefield: drag to pan, right-drag or Alt-drag to rotate, scroll to zoom, Shift-drag to select units"></canvas>
+    <div class="camera-help">Drag to pan · Right-drag to rotate<br>Scroll to zoom · Shift-drag to select</div>
     <div id="overlay" class="overlay"></div>
     <div id="selbox" class="selbox" hidden></div>
     <canvas id="minimap" class="minimap" title="Minimap — click to look, right-click to send selected units"></canvas>
@@ -77,7 +87,7 @@
     <div id="fieldGuide" class="field-guide" hidden>
       <span class="field-guide__tag">FIELD MANUAL / 01</span>
       <strong id="guideTitle">Your squad fires automatically.</strong>
-      <span id="guideText">Drag to select them. Right-click the ground to reposition.</span>
+      <span id="guideText">Shift-drag to select them. Right-click the ground to reposition.</span>
       <button id="guideDismiss" type="button" aria-label="Dismiss field manual">×</button>
     </div>
     <div id="challengeHud" class="challenge-hud" hidden aria-live="polite"></div>

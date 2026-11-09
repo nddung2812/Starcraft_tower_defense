@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { BUILD, ZERG_INFO, BREEDS, ECON, UNITS, AIR_STRIKE, OVERDRIVE } from './config.js';
-import { buildZergling, buildWall } from './models.js';
+import { BUILD, ZERG_INFO, BREEDS, ECON, UNITS, AIR_STRIKE, OVERDRIVE, BASE_UPGRADE, BASE_LASER, applyBaseUpgrade } from './config.js';
+import { buildZergling, buildWall, buildCore, buildHatchery } from './models.js';
 import { makeModel, loadedModels } from './assets.js';
 
 const $ = (id) => document.getElementById(id);
@@ -37,7 +37,10 @@ class Portrait {
     this.dirty = true;
     if (this.current) this.pivot.remove(this.current);
     const model = (k) => makeModel(k, tier, { rim: false });
-    if (kind === 'marine') {
+    if (kind === 'core' || kind === 'hive') {
+      this.current = kind === 'core' ? buildCore() : buildHatchery();
+      this.frame(this.current);
+    } else if (kind === 'marine') {
       this.current = model('marine');
       this.camera.position.set(0, 0.72, 2.0);
       this.camera.lookAt(0, 0.5, 0);
@@ -256,6 +259,12 @@ export class UI {
       game.stage.focus.set(boss.x, 0, boss.z);
       game.fx.ring({ x: boss.x, z: boss.z }, 2.5, 0xff684b);
     });
+    $('btnBaseUpgrade').addEventListener('click', () => game.upgradeBase());
+    $('btnLaser').addEventListener('click', () => game.emit('laser'));
+    $('btnLocateHive').addEventListener('click', () => {
+      const hive = game.hives.find(h => !h.dead);
+      if (hive) game.stage.focus.set(hive.x, 0, hive.z);
+    });
     $('btnPause').addEventListener('click', () => game.togglePause());
     $('btnAir').addEventListener('click', () => game.emit('airstrike'));
     $('btnUpgrade').addEventListener('click', () => {
@@ -300,7 +309,7 @@ export class UI {
     this.inspect = { kind, tier, entity };
     document.querySelectorAll('.tab').forEach((b) => b.classList.toggle('tab--active', b.dataset.unit === kind));
     document.querySelector('.panel').dataset.faction = kind;
-    this.portrait.show(kind, tier);
+    this.portrait.show(entity?.kind === 'core' || entity?.kind === 'hive' ? entity.kind : kind, tier);
     this.renderStats();
   }
 
@@ -308,7 +317,15 @@ export class UI {
     const { kind, tier, entity } = this.inspect;
     const g = this.game;
 
-    if (entity?.kind === 'scv' || entity?.kind === 'bunker') {
+    if (entity?.kind === 'core' || entity?.kind === 'hive') {
+      const hive = entity.kind === 'hive';
+      $('pName').textContent = hive ? 'Rift Hive' : `Ridge Relay · Upgrade ${g.baseLevel}`;
+      $('pRole').textContent = hive ? `Bonus target · ${entity.reward} minerals` : 'Army research / piercing laser';
+      $('pFaction').textContent = hive ? 'The Rift Brood' : 'Ridgewatch Compact';
+      $('pBio').textContent = hive ? 'Clear every enemy, then destroy this hive during the 15-second bonus window. Select troops and right-click the hive to attack.' : 'Upgrade the base to boost every current and future unit. Charge the laser for 90 seconds, then aim one powerful piercing shot. Upgrades and energy carry across rounds.';
+      $('pQuote').textContent = '';
+      $('stats').innerHTML = statRow('Hit Points', Math.ceil(entity.hp) + ' / ' + entity.maxHp, entity.hp / entity.maxHp, '#5ef08a');
+    } else if (entity?.kind === 'scv' || entity?.kind === 'bunker') {
       const bunker = entity.kind === 'bunker';
       $('pName').textContent = bunker ? 'Bunker' : 'Patch Rig';
       $('pRole').textContent = bunker ? `${entity.garrison.length} / 2 garrisoned` : (entity.dead ? 'Destroyed' : 'Field Repair');
@@ -323,7 +340,10 @@ export class UI {
       const base = spec.tiers[tier];
       const s = { hp: base.hp, damage: base.damage, attackSpeed: base.attackSpeed, range: base.range, armor: spec.info.armor, moveSpeed: spec.speed };
       if (entity) Object.assign(s, entity.stats);
-      else if (spec.armory) for (const u of g.marineUpgrades) u.apply(s);
+      else {
+        if (spec.armory) for (const u of g.marineUpgrades) u.apply(s);
+        applyBaseUpgrade(s, g.baseLevel);
+      }
       const shots = spec.shots;
 
       $('pName').textContent = spec.info.name;
@@ -402,6 +422,7 @@ export class UI {
     $('rMinerals').textContent = g.minerals;
     $('rWave').textContent = g.level;
     this.updateAssault();
+    this.syncBase();
     $('rKills').textContent = g.kills;
     const pct = Math.max(0, g.core.hp / g.core.maxHp);
     $('rCore').textContent = Math.ceil(pct * 100) + '%';
@@ -445,7 +466,7 @@ export class UI {
       b.classList.toggle('card--poor', g.minerals < BUILD[b.dataset.build].cost);
     });
 
-    if (this.inspect.entity) this.renderStats(); else this.syncActions();
+    this.renderStats();
     this.syncCommands();
   }
 
@@ -486,7 +507,7 @@ export class UI {
     const units = sel.filter(unitLike);
     const guns = units.filter((u) => UNITS[u.kind]);
     const primary = g.selected;
-    const fighting = g.state === 'wave' || g.state === 'brief';
+    const fighting = ['wave', 'brief', 'raid'].includes(g.state);
     const set = (id, on, label) => {
       const b = document.querySelector(`[data-cmd="${id}"]`);
       if (!b) return;
@@ -555,7 +576,7 @@ export class UI {
   syncAir() {
     const g = this.game;
     const btn = $('btnAir');
-    const fighting = g.state === 'wave' || g.state === 'brief';
+    const fighting = ['wave', 'brief', 'raid'].includes(g.state);
     const ready = g.airStrikeReady;
     btn.disabled = !fighting || !ready;
     if (!fighting) btn.textContent = 'Strike';
@@ -563,6 +584,27 @@ export class UI {
     else btn.textContent = 'Strike';
   }
 
+
+  syncBase() {
+    const g = this.game;
+    $('baseControls').hidden = !$('intro').hidden || g.state === 'defeat';
+    $('btnBaseUpgrade').textContent = `Upgrade base · ${g.baseUpgradeCost} minerals`;
+    $('btnBaseUpgrade').disabled = g.minerals < g.baseUpgradeCost || g.state === 'defeat';
+    const bonus = Math.round(g.baseLevel * BASE_UPGRADE.bonus * 100);
+    $('baseBonus').textContent = `Lv ${g.baseLevel} · +${bonus}% HP / damage`;
+    $('btnBaseUpgrade').title = 'Each level: +15% health for all units, +15% damage for all combat units. Applies to current and future units; lasts for this run.';
+    const aiming = $('btnLaser').getAttribute('aria-pressed') === 'true';
+    $('btnLaser').textContent = aiming ? 'Cancel laser aim' : g.laserReady ? 'Fire laser (L)' : `Laser · ${Math.floor(g.laserCharge / BASE_LASER.chargeTime * 100)}%`;
+    $('btnLaser').disabled = g.paused || !g.laserReady || !['wave', 'raid'].includes(g.state);
+    $('laserHint').textContent = aiming ? 'Click a direction from your base · Esc cancels' : g.laserReady ? 'Ready · 600 damage through the enemy line' : `${Math.ceil(BASE_LASER.chargeTime - g.laserCharge)}s to charge · one piercing shot`;
+    $('raidHud').hidden = g.state !== 'raid';
+    if (g.state === 'raid') {
+      const remaining = g.hives.filter(h => !h.dead);
+      $('raidCountdown').textContent = `BONUS · ${Math.ceil(g.raidT)}s`;
+      $('raidStatus').textContent = remaining.length ? `Destroy hives: +${remaining[0].reward} minerals each · Earned ${g.raidEarned}` : `Hives destroyed! +${g.raidEarned} minerals`;
+      $('btnLocateHive').disabled = !remaining.length;
+    }
+  }
 
   updateAssault() {
     const g = this.game, a = g.assault;
@@ -595,6 +637,7 @@ export class UI {
     dt = this.pendingHudTime;
     this.pendingHudTime = 0;
     this.updateAssault();
+    this.syncBase();
     const g = this.game;
     const pct = Math.max(0, g.core.hp / g.core.maxHp);
     $('rCore').textContent = Math.ceil(pct * 100) + '%';

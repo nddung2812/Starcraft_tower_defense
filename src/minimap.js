@@ -153,6 +153,8 @@ export class Minimap {
       if (!z.dead) dot(z.x, z.z, z.breed?.scale > 1.2 ? 2.8 : 1.8, '#d05aff');
     }
 
+    for (const hive of g.hives) if (!hive.dead) dot(hive.x, hive.z, 4, g.state === 'raid' ? '#ffd36a' : '#a44be0');
+
     // attack pings: expanding red rings that fade out
     ctx.lineWidth = 1.5 * this.dpr;
     for (const p of g.pings || []) {

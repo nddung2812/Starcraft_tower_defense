@@ -91,12 +91,11 @@ const proj = new THREE.Vector3();
 let hoverTile = null;
 let placing = null;
 let airAim = false;
+let laserAim = false;
 let targeting = null;          // 'attack' while waiting for the A-click
-const drag = { on: false, mode: null, x: 0, y: 0, sx: 0, sy: 0, moved: 0, anchor: null, alt: false };
-const pointer = { x: 0, y: 0, inside: false };
+const drag = { on: false, mode: null, x: 0, y: 0, sx: 0, sy: 0, moved: 0, anchor: null, pointerId: null };
 const keys = new Set();
-const EDGE = 36;
-const EDGE_SPEED = 14;
+const PAN_SPEED = 14;
 const selbox = document.getElementById('selbox');
 
 const selection = [];
@@ -152,6 +151,10 @@ function entityAt(tile) {
   }
   if (game.scv && !game.scv.dead && Math.hypot(game.scv.x - wx, game.scv.z - wz) < bd) best = game.scv;
   if (best) return best;
+  if (game.state === 'raid') {
+    const hive = game.hives.find(h => !h.dead && Math.hypot(h.x - wx, h.z - wz) < 1.5);
+    if (hive) return hive;
+  }
   const occ = game.grid.occupant(tile.x, tile.y);
   if (occ && !occ.dead) return occ;
   if (tile.x >= game.core.tx && tile.x < game.core.tx + 2 && tile.y >= game.core.ty && tile.y < game.core.ty + 2) return game.core;
@@ -173,6 +176,7 @@ function alive(e) {
   if (isGun(e)) return game.gunners.includes(e) && !e.dead;
   if (e.kind === 'wall') return game.walls.includes(e);
   if (e.kind === 'bunker') return game.bunkers.includes(e);
+  if (e.kind === 'hive') return !e.dead && game.hives.includes(e);
   if (e.kind === 'core') return e === game.core;
   if (e.kind === 'zergling') return !e.dead && game.zerglings.includes(e);
   return false;
@@ -310,9 +314,19 @@ function centerOn(list) {
 
 /* ---------------- modes ---------------- */
 
+function setLaserAim(on) {
+  if (on && (!game.laserReady || game.paused || !['wave', 'raid'].includes(game.state))) { sfx.deny(); return; }
+  if (on) cancelModes();
+  laserAim = !!on;
+  if (!laserAim) cursor.visible = false;
+  document.getElementById('btnLaser').setAttribute('aria-pressed', String(laserAim));
+  canvas.classList.toggle('is-targeting', laserAim || !!targeting);
+  ui.syncBase();
+}
+
 function setPlacing(id) {
   placing = placing === id ? null : id;
-  if (placing) { airAim = false; ui.setAirArmed(false); setTargeting(null); }
+  if (placing) { setLaserAim(false); airAim = false; ui.setAirArmed(false); setTargeting(null); }
   ui.setPlacing(placing);
   rangeRing.visible = !!(placing && UNITS[placing]);
   if (placing) select(null);
@@ -320,12 +334,13 @@ function setPlacing(id) {
 }
 
 function setAirAim(on) {
-  if (on && (!game.airStrikeReady || (game.state !== 'wave' && game.state !== 'brief'))) {
+  if (on && (!game.airStrikeReady || !['wave', 'brief', 'raid'].includes(game.state))) {
     sfx.deny();
     return;
   }
   airAim = !!on;
   if (airAim) {
+    setLaserAim(false);
     placing = null;
     ui.setPlacing(null);
     setTargeting(null);
@@ -338,6 +353,7 @@ function setTargeting(mode) {
   if (mode && !army().some(isGun)) { sfx.deny(); return; }
   targeting = mode;
   if (mode) {
+    setLaserAim(false);
     placing = null;
     ui.setPlacing(null);
     airAim = false;
@@ -349,6 +365,7 @@ function setTargeting(mode) {
 }
 
 function cancelModes() {
+  if (laserAim) setLaserAim(false);
   if (placing) setPlacing(null);
   if (airAim) setAirAim(false);
   if (targeting) setTargeting(null);
@@ -381,7 +398,7 @@ function updateTip() {
     return;
   }
   modeTip = false;
-  ui.tip(`<b>${game.layout?.name || 'Canyon'}.</b> Drag to select · right-click to order · right-drag to pan, ⌥ right-drag to rotate · Ctrl+1–9 groups.`);
+  ui.tip(`<b>${game.layout?.name || 'Canyon'}.</b> Drag to pan · right-drag to rotate · Shift-drag to select · right-click to order · Ctrl+1–9 groups.`);
 }
 
 /* ---------------- orders ---------------- */
@@ -397,11 +414,11 @@ function smartCommand(t) {
   let units = army();
   const guns = units.filter(isGun);
 
-  if (e?.kind === 'zergling') {
+  if (e?.kind === 'zergling' || e?.kind === 'hive') {
     if (guns.length) {
       game.commandAttack(guns, e);
       voice.say('acquired');
-    } else if (game.state === 'wave' || game.state === 'brief') {
+    } else if (['wave', 'brief', 'raid'].includes(game.state)) {
       game.focus = e;
     } else return;
     marker(e.x, e.z, 'attack');
@@ -440,7 +457,7 @@ function smartCommand(t) {
 function attackClick(t) {
   const guns = army().filter(isGun);
   const e = entityAt(t);
-  if (e?.kind === 'zergling') {
+  if (e?.kind === 'zergling' || e?.kind === 'hive') {
     game.commandAttack(guns, e);
     marker(e.x, e.z, 'attack');
   } else if (game.commandMove(guns, t.x, t.y, 'amove')) {
@@ -462,7 +479,7 @@ function runCommand(id) {
   else if (id === 'stim') stimSelected();
   else if (id === 'air') setAirAim(!airAim);
   else if (id === 'promote') { if (game.selected?.upgrade) game.upgradeGunner(game.selected); }
-  else if (id === 'salvage') { if (game.selected && game.selected.kind !== 'core' && game.selected.kind !== 'zergling') game.sell(game.selected); }
+  else if (id === 'salvage') { if (game.selected && game.selected.kind !== 'core' && game.selected.kind !== 'zergling' && game.selected.kind !== 'hive') game.sell(game.selected); }
   else if (id === 'army') setSelection(candidates().filter(isGun));
   else if (id === 'scv') { if (isUnit(game.scv)) { select(game.scv); centerOn([game.scv]); } }
   else if (id === 'wave') {
@@ -471,14 +488,6 @@ function runCommand(id) {
 }
 
 /* ---------------- pointer ---------------- */
-
-function trackPointer(ev) {
-  pointer.x = ev.clientX;
-  pointer.y = ev.clientY;
-  const r = canvas.getBoundingClientRect();
-  pointer.inside = ev.clientX >= r.left && ev.clientX <= r.right
-    && ev.clientY >= r.top && ev.clientY <= r.bottom;
-}
 
 /** Ground point under the cursor (unclamped: the map can be grabbed anywhere, even past its edge). */
 function groundAt(ev) {
@@ -498,6 +507,8 @@ function grabPan(ev) {
   stage.focus.x = Math.max(0, Math.min(game.grid.COLS, stage.focus.x));
   stage.focus.z = Math.max(0, Math.min(game.grid.ROWS, stage.focus.z));
   stage.updateCamera();
+  // Re-anchor at map limits so reversing the drag responds immediately.
+  drag.anchor = groundAt(ev);
 }
 
 function drawBox(ev) {
@@ -512,16 +523,19 @@ function drawBox(ev) {
 }
 
 canvas.addEventListener('pointermove', (ev) => {
-  trackPointer(ev);
-
   if (drag.on) {
+    if (ev.pointerId !== drag.pointerId) return;
     const dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
-    drag.moved += Math.abs(dx) + Math.abs(dy);
-    // right-drag grabs the map; with Option (Alt) held it turns and tilts the camera instead
-    if (drag.mode === 'right' && drag.moved > 6) drag.mode = drag.alt || ev.altKey ? 'orbit' : 'pan';
+    // Measure displacement, so tiny mouse jitter never turns a click into a drag.
+    drag.moved = Math.max(drag.moved, Math.hypot(ev.clientX - drag.sx, ev.clientY - drag.sy));
+    if (drag.moved > 6) {
+      if (drag.mode === 'right') drag.mode = 'orbit';
+      if (drag.mode === 'left') drag.mode = 'pan';
+    }
     if (drag.mode === 'orbit') {
-      stage.spin(dx * 0.012);
-      stage.pitch = Math.max(0.28, Math.min(1.25, stage.pitch + dy * 0.006));
+      stage.spin(dx * 0.006);
+      stage.pitch = Math.max(0.28, Math.min(1.25, stage.pitch + dy * 0.004));
+      stage.updateCamera();
     } else if (drag.mode === 'pan') {
       grabPan(ev);
     } else if (drag.mode === 'box' && drag.moved > 6) {
@@ -530,6 +544,8 @@ canvas.addEventListener('pointermove', (ev) => {
       const t = tileAt(ev);
       if (t && (!hoverTile || t.x !== hoverTile.x || t.y !== hoverTile.y)) tryPlace(t);
     }
+    canvas.classList.toggle('is-dragging', drag.mode === 'pan' || drag.mode === 'orbit');
+    if (drag.mode === 'pan' || drag.mode === 'orbit') cursor.visible = false;
     drag.x = ev.clientX; drag.y = ev.clientY;
     if (drag.mode !== 'build') return;
   }
@@ -544,7 +560,10 @@ canvas.addEventListener('pointermove', (ev) => {
     cursorEdge.material.color.setHex(col);
   };
 
-  if (airAim) {
+  if (laserAim) {
+    paint(0xff2010);
+    rangeRing.visible = false;
+  } else if (airAim) {
     paint(0xff5a4a);
     rangeRing.visible = true;
     rangeRing.scale.setScalar(AIR_STRIKE.radius);
@@ -566,12 +585,6 @@ canvas.addEventListener('pointermove', (ev) => {
   }
 });
 
-canvas.addEventListener('pointerleave', (ev) => {
-  if (!drag.on) pointer.inside = false;
-  else trackPointer(ev);
-});
-canvas.addEventListener('pointerenter', trackPointer);
-
 function tryPlace(t) {
   if (!placing) return;
   const ok = placing === 'wall' ? game.placeWall(t.x, t.y)
@@ -584,20 +597,28 @@ function tryPlace(t) {
 canvas.addEventListener('pointerdown', (ev) => {
   sfx.resume();
   voice.unlock();
-  if (ev.button === 1) ev.preventDefault();
+  if (drag.on || ![0, 1, 2].includes(ev.button)) return;
+  ev.preventDefault();
   canvas.setPointerCapture(ev.pointerId);
+  drag.pointerId = ev.pointerId;
   drag.on = true;
   drag.x = drag.sx = ev.clientX;
   drag.y = drag.sy = ev.clientY;
   drag.moved = 0;
 
-  drag.alt = ev.altKey;
+  stage.updateCamera();
   drag.anchor = groundAt(ev);
   if (ev.button === 2) { drag.mode = 'right'; return; }
   if (ev.button === 1) { drag.mode = ev.altKey ? 'orbit' : 'pan'; return; }
   if (ev.altKey) { drag.mode = 'orbit'; return; }
 
   const t = tileAt(ev);
+  if (laserAim) {
+    drag.mode = 'cmd';
+    if (t && game.fireLaser(t.world.x, t.world.z)) setLaserAim(false);
+    else sfx.deny();
+    return;
+  }
   if (airAim) {
     drag.mode = 'cmd';
     if (t && game.callAirStrike(t.x + 0.5, t.y + 0.5)) setAirAim(false);
@@ -610,34 +631,42 @@ canvas.addEventListener('pointerdown', (ev) => {
     return;
   }
   if (placing && t) { drag.mode = 'build'; tryPlace(t); return; }
-  drag.mode = 'box';
+  drag.mode = ev.shiftKey ? 'box' : 'left';
 });
 
 canvas.addEventListener('auxclick', (ev) => { if (ev.button === 1) ev.preventDefault(); });
 
-canvas.addEventListener('pointerup', (ev) => {
-  const mode = drag.mode;
+function endDrag() {
+  const id = drag.pointerId;
   drag.on = false;
   drag.mode = null;
+  drag.pointerId = null;
+  drag.anchor = null;
   selbox.hidden = true;
+  canvas.classList.remove('is-dragging');
+  if (id !== null && canvas.hasPointerCapture(id)) canvas.releasePointerCapture(id);
+}
+
+canvas.addEventListener('pointerup', (ev) => {
+  if (!drag.on || ev.pointerId !== drag.pointerId) return;
+  const mode = drag.mode;
+  endDrag();
   if (mode === 'right') {
-    if (placing || airAim || targeting) cancelModes();
+    if (placing || airAim || laserAim || targeting) cancelModes();
     else smartCommand(tileAt(ev));
-  } else if (mode === 'box') {
-    if (drag.moved > 6) boxSelect(ev);
+  } else if (mode === 'box' || mode === 'left') {
+    if (mode === 'box' && drag.moved > 6) boxSelect(ev);
     else clickSelect(tileAt(ev), ev);
   }
 });
 
-canvas.addEventListener('pointercancel', () => {
-  drag.on = false;
-  drag.mode = null;
-  selbox.hidden = true;
-});
+canvas.addEventListener('pointercancel', endDrag);
+canvas.addEventListener('lostpointercapture', endDrag);
+window.addEventListener('blur', () => { endDrag(); keys.clear(); });
 
 // double-click a unit: everything of that type on screen
 canvas.addEventListener('dblclick', (ev) => {
-  if (placing || airAim || targeting) return;
+  if (placing || airAim || laserAim || targeting || drag.moved > 6 || ev.altKey) return;
   const e = entityAt(tileAt(ev));
   if (isUnit(e)) selectKindOnScreen(e.kind, ev.shiftKey);
 });
@@ -646,7 +675,8 @@ canvas.addEventListener('contextmenu', (ev) => ev.preventDefault());
 
 canvas.addEventListener('wheel', (ev) => {
   ev.preventDefault();
-  stage.zoomBy(ev.deltaY > 0 ? 1.1 : 1 / 1.1);
+  const pixels = ev.deltaY * (ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? canvas.clientHeight : 1);
+  stage.zoomBy(Math.exp(Math.max(-100, Math.min(100, pixels)) * 0.0015));
 }, { passive: false });
 
 document.getElementById('camLeft').addEventListener('click', () => stage.spin(-0.4));
@@ -692,7 +722,7 @@ window.addEventListener('keydown', (ev) => {
   if (ev.key === 'F2') { ev.preventDefault(); runCommand('army'); return; }
   if (ev.code === 'Space') { ev.preventDefault(); if (!ev.repeat && intro.hidden) game.togglePause(); return; }
   if (ev.key === 'Escape') {
-    if (placing || airAim || targeting) cancelModes();
+    if (placing || airAim || laserAim || targeting) cancelModes();
     else { game.focus = null; select(null); }
     return;
   }
@@ -706,6 +736,7 @@ window.addEventListener('keydown', (ev) => {
   else if (k === 's') runCommand('stop');
   else if (k === 'f') runCommand('stim');
   else if (k === 'r') runCommand('air');
+  else if (k === 'l') setLaserAim(!laserAim);
   else if (k === 'u') runCommand('promote');
   else if (k === 'x') runCommand('salvage');
   else if (k === 'q') stage.spin(-0.35);
@@ -720,6 +751,7 @@ window.addEventListener('blur', () => keys.clear());
 /* ---------------- game events ---------------- */
 
 game.on('pick', setPlacing);
+game.on('laser', () => setLaserAim(!laserAim));
 game.on('airstrike', () => setAirAim(!airAim));
 game.on('cmd', runCommand);
 game.on('selectOnly', (e) => select(e));
@@ -750,7 +782,7 @@ const retention = new Retention(game, {
     sfx.resume(); voice.unlock(); updateGuide(); updateChallenge();
   },
   onQuit: () => {
-    runGeneration++; keys.clear(); pointer.inside = false;
+    runGeneration++; keys.clear(); endDrag();
     cancelModes(); select(null); ui.hideBanner();
     showIntro(); ui.sync(); updateGuide();
   }
@@ -772,7 +804,7 @@ function updateChallenge() {
     : `BEAT ${challenge.name} · ${(challenge.kills + 1 - game.kills).toLocaleString()} more kills to win`;
 }
 function updateGuide() {
-  guide.hidden = guideDismissed || !intro.hidden || game.state === 'defeat' || game.level > 1;
+  guide.hidden = guideDismissed || !intro.hidden || ['defeat', 'raid'].includes(game.state) || game.level > 1;
   if (guide.hidden) return;
   const hasSquad = game.gunners.length > 0;
   const fighting = game.state === 'brief' || game.state === 'wave';
@@ -780,7 +812,7 @@ function updateGuide() {
     : fighting ? 'Your squad fires automatically.' : 'Ready? Launch the swarm.';
   document.getElementById('guideText').textContent = !hasSquad
     ? 'Press M, then click open ground near your base to place a soldier.'
-    : fighting ? 'Drag to select · right-click to move · R, then click for an air strike.'
+    : fighting ? 'Drag to pan · right-drag to rotate · Shift-drag to select your squad. Right-click to move.'
     : 'Add walls with W. Press Space to pause or resume.';
 }
 document.getElementById('guideDismiss').addEventListener('click', () => { guideDismissed = true; updateGuide(); });
@@ -1007,24 +1039,16 @@ function frame(now) {
     cursorPlate.material.opacity = 0.28 + Math.sin(now * 0.005) * 0.12;
   }
 
-  // RTS camera: edge scroll + arrow keys
+  // Move only on deliberate input; hovering at an edge should not drift the view.
   if (!drag.on) {
     let sx = 0, sy = 0;
-    if (pointer.inside) {
-      const r = canvas.getBoundingClientRect();
-      const lx = pointer.x - r.left, ly = pointer.y - r.top;
-      if (lx < EDGE) sx -= 1 - lx / EDGE;
-      else if (r.width - lx < EDGE) sx += 1 - (r.width - lx) / EDGE;
-      if (ly < EDGE) sy -= 1 - ly / EDGE;
-      else if (r.height - ly < EDGE) sy += 1 - (r.height - ly) / EDGE;
-    }
     if (keys.has('ArrowLeft')) sx -= 1;
     if (keys.has('ArrowRight')) sx += 1;
     if (keys.has('ArrowUp')) sy -= 1;
     if (keys.has('ArrowDown')) sy += 1;
     if (sx || sy) {
       const len = Math.hypot(sx, sy) || 1;
-      const speed = EDGE_SPEED * (stage.dist / 15);
+      const speed = PAN_SPEED * (stage.dist / 15);
       stage.pan((sx / len) * speed * raw, (sy / len) * speed * raw);
     }
   }
@@ -1048,7 +1072,7 @@ document.addEventListener('visibilitychange', () => {
   animationFrame = 0;
   last = lastTick = performance.now();
   keys.clear();
-  pointer.inside = false;
+  endDrag();
   if (!document.hidden) animationFrame = requestAnimationFrame(frame);
 });
 if (!document.hidden) animationFrame = requestAnimationFrame(frame);

@@ -241,6 +241,8 @@ export class Stage {
       this.focus.z + Math.sin(this.yaw) * cp * this.dist
     );
     this.camera.lookAt(this.focus);
+    // Pointer events can arrive between renders; picking needs the current transform.
+    this.camera.updateMatrixWorld();
 
     // keep sun shadows centred on what you are looking at, sized to the zoom
     if (this.sun && this.sunOffset) {

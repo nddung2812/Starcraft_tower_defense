@@ -1,4 +1,4 @@
-import { ARMORY, TREASURE, TREASURE_RULES, BUILD, UNITS, CELL } from './config.js';
+import { ARMORY, TREASURE, TREASURE_RULES, BUILD, UNITS, CELL, applyBaseUpgrade, BASE_LASER } from './config.js';
 import { Grid } from './grid.js';
 import { carveLevel, MAP_VERSION } from './levels.js';
 import { Marine, Wall, Bunker } from './entities.js';
@@ -15,7 +15,7 @@ export function captureCheckpoint(g, meta) {
   const snapshot = {
     version: 1, savedAt: Date.now(), ...meta,
     level: g.level, seed: g.mapSeed, minerals: g.minerals, kills: g.kills, time: g.time,
-    mapVersion: g.mapVersion,
+    mapVersion: g.mapVersion, baseLevel: g.baseLevel, laserCharge: g.laserCharge,
     airStrikeCd: g.airStrikeCd, phase: g.state, coreHp: g.core.hp,
     armory: g.armory.map(a => a.id),
     treasure: g.treasureLoot.map(({ id, boxType, earnedLevel, expiresAfterLevel }) =>
@@ -40,6 +40,8 @@ export function validateCheckpoint(s) {
       !integer(s.level, 1, 100000) || !integer(s.seed, 0, 0xffffffff) ||
       !number(s.minerals) || !integer(s.kills) || !number(s.time) || !number(s.airStrikeCd) ||
       !['build', 'brief'].includes(s.phase) || !number(s.coreHp, 0.001)) return false;
+    if (s.laserCharge !== undefined && !number(s.laserCharge, 0, BASE_LASER.chargeTime)) return false;
+    if (s.baseLevel !== undefined && !integer(s.baseLevel, 0, 100000)) return false;
     if (s.mapVersion !== undefined && s.mapVersion !== 1 && s.mapVersion !== MAP_VERSION) return false;
     if (!Array.isArray(s.armory) || s.armory.length > ARMORY.length || new Set(s.armory).size !== s.armory.length ||
       !s.armory.every(id => ARMORY.some(a => a.id === id))) return false;
@@ -80,7 +82,9 @@ export function validateCheckpoint(s) {
           (p.cx == null || integer(p.cx, 0, grid.COLS - 1)) && (p.cy == null || integer(p.cy, 0, grid.ROWS - 1))))) return false;
       return !u.driving || (u.waypoints?.length > u.wp);
     })) return false;
-    return pos(s.scv) && number(s.scv.hp, 0, 70) && typeof s.scv.dead === 'boolean' &&
+    const scvStats = { hp: 70 };
+    applyBaseUpgrade(scvStats, s.baseLevel ?? 0);
+    return pos(s.scv) && number(s.scv.hp, 0, scvStats.hp) && typeof s.scv.dead === 'boolean' &&
       (s.scv.dead || s.scv.hp > 0) && number(s.scv.yaw, -100, 100);
   } catch { return false; }
 }
@@ -101,7 +105,7 @@ export function restoreCheckpoint(g, s) {
   if (!validateCheckpoint(s)) throw Error('This saved run is incompatible or damaged.');
   g.wipeUnits();
   Object.assign(g, { level: s.level, mapSeed: s.seed, minerals: s.minerals, kills: s.kills, score: s.kills,
-    mapVersion: s.mapVersion ?? 1,
+    mapVersion: s.mapVersion ?? 1, baseLevel: s.baseLevel ?? 0, laserCharge: s.laserCharge ?? 0,
     time: s.time, airStrikeCd: s.airStrikeCd, state: 'build', paused: true, queue: [],
     armory: s.armory.map(id => ARMORY.find(a => a.id === id)),
     treasureLoot: s.treasure.map(({ id, boxType, earnedLevel, expiresAfterLevel }) =>
@@ -121,7 +125,7 @@ export function restoreCheckpoint(g, s) {
     g.bunkers.push(e); g.world.add(e.obj); g.grid.set(e.tx, e.ty, CELL.BUNKER, e);
   }
   for (const u of s.units) {
-    const e = new Marine(u.kind, u.tx, u.ty, g.marineUpgrades);
+    const e = new Marine(u.kind, u.tx, u.ty, g.marineUpgrades, g.baseLevel);
     while (e.tier < u.tier) e.upgrade(g.marineUpgrades);
     for (const k of fields) if (u[k] != null) e[k] = u[k];
     e.hp = Math.min(e.maxHp, u.hp);

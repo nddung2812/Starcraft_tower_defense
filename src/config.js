@@ -192,6 +192,16 @@ export const UNIT_SCALE = 1.45;
 export const BUG_SCALE = 1.12;
 
 export const CORE_HP = 500;
+// Run-wide base research; bonuses are additive per level, then multiply unit stats.
+export const BASE_UPGRADE = { firstCost: 200, costStep: 150, bonus: 0.15 };
+export const baseUpgradeCost = level => BASE_UPGRADE.firstCost + level * BASE_UPGRADE.costStep;
+export function applyBaseUpgrade(stats, level) {
+  const factor = 1 + level * BASE_UPGRADE.bonus;
+  stats.hp = Math.round(stats.hp * factor);
+  if (stats.damage != null) stats.damage *= factor;
+}
+export const BASE_LASER = { chargeTime: 90, damage: 600, halfWidth: 0.8, duration: 0.45 };
+export const HIVE_RAID = { duration: 15, hp: 300, hpPerLevel: 45, reward: 100, rewardPerLevel: 25 };
 /* The hand-drawn canyons below come first; after them every level is generated. */
 export const AUTHORED_LEVELS = 10;
 

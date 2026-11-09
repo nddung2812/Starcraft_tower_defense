@@ -139,7 +139,7 @@ export class Retention {
     document.querySelector('.stage').classList.toggle('is-planning', showing && !!this.planning);
     if (!showing) return;
     $('pauseSaveInfo').textContent = this.save
-      ? (g.state === 'wave'
+      ? (['wave', 'raid'].includes(g.state)
         ? `Checkpoint: start of Round ${this.save.level}, ${count(this.save.kills)} kills and ${count(this.save.minerals)} minerals. Save & quit returns here; this round's combat will replay.`
         : `Round ${g.level} planning is saved automatically. Continue restores your defense paused, with a fresh 3-second countdown.`)
       : 'No checkpoint is available yet. Resume to create one.';

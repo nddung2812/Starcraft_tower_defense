@@ -143,7 +143,9 @@ html, body {
   clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
 }
 
-#game { display: block; width: 100%; height: 100%; }
+#game { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.camera-help { position: absolute; top: 12px; right: 12px; padding: 7px 10px; border-radius: 7px; background: #070e18d9; color: #b8c8d8; font-size: 11px; line-height: 1.7; pointer-events: none; }
+@media (max-width: 800px) { .camera-help { top: auto; bottom: 144px; font-size: 10px; } }
 
 .overlay { position: absolute; inset: 0; pointer-events: none; }
 
@@ -388,6 +390,7 @@ html, body {
 /* ---------------- RTS controls ---------------- */
 
 #game.is-targeting { cursor: crosshair; }
+#game.is-dragging { cursor: grabbing; }
 
 .selbox {
   position: absolute;
@@ -879,4 +882,23 @@ button:focus-visible { outline: 2px solid var(--compact); outline-offset: 3px; }
   .dock .card__cost { font-size: 14px; }
   .dock .cmd { font-size: 11px; }
   .dock .cmd__key, .dock .card__key { font-size: 10px; }
+}
+
+/* Base research and the bonus timer stay accessible without opening unit info. */
+.app { grid-template-rows: auto auto minmax(0, 1fr); grid-template-areas: "hud hud" "base base" "stage panel"; }
+.base-controls { grid-area: base; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 20px; padding: 8px 12px; background: #101e2e; border: 1px solid var(--line); border-radius: 12px; min-width: 0; }
+.base-controls[hidden], .raid-hud[hidden] { display: none; }
+.base-research, .base-laser { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.base-controls span { font-size: 11px; color: var(--muted); }
+.base-controls .btn { font-size: 11px; letter-spacing: 0; padding: 7px 10px; }
+#btnLaser { color: #ff796f; border-color: #ff443655; }
+#btnLaser[aria-pressed="true"] { background: #852a2a; color: white; }
+.raid-hud { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.raid-hud strong { color: var(--gold); font-size: 14px; }
+@media (max-width: 760px) {
+  .app { grid-template-areas: "hud" "base" "stage"; }
+  .base-controls { gap: 6px; padding: 7px 9px; }
+  .base-research, .base-laser { width: 100%; }
+  .base-controls span { font-size: 10px; }
+  .raid-hud { border-top: 1px solid var(--line); padding-top: 6px; width: 100%; }
 }

@@ -54,6 +54,7 @@ export class Fx {
     this.decals = [];
     this.debris = [];
     this.rings = [];
+    this.beams = [];
     this.flashes = [];
     this.labels = [];
 
@@ -70,6 +71,27 @@ export class Fx {
       scene.add(l);
       this.flashPool.push(l);
     }
+  }
+
+  laser(from, to, duration) {
+    const length = Math.hypot(to.x - from.x, to.z - from.z);
+    const group = new THREE.Group();
+    // A bright red core and a wider translucent glow remain visible in Eco mode.
+    for (const [width, color, opacity] of [[0.22, 0xff3020, 1], [0.8, 0xff0015, 0.3]]) {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(length, width, width),
+        new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false }));
+      mesh.userData.opacity = opacity;
+      group.add(mesh);
+    }
+    group.position.set((from.x + to.x) / 2, 1.2, (from.z + to.z) / 2);
+    group.rotation.y = -Math.atan2(to.z - from.z, to.x - from.x);
+    this.scene.add(group);
+    this.beams.push({ group, life: duration, max: duration });
+  }
+
+  clearBeam(beam) {
+    this.scene.remove(beam.group);
+    for (const mesh of beam.group.children) { mesh.geometry.dispose(); mesh.material.dispose(); }
   }
 
   /* ---------------- particles ---------------- */
@@ -213,6 +235,12 @@ export class Fx {
   /* ---------------- tick ---------------- */
 
   update(dt, camera, viewport) {
+    for (let i = this.beams.length - 1; i >= 0; i--) {
+      const beam = this.beams[i];
+      beam.life -= dt;
+      for (const mesh of beam.group.children) mesh.material.opacity = mesh.userData.opacity * Math.max(0, beam.life / beam.max);
+      if (beam.life <= 0) { this.clearBeam(beam); this.beams.splice(i, 1); }
+    }
     let n = 0;
     for (let i = this.p.length - 1; i >= 0; i--) {
       const q = this.p[i];
@@ -293,6 +321,8 @@ export class Fx {
   }
 
   clear() {
+    for (const beam of this.beams) this.clearBeam(beam);
+    this.beams.length = 0;
     this.p.length = 0;
     for (const d of this.decals) { this.scene.remove(d.mesh); d.mesh.material.dispose(); }
     for (const d of this.debris) this.scene.remove(d.mesh);

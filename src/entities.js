@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { CELL, UNITS, BREEDS, UNIT_SCALE, BUG_SCALE, OVERDRIVE } from './config.js';
-import { buildWall, buildCore } from './models.js';
+import { CELL, UNITS, BREEDS, UNIT_SCALE, BUG_SCALE, OVERDRIVE, applyBaseUpgrade, HIVE_RAID } from './config.js';
+import { buildWall, buildCore, buildHatchery } from './models.js';
 import { makeModel } from './assets.js';
 
 const TAU = Math.PI * 2;
@@ -56,7 +56,8 @@ class HealthBar {
 /* ------------------------------------------------------------------ */
 
 export class Marine {
-  constructor(kind, tx, ty, armory) {
+  constructor(kind, tx, ty, armory, baseLevel = 0) {
+    this.baseLevel = baseLevel;
     this.kind = kind;
     this.spec = UNITS[kind];
     this.flying = !!this.spec.flying;
@@ -123,6 +124,7 @@ export class Marine {
       range: base.range, armor: this.info.armor, moveSpeed: this.spec.speed
     };
     if (this.spec.armory) for (const u of armory) u.apply(s);
+    applyBaseUpgrade(s, this.baseLevel);
     const ratio = this.stats ? this.hp / this.stats.hp : 1;
     this.stats = s;
     this.hp = Math.min(s.hp, s.hp * ratio);
@@ -397,7 +399,7 @@ export class Marine {
     const focus = game.focus;
     if (focus && !(focus.flying && this.spec.targetsAir === false) && !focus.dead && this.distTo(focus) <= this.attackRange && this.inArc(focus)) return focus;
     let best = null, bestScore = -Infinity;
-    for (const z of game.zerglings) {
+    for (const z of game.combatTargets) {
       if (z.dead || (z.flying && this.spec.targetsAir === false)) continue;
       if (this.distTo(z) > this.attackRange || !this.inArc(z)) continue;
       const score = -Math.hypot(z.x - game.core.x, z.z - game.core.z) + (z.breedId === 'tanker' ? 2 : z.breedId === 'needler' ? 1.5 : 0);
@@ -552,6 +554,47 @@ export class Wall {
       game.stage.kick(2.5);
       game.onStructureLost(this);
     }
+  }
+}
+
+export class Hive {
+  constructor(spawn, level) {
+    this.kind = 'hive';
+    this.x = spawn.x + 0.5; this.z = spawn.y + 0.9;
+    this.maxHp = HIVE_RAID.hp + (level - 1) * HIVE_RAID.hpPerLevel;
+    this.hp = this.maxHp;
+    this.reward = HIVE_RAID.reward + (level - 1) * HIVE_RAID.rewardPerLevel;
+    this.dead = false;
+    this.obj = buildHatchery();
+    this.obj.position.set(this.x, 0, this.z);
+    this.light = new THREE.PointLight(0xc06bff, 6, 7, 2);
+    this.light.position.set(0, 0.7, 0);
+    this.obj.add(this.light);
+    this.bar = new HealthBar(this.obj, 1.6, 0.12, 2.8);
+    this.bar.group.visible = false;
+  }
+
+  update(dt, game) {
+    if (this.dead) return;
+    this.obj.userData.ring.rotation.z += dt * 0.6;
+    this.light.intensity = 6 + Math.sin(game.time * 2) * 2;
+    this.bar.set(this.hp / this.maxHp, game.camera, true);
+    this.bar.group.visible = game.state === 'raid';
+  }
+
+  takeDamage(amount, game) {
+    if (this.dead || game.state !== 'raid' || game.raidT <= 0) return;
+    this.hp = Math.max(0, this.hp - amount);
+    if (this.hp > 0) return;
+    this.dead = true;
+    this.obj.visible = false;
+    game.minerals += this.reward;
+    game.raidEarned += this.reward;
+    game.fx.explosion({ x: this.x, y: 1, z: this.z }, 2.5);
+    game.fx.label({ x: this.x, y: 2, z: this.z }, '+' + this.reward, 'cash');
+    game.stage.kick(3);
+    game.sfx.cannonHit();
+    game.emit('change');
   }
 }
 
@@ -1070,12 +1113,14 @@ export class Bunker {
 }
 
 export class Scv {
-  constructor(x, z) {
+  constructor(x, z, baseLevel = 0) {
     this.kind = 'scv';
     this.x = x; this.z = z;
     this.yaw = 0;
-    this.maxHp = 70;
-    this.hp = 70;
+    const stats = { hp: 70 };
+    applyBaseUpgrade(stats, baseLevel);
+    this.maxHp = stats.hp;
+    this.hp = stats.hp;
     this.speed = 1.9;
     this.dead = false;
     this.deathT = 0;
@@ -1272,7 +1317,7 @@ export class AirBomb {
     game.fx.decal(this.tx, this.tz, this.radius * 0.55, 0x2a1a12, 0.55);
     game.sfx.cannonHit();
     game.stage.kick(3.2);
-    for (const bug of game.zerglings) {
+    for (const bug of game.combatTargets) {
       if (bug.dead || bug.flying) continue;
       const d = Math.hypot(bug.x - this.tx, bug.z - this.tz);
       if (d > this.radius) continue;
@@ -1315,7 +1360,7 @@ export class Shell {
     game.fx.explosion({ x: this.tx, y: 0.35, z: this.tz }, 1.15);
     game.sfx.cannonHit();
     game.stage.kick(2.2);
-    for (const bug of game.zerglings) {
+    for (const bug of game.combatTargets) {
       if (bug.dead || bug.flying) continue;
       const d = Math.hypot(bug.x - this.tx, bug.z - this.tz);
       if (d > this.radius) continue;

@@ -119,6 +119,22 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 - Intro and defeat screens pause the simulation. Live HUD shows remaining hostiles and boss
   attack/reinforcement timers. No deployment or online leaderboard has been added.
 
+## Base abilities and bonus phase (Nov 10, 2026)
+
+- Run-wide `baseLevel` research costs 200 + 150 × current level minerals. Every level adds
+  15% health/damage to current and future combat units, and health to the Patch Rig. The
+  unit stores its research level so promotions and treasure recalculation retain the bonus.
+- Wave completion enters `raid` for 15 simulation seconds before `completeWave()`. All wave
+  spawns, the boss, and remaining enemies must be cleared first. `game.hives` are attackable
+  bonus targets only during this phase, with a one-time mineral bounty. They never count as
+  bug kills. `game.combatTargets` selects the appropriate enemy list for weapons and blasts.
+- `laserCharge` fills from 0 to 90 seconds, caps at one shot, and survives `loadLevel()`.
+  Fire Laser / L arms a click from the base toward the map edge: one red piercing beam deals
+  600 damage to every enemy on that line, then charge resets to zero. Pausing freezes charge.
+- Checkpoints persist research/charge; old saves default both to zero. Combat and raid saves
+  retain existing round-replay semantics. New runs reset both values. Tuning is in config;
+  full rules are in `BALANCE.md`. Run `tests/browser-base.cjs` using the browser invocation below.
+
 ## Rules that are easy to break
 
 - **Grid occupancy.** Aircraft never own ground tiles. A placed ground unit owns its tile (`grid.occupant(tx, ty) === unit`). Walking or
@@ -135,7 +151,7 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 - **Map size.** `COLS`/`ROWS` are maximums (128), not active dimensions. Use `mapDimensions(level)`
   for generation, `layout.cols/rows` for terrain, and `grid.COLS/ROWS` for indexing, input, routing
   and movement. A `Grid.load()` can grow or shrink its storage; never index it with the cap.
-- **Build anytime.** Placement is allowed in `build`, `brief` and `wave` states via
+- **Build anytime.** Placement is allowed in `build`, `brief`, `wave` and `raid` states via
   `game.canBuildAt()` (never on a tile a bug stands on). Salvage is build-phase only.
 - **Score = kills.** `game.score` mirrors `game.kills`.
 - **Typing is not hotkeys.** The keydown handler ignores events from inputs and while the start
@@ -174,14 +190,17 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 
 ## Controls (as shipped)
 
-Left-drag box-select · click / Shift-click / double-click or Ctrl-click (all of a type on screen) ·
-right-click = smart order (move, attack, garrison, repair, revive) · right-drag = pan (grab the
-map) · ⌥ + right-drag = rotate/tilt · middle-drag = pan · wheel = zoom · arrows / screen edge =
-scroll · Ctrl+1–9 set group, Shift+1–9 add, 1–9 select, double-tap to jump · A attack-move · S stop ·
+Left-drag pan · Shift-drag box-select · click / Shift-click / double-click or Ctrl-click (all of a type on screen) ·
+right-click = smart order (move, attack, garrison, repair, revive) · right-drag = rotate/tilt · ⌥ + left-drag = rotate/tilt · middle-drag = pan · wheel = zoom · arrows =
+scroll (no automatic edge scrolling) · Ctrl+1–9 set group, Shift+1–9 add, 1–9 select, double-tap to jump · A attack-move · S stop ·
 F stim · R air strike · U promote · X salvage · F1 SCV · F2 all army · Space launch wave / jump to
 last alert · Esc cancel. Build hotkeys: W wall, M marine, B bunker, G goliath, T tank, V Falcon Gunship.
 
 ## Testing
+
+`tests/browser-camera.cjs` checks mouse-anchored panning in four directions at multiple angles,
+rotation/tilt, Alt and middle-button gestures, click jitter, selection/orders, proportional zoom,
+edge-hover stability and drag cancellation on lost focus. Use the browser invocation below.
 
 `tests/browser-retention.cjs` uses the browser invocation below. It checks a full checkpoint
 round trip (including garrisons, moving tanks, aircraft, promotion, damage and timed treasure),
@@ -277,7 +296,7 @@ The details:
   1.2 MB unminified), cache aggressively, show the start screen before the heavy work.
 - Something must happen in the first 20 seconds. Fix the long march (decision 2) before anything
   else; a two-minute wait kills a first session.
-- Teach by doing: a short first wave that prompts "drag to select", "right-click to move", "build
+- Teach by doing: a short first wave that prompts "Shift-drag to select", "right-click to move", "build
   a wall here", instead of a text tutorial.
 - Auto-pick FX LO on weak GPUs (detect a slow first frame), so laptops don't stutter.
 
