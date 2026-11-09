@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CELL, BUILD, ECON, ARMORY, UNITS, AIR_STRIKE, wavePlan } from './config.js';
+import { CELL, BUILD, ECON, ARMORY, UNITS, AIR_STRIKE, TREASURE, TREASURE_RULES, wavePlan } from './config.js';
 import { Grid } from './grid.js';
 import { carveLevel } from './levels.js';
 import { Marine, Zergling, Wall, Bunker, Scv, Core, Tracer, Shell, AirBomb } from './entities.js';
@@ -84,9 +84,11 @@ export class Game {
     this.score = 0;
     this.time = 0;
     this.state = 'build';
+    this.paused = false;
     this.queue = [];
     this.spawnTimer = 0;
     this.armory = [];
+    this.treasureLoot = [];
     this.stimUnlocked = false;
     this.selected = null;
     this.placing = null;
@@ -123,6 +125,7 @@ export class Game {
     const layout = carveLevel(this.level, this.mapSeed);
     this.layout = layout;
     this.grid.load(layout);
+    this.stage.setMapSize(layout.cols, layout.rows);
     this.rebuildTerrain(layout);
 
     if (this.core) this.world.remove(this.core.obj);
@@ -143,7 +146,8 @@ export class Game {
       this.hatchGroup.add(h);
     }
     this.stage.focus.set(layout.focus.x, 0, layout.focus.z);
-    if (!this.stage.userZoomed) this.stage.dist = 18;
+    this.stage.homeFocus.copy(this.stage.focus);
+    if (!this.stage.userZoomed) this.stage.dist = 14;
     this.selected = null;
   }
 
@@ -166,7 +170,7 @@ export class Game {
     }
 
     // mountains: one heightfield around the lanes
-    const terrain = buildTerrain(layout.depth, (this.mapSeed ^ (this.level * 2654435761)) >>> 0);
+    const terrain = buildTerrain(layout.depth, (this.mapSeed ^ (this.level * 2654435761)) >>> 0, layout.cols, layout.rows);
     this.zoneMesh = terrain.mesh;
     this.heightAt = terrain.heightAt;
     this.scene.add(this.zoneMesh);
@@ -199,6 +203,8 @@ export class Game {
 
   /* ---------------- economy + building ---------------- */
 
+  get marineUpgrades() { return [...this.armory, ...this.treasureLoot]; }
+
   get nextArmory() { return ARMORY.find((a) => !this.armory.includes(a)); }
 
   canAfford(cost) { return this.minerals >= cost; }
@@ -229,7 +235,7 @@ export class Game {
   placeGunner(kind, tx, ty) {
     const spec = BUILD[kind];
     if (!spec || !this.canBuildAt(tx, ty) || !this.canAfford(spec.cost)) return false;
-    const m = new Marine(kind, tx, ty, this.armory);
+    const m = new Marine(kind, tx, ty, this.marineUpgrades);
     const sp = this.grid.spawn;
     m.restYaw = Math.atan2((sp.y + 1) - m.z, (sp.x + 0.5) - m.x);
     m.yaw = m.restYaw;
@@ -334,13 +340,40 @@ export class Game {
     if (cost == null || !this.canAfford(cost)) return false;
     this.minerals -= cost;
     m.invested += cost;
-    m.upgrade(this.armory);
+    m.upgrade(this.marineUpgrades);
     this.fx.ring({ x: m.x, z: m.z }, 2.2, 0xffd36a);
     this.fx.sparks({ x: m.x, y: 0.7, z: m.z }, 0, 26, [1, 0.85, 0.4], 5, 6.28);
     this.stage.kick(1.5);
     sfx.upgrade();
     this.emit('change');
     return true;
+  }
+
+  awardTreasureBoxes(count, { guaranteedGold = false } = {}) {
+    const rewards = [];
+    for (let i = 0; i < count; i++) {
+      const gold = (guaranteedGold && i === 0) || Math.random() < TREASURE_RULES.goldChance;
+      const upgrade = TREASURE[Math.floor(Math.random() * TREASURE.length)];
+      const reward = {
+        ...upgrade, boxType: gold ? 'gold' : 'silver', earnedLevel: this.level,
+        expiresAfterLevel: gold ? null : this.level + TREASURE_RULES.silverRounds
+      };
+      this.treasureLoot.push(reward);
+      rewards.push(reward);
+    }
+    // Recalculate once: existing, downed and garrisoned Marines all inherit the rewards.
+    for (const m of this.gunners) if (m.spec.armory) m.applyStats(this.marineUpgrades);
+    if (rewards.length) {
+      sfx.upgrade();
+      this.emit('treasureApplied', rewards);
+      this.emit('change');
+    }
+    return rewards;
+  }
+
+  expireTreasureBoosts() {
+    this.treasureLoot = this.treasureLoot.filter(item => item.expiresAfterLevel == null || this.level <= item.expiresAfterLevel);
+    for (const m of this.gunners) if (m.spec.armory) m.applyStats(this.marineUpgrades);
   }
 
   removeStructure(e) {
@@ -399,13 +432,19 @@ export class Game {
     return true;
   }
 
+  togglePause() {
+    if (this.state === 'defeat') return;
+    this.paused = !this.paused;
+    this.emit('change');
+  }
+
   startWave() {
     if (this.state !== 'build') return;
     this.queue = wavePlan(this.level);
     const mouths = this.grid.spawns.length;
-    if (mouths > 1) this.queue.forEach((s, i) => { s.lane = Math.floor(i / 3) % mouths; });
+    if (mouths > 1) this.queue.forEach((s, i) => { s.lane = i % mouths; });
     this.spawnTimer = 0;
-    this.briefT = 3.15;
+    this.briefT = 3;
     this.called = false;
     this.state = 'brief';
     this.assault.start();
@@ -431,7 +470,7 @@ export class Game {
     if (next && this.kills >= next.kills) {
       this.armory.push(next);
       if (next.id === 'stim') this.stimUnlocked = true;
-      for (const m of this.gunners) if (m.spec.armory) m.applyStats(this.armory);
+      for (const m of this.gunners) if (m.spec.armory) m.applyStats(this.marineUpgrades);
       sfx.unlock();
       this.emit('unlock', next);
     }
@@ -458,16 +497,18 @@ export class Game {
     const refund = this.recoverHardware();
     this.minerals += refund + bonus;
     this.level++;
+    this.expireTreasureBoosts();
     this.loadLevel();
     this.state = 'build';
     sfx.victory();
     this.emit('level');
     this.emit('change');
     this.emit('hold', {
-      kicker: 'Canyon cleared',
+      kicker: `Round ${prev} cleared — Round ${this.level} ready`,
       title: prevName,
-      body: `Level ${prev} holds. ${this.kills} bugs killed so far. +${bonus} minerals, hardware returned. Next: ${this.layout.name}.`
+      body: `+${bonus} minerals, hardware returned. Round ${this.level} starts automatically in 3 seconds.`
     });
+    this.startWave();
   }
 
   spawnTracer(from, target, damage, owner) {
@@ -619,6 +660,7 @@ export class Game {
   /* ---------------- tick ---------------- */
 
   update(dt) {
+    if (this.paused) return;
     this.time += dt;
     if (this.airStrikeCd > 0) this.airStrikeCd = Math.max(0, this.airStrikeCd - dt);
     for (const p of this.pings) p.t += dt;

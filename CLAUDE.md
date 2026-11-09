@@ -40,7 +40,7 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 | `src/game.js` | Game state and rules: placing and selling, levels, waves, kills and score, group commands (`commandMove/Attack/Garrison/Stop`), alerts, terrain rebuild. |
 | `src/entities.js` | `Marine` (all player gun units: marine/goliath/tank/falcon), `Zergling` (all bug strains), `Wall`, `Bunker`, `Scv`, `Core`, projectiles. |
 | `src/grid.js` | Tile grid, A* for player units, the shared bug route field, line-of-sight helpers. |
-| `src/levels.js` | Carves each level: a full canyon between west/east bases, boulders, rock depth, spires. Levels 1–10 come from `LEVELS` in config; 11+ are generated. |
+| `src/levels.js` | Generates 1–3 difficulty-based seeded approaches between west/east bases, with boulders, rock depth and spires. Early level names come from `LEVELS`. |
 | `src/terrain.js` | The mountain heightfield mesh built from the per-cell rock depth. |
 | `src/config.js` | **All tuning lives here**: map size, costs, unit and bug stats, wave plan, level paths, model files. |
 | `src/models.js` | Procedural low-poly models (units, bugs including the Needler, buildings, boulders, spires). |
@@ -54,12 +54,38 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 
 ## Latest gameplay update (Nov 9, 2026)
 
+- Actual map progression (`mapDimensions` in config): levels 1–5 = 56×56, 6–10 = 72×72,
+  11–15 = 88×88, 16–20 = 104×104, 21–25 = 120×120, 26+ = 128×128 maximum.
+- One simple western attack route at levels 1–5, two at levels 6–15, and three at level 16+.
+  Each has a western hive and converges near the eastern command center. Waves cycle through
+  every route; no mid-map hive teleports. All routes are checked after placing boulders.
+- Ground/grid planes and mountain geometry stop exactly at the current map boundary. Removed
+  the old 90-tile ground extension and 14-tile mountain skirt. Camera movement, terrain lookup,
+  aircraft bounds and minimap coordinates follow the current dimensions, including after restart.
+
+- Visibility: closer 14-tile camera, steeper angle, focus on the base/defense instead of empty
+  terrain; Reset View returns there. Larger unit silhouettes, persistent team rings, softer
+  terrain/grid contrast, brighter blue rim light, and cropped build thumbnails improve readability.
+- One slim top toolbar contains icon readouts for minerals, score and base health, a compact
+  level readout, camera buttons, settings, Strike and Launch. Below 800px, camera/settings use
+  the toolbar's overflow button; the bar remains one row.
+- Eco graphics is the new default (`td.graphics`, replacing the old inherited `td.fx` default):
+  30 fps gameplay, antialiasing and sharp native pixels (up to 2×), no shadows or post-processing. High is opt-in:
+  60 fps, at most 2× pixels, 1024px shadows, GTAO and bloom. Post-processing is allocated only on first use.
+- Rendering requests prefer a low-power GPU. Menus/game-over redraw at 4 fps; portrait at up
+  to 8 fps only while visible; HUD/minimap about 10 Hz. Hidden tabs cancel their animation
+  callback and pause simulation, resuming without time catch-up. Simulation uses <=50ms steps.
+
+- Build cards and army commands sit on the battlefield immediately right of the minimap.
+  The compact dock matches the minimap height (130px, 90px on small screens). Build buttons
+  show thumbnails rendered from the actual battlefield models; keyboard hints remain in the corner.
+  The app stays within one viewport; narrow screens open unit details with the Unit Info toggle
+  instead of placing the inspector below the map.
 - Quick Deploy buys three soldiers at normal cost and starts wave one. Name is optional;
   Build My Own keeps the original planning flow. Rematches keep the chosen mode and map seed.
 - Bases are at opposite ends as requested: the swarm hive sits at the western map entrance,
-  the command center at the eastern exit, on every authored and generated map. Mid-map flank
-  hives and shortened approaches have been removed. The first-wave approach takes about 59
-  simulation seconds in the smoke scenario; aircraft can intercept enemies further up the map.
+  the command center at the eastern exit. Multiple routes now start from western hives; the
+  smaller early maps shorten the approach without moving hives into the middle of a map.
 - Falcon Gunship (V, 220 minerals): twin tracking cannons attack both ground and air, speed 5.2,
   two upgrade tiers. Flies directly over mountains/walls and never occupies ground grid cells.
   Lethal damage destroys aircraft immediately; they cannot garrison or be revived as infantry.
@@ -67,10 +93,17 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
   Goliaths, Falcons, needlers and hunters can target air; tanks, melee bugs and ground blasts
   cannot. Projectile aim follows flight height, and air units use flight-height click/box selection.
   Aircraft appear as triangles on the minimap.
-- Milestone assaults every ten levels: The Breacher (10), Broodmother (20), World Eater (30+).
+- Boss assaults every five levels: medium Brood Guardians at 5/15/25/etc.; harder decade bosses
+  The Breacher (10), Broodmother (20), World Eater (30+). Medium encounters have half HP,
+  lighter damage/armor and slower bombardment/reinforcements than their decade counterpart.
   Bosses gain an enrage phase below half HP, summon reinforcements, and bombard up to 1/2/3
   distinct troop positions with visible dodge windows. Boss kills award minerals and recharge
-  the air strike. Reinforcement spawning stops on boss death; remaining hostiles must be cleared.
+  the air strike, plus 1–2 treasure boxes (medium) or 2–3 (hard), applied automatically.
+  Random, stacking Marine gun damage, range, firing speed or movement speed upgrades benefit
+  all current and future Marines. Silver boosts last through the next 3 full rounds (plus the
+  remainder of the award round); gold upgrades last for the run. Each box has a 35% gold chance,
+  and hard bosses guarantee at least one gold. The readout row has expandable upgrade details
+  with expiry rounds; no manual opening. New runs reset all treasure. Reinforcement spawning stops on boss death; remaining hostiles must be cleared.
 - `src/milestones.js` owns boss entities, warning rings, damage, reinforcements, and cleanup.
   `milestonePlan()` in config owns tuning. `game.assault` exposes the live encounter state.
 - `src/challenge.js` parses bounded challenge parameters, creates same-map links, and renders
@@ -93,8 +126,9 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 - **Model contract.** Anything `makeModel()` returns must expose `userData.torso`,
   `userData.weapon` (with `userData.muzzle`), and optionally `userData.anim(state, dt)`
   (`solid: true` means no separate turret). Bugs with `userData.serpent` use `animateSerpent`.
-- **Map size** is `COLS`/`ROWS` in config (currently 128×128). Level paths are authored on a
-  26×16 grid and stretched; lane width scales with the stretch.
+- **Map size.** `COLS`/`ROWS` are maximums (128), not active dimensions. Use `mapDimensions(level)`
+  for generation, `layout.cols/rows` for terrain, and `grid.COLS/ROWS` for indexing, input, routing
+  and movement. A `Grid.load()` can grow or shrink its storage; never index it with the cap.
 - **Build anytime.** Placement is allowed in `build`, `brief` and `wave` states via
   `game.canBuildAt()` (never on a tile a bug stands on). Salvage is build-phase only.
 - **Score = kills.** `game.score` mirrors `game.kills`.
@@ -122,6 +156,18 @@ hits, live movement dodges, rewards, and cleanup. It writes visual captures to t
 `tests/browser-air.cjs` uses the same invocation and checks air/ground damage, anti-air rules,
 terrain flight, grid occupancy, aircraft selection, promotion, destruction, level recovery,
 and the level-5 enemy air unlock.
+
+`tests/browser-performance.cjs` checks rendering defaults, lazy effects, 30/60 fps limits,
+4 fps idle redraws, portrait/minimap throttling and hidden-tab pause/resume. Its fake 120 Hz
+clock avoids prolonged GPU stress; only two actual battlefield frames compare draw calls.
+One tested scene used about 174 draw calls in Eco versus 714 in High (scene-dependent,
+not a measurement of real hardware temperature or energy consumption).
+
+`node tests/map-layout.mjs` checks 51 reproducible seeded maps across size boundaries and
+late levels: real dimensions, disjoint middle approaches, connectivity, grid resizing and cached
+swarm fields. `tests/browser-maps.cjs` uses the browser invocation above and checks exact
+terrain/ground extents, every lane receiving enemies, camera/minimap coordinates, level 5→6
+and restarting onto a smaller map.
 
 Other useful checks from development:
 

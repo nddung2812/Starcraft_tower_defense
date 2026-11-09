@@ -125,11 +125,14 @@ export class MilestoneAssault {
     this.clearMarks();
     g.minerals += this.plan.reward;
     g.airStrikeCd = 0;
-    this.status = `BOSS DOWN · +${this.plan.reward} minerals · air strike recharged. Clear the survivors!`;
+    const boxes = this.plan.treasureMin + Math.floor(Math.random() * (this.plan.treasureMax - this.plan.treasureMin + 1));
+    const rewards = g.awardTreasureBoxes(boxes, { guaranteedGold: this.plan.hard });
+    this.status = `BOSS DOWN · +${this.plan.reward} minerals · ${boxes} upgrades auto-applied · air strike recharged.`;
     g.fx.explosion({ x: bug.x, y: 0.8, z: bug.z }, 3);
     g.stage.kick(7);
     g.sfx.victory();
-    g.emit('bossDown', { level: g.level, name: this.plan.name });
+    g.emit('bossDown', { level: g.level, name: this.plan.name, boxes, rewards });
+    g.emit('change');
   }
 
   update(dt) {

@@ -94,7 +94,9 @@ export class Marine {
 
     this.obj.position.set(this.x, 0, this.z);
     this.obj.add(this.stimLight);
+    this.visualScale = UNIT_SCALE * (this.spec.visualScale ?? 1);
     this.model = makeModel(kind, 0);
+    this.model.scale.setScalar(this.visualScale);
     this.obj.add(this.model);
 
     this.ring = new THREE.Mesh(
@@ -102,10 +104,11 @@ export class Marine {
       new THREE.MeshBasicMaterial({ color: this.spec.accent, transparent: true, opacity: 0.85, depthWrite: false })
     );
     this.ring.position.y = 0.02;
-    this.ring.visible = false;
+    this.ring.visible = true;
+    this.ring.material.opacity = 0.55;
     this.obj.add(this.ring);
 
-    const barY = (kind === 'goliath' ? 1.62 : kind === 'tank' ? 0.98 : 1.28) * UNIT_SCALE;
+    const barY = (kind === 'goliath' ? 1.62 : kind === 'tank' ? 0.98 : 1.28) * this.visualScale;
     this.bar = new HealthBar(this.obj, kind === 'tank' ? 0.78 : 0.62, 0.08, barY);
     this.applyStats(armory);
     this.hp = this.stats.hp;
@@ -115,7 +118,7 @@ export class Marine {
     const base = this.tiers[this.tier];
     const s = {
       hp: base.hp, damage: base.damage, attackSpeed: base.attackSpeed,
-      range: base.range, armor: this.info.armor
+      range: base.range, armor: this.info.armor, moveSpeed: this.spec.speed
     };
     if (this.spec.armory) for (const u of armory) u.apply(s);
     const ratio = this.stats ? this.hp / this.stats.hp : 1;
@@ -132,6 +135,7 @@ export class Marine {
     this.tier++;
     const old = this.model;
     this.model = makeModel(this.kind, this.tier);
+    this.model.scale.copy(old.scale);
     this.model.rotation.y = old.rotation.y;
     this.obj.remove(old);
     this.obj.add(this.model);
@@ -176,7 +180,7 @@ export class Marine {
     }
     const want = Math.atan2(dz, dx);
     this.restYaw = want;
-    const step = Math.min(dist, this.spec.speed * (this.stimT > 0 ? 1.5 : 1) * dt);
+    const step = Math.min(dist, this.stats.moveSpeed * (this.stimT > 0 ? 1.5 : 1) * dt);
     const nx = this.x + (dx / dist) * step;
     const nz = this.z + (dz / dist) * step;
     if (this.flying || game.grid.get(Math.floor(nx), Math.floor(this.z)) !== CELL.ROCK) this.x = nx;
@@ -326,7 +330,7 @@ export class Marine {
     }
 
     const grow = this.spawnT * this.spawnT * (3 - 2 * this.spawnT);
-    this.model.scale.setScalar(grow * UNIT_SCALE);
+    this.model.scale.setScalar(grow * this.visualScale);
 
     const ordered = this.order?.type === 'attack' && this.target !== this.order.target;
     if (ordered || !this.target || this.target.dead || this.distTo(this.target) > this.stats.range || !this.inArc(this.target)) {

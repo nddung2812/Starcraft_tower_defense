@@ -28,7 +28,7 @@ const os = require('node:os');
       for(let i=0;i<120;i++) falcon.update(0.05,g);
       check(Math.hypot(falcon.x-marine.x,falcon.z-marine.z)<0.1,'Aircraft failed to reach occupied friendly tile');
       check(g.grid.occupant(x,y)===marine,'Aircraft erased ground occupant');
-      const rock = Array.from({length:128*128},(_,i)=>[i%128,Math.floor(i/128)]).find(([tx,ty])=>g.grid.get(tx,ty)===CELL.ROCK && Math.hypot(tx-x,ty-y)<10);
+      const rock = Array.from({length:g.grid.COLS*g.grid.ROWS},(_,i)=>[i%g.grid.COLS,Math.floor(i/g.grid.COLS)]).find(([tx,ty])=>g.grid.get(tx,ty)===CELL.ROCK && Math.hypot(tx-x,ty-y)<10);
       check(rock,'No nearby ridge for flight test');
       check(g.commandMove([falcon],...rock)===1,'Cannot order flight over rock');
       for(let i=0;i<150;i++) falcon.update(0.05,g);

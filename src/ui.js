@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { BUILD, ZERG_INFO, BREEDS, ECON, UNITS, AIR_STRIKE } from './config.js';
-import { buildZergling } from './models.js';
+import { buildZergling, buildWall } from './models.js';
 import { makeModel, loadedModels } from './assets.js';
 
 const $ = (id) => document.getElementById(id);
@@ -9,7 +9,7 @@ const $ = (id) => document.getElementById(id);
 class Portrait {
   constructor(canvas) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-    this.renderer.setPixelRatio(Math.min(2, devicePixelRatio));
+    this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     this.renderer.setSize(canvas.clientWidth || 300, canvas.clientHeight || 190, false);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
 
@@ -34,6 +34,7 @@ class Portrait {
     const key = kind + tier;
     if (this.key === key) return;
     this.key = key;
+    this.dirty = true;
     if (this.current) this.pivot.remove(this.current);
     const model = (k) => makeModel(k, tier, { rim: false });
     if (kind === 'marine') {
@@ -74,6 +75,12 @@ class Portrait {
   }
 
   update(dt) {
+    if (!this.renderer.domElement.getClientRects().length) return;
+    this.pendingTime = (this.pendingTime || 0) + dt;
+    if (this.pendingTime < 1 / 8 && !this.dirty) return;
+    dt = this.pendingTime;
+    this.pendingTime = 0;
+    this.dirty = false;
     this.t += dt;
     this.pivot.rotation.y = Math.sin(this.t * 0.45) * 0.85 - 0.5;
     const ud = this.current?.userData;
@@ -103,6 +110,7 @@ class Portrait {
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h, false);
+    this.dirty = true;
   }
 }
 
@@ -121,8 +129,78 @@ const COMMANDS = [
   { id: 'salvage', label: 'Salvage', key: 'X' },
   { id: 'army', label: 'All Army', key: 'F2' },
   { id: 'scv', label: 'SCV', key: 'F1' },
-  { id: 'wave', label: 'Launch', key: 'Space' }
+  { id: 'wave', label: 'Last Alert', key: '' }
 ];
+
+/** Render thumbnails from the same models used on the battlefield, once per load. */
+function buildIcons(renderer) {
+  const previousSize = renderer.getSize(new THREE.Vector2());
+  const previousRatio = renderer.getPixelRatio();
+  renderer.setPixelRatio(1);
+  renderer.setSize(128, 96, false);
+  const scene = new THREE.Scene();
+  scene.add(new THREE.HemisphereLight(0xbce6ff, 0x354052, 2));
+  const key = new THREE.DirectionalLight(0xfff0d4, 4);
+  key.position.set(3, 5, 4); scene.add(key);
+  const rim = new THREE.DirectionalLight(0x77cfff, 3);
+  rim.position.set(-3, 2, -3); scene.add(rim);
+  const camera = new THREE.PerspectiveCamera(34, 128 / 96, 0.01, 100);
+  const icons = {};
+  try {
+    for (const kind of Object.keys(BUILD)) {
+      const model = kind === 'wall' ? buildWall() : makeModel(kind, 0, { rim: false });
+      scene.add(model);
+      model.updateMatrixWorld(true);
+      const bounds = new THREE.Box3().setFromObject(model);
+      const center = bounds.getCenter(new THREE.Vector3());
+      const radius = bounds.getSize(new THREE.Vector3()).length() / 2;
+      const distance = radius / Math.sin(THREE.MathUtils.degToRad(17)) * 1.08;
+      camera.position.copy(center).addScaledVector(new THREE.Vector3(1.6, 1.1, 2).normalize(), distance);
+      camera.lookAt(center);
+      // Fit the projected bounding box so narrow infantry and wide vehicles both read well.
+      const inverseView = camera.quaternion.clone().invert();
+      const tangent = Math.tan(THREE.MathUtils.degToRad(17));
+      let fittedDistance = 0;
+      for (const x of [bounds.min.x, bounds.max.x]) {
+        for (const y of [bounds.min.y, bounds.max.y]) {
+          for (const z of [bounds.min.z, bounds.max.z]) {
+            const corner = new THREE.Vector3(x, y, z).sub(center).applyQuaternion(inverseView);
+            fittedDistance = Math.max(fittedDistance, corner.z + Math.abs(corner.y) / tangent, corner.z + Math.abs(corner.x) / (tangent * camera.aspect));
+          }
+        }
+      }
+      camera.position.copy(center).addScaledVector(new THREE.Vector3(1.6, 1.1, 2).normalize(), fittedDistance * 1.05);
+      renderer.render(scene, camera);
+      // Trim transparent margins so the unit, not empty padding, fills its small button.
+      const thumbnail = document.createElement('canvas');
+      thumbnail.width = 128; thumbnail.height = 96;
+      const ctx = thumbnail.getContext('2d');
+      ctx.drawImage(renderer.domElement, 0, 0);
+      const pixels = ctx.getImageData(0, 0, 128, 96).data;
+      let left = 128, right = -1, top = 96, bottom = -1;
+      for (let y = 0; y < 96; y++) {
+        for (let x = 0; x < 128; x++) {
+          if (pixels[(y * 128 + x) * 4 + 3] < 12) continue;
+          left = Math.min(left, x); right = Math.max(right, x);
+          top = Math.min(top, y); bottom = Math.max(bottom, y);
+        }
+      }
+      if (right >= left && bottom >= top) {
+        const width = right - left + 1, height = bottom - top + 1;
+        const scale = Math.min(124 / width, 92 / height);
+        ctx.clearRect(0, 0, 128, 96);
+        ctx.drawImage(renderer.domElement, left, top, width, height,
+          (128 - width * scale) / 2, (96 - height * scale) / 2, width * scale, height * scale);
+      }
+      icons[kind] = thumbnail.toDataURL('image/png');
+      scene.remove(model);
+    }
+  } finally {
+    renderer.setPixelRatio(previousRatio);
+    renderer.setSize(previousSize.x, previousSize.y, false);
+  }
+  return icons;
+}
 
 const CHIP = { marine: 'M', goliath: 'G', tank: 'H', falcon: 'V', scv: 'S' };
 
@@ -138,9 +216,10 @@ export class UI {
     this.portrait = new Portrait($('portrait'));
     this.inspect = { kind: 'marine', tier: 0, entity: null };
 
+    const icons = buildIcons(this.portrait.renderer);
     $('buildBar').innerHTML = Object.values(BUILD).map((b) => `
-      <button class="card" data-build="${b.id}">
-        <span class="card__icon">${b.icon}</span>
+      <button class="card" data-build="${b.id}" title="${b.name} · ${b.cost} minerals (${b.key})" aria-label="Build ${b.name}, ${b.cost} minerals, shortcut ${b.key}">
+        <img class="card__icon" src="${icons[b.id]}" alt="" draggable="false">
         <span class="card__name">${b.name}</span>
         <span class="card__cost">${b.cost}</span>
         <span class="card__key">${b.key}</span>
@@ -177,7 +256,7 @@ export class UI {
       game.stage.focus.set(boss.x, 0, boss.z);
       game.fx.ring({ x: boss.x, z: boss.z }, 2.5, 0xff684b);
     });
-    $('btnWave').addEventListener('click', () => game.startWave());
+    $('btnPause').addEventListener('click', () => game.togglePause());
     $('btnAir').addEventListener('click', () => game.emit('airstrike'));
     $('btnUpgrade').addEventListener('click', () => {
       if (this.inspect.entity?.upgrade) game.upgradeGunner(this.inspect.entity);
@@ -199,11 +278,15 @@ export class UI {
       this.showUnit(b.dataset.unit, 0, null);
     }));
 
+    game.on('bossDown', ({ rewards }) => {
+      const silver = rewards.filter(r => r.boxType === 'silver').length;
+      const gold = rewards.length - silver;
+      this.toast('Upgrades automatically applied', `${silver} silver (next 3 rounds) · ${gold} gold (permanent this run) · all Marines`);
+    });
     game.on('change', () => this.sync());
     game.on('unlock', (u) => this.toast(`Armory unlocked — ${u.name}`, u.effect, 'unlock'));
     game.on('brief', (card) => this.say(`<b>${card.title}.</b> ${card.body}`));
-    game.on('hold', (card) => this.say(`<b>${card.title}.</b> ${card.body}`));
-    game.on('count', (n) => { if (n) this.say(`<b>Contact in ${n}.</b>`); });
+    game.on('hold', (card) => this.say(`<b>${card.kicker}.</b> ${card.body}`));
 
     this.showUnit('marine', 0, null);
   }
@@ -238,9 +321,9 @@ export class UI {
     } else if (UNITS[kind]) {
       const spec = UNITS[kind];
       const base = spec.tiers[tier];
-      const s = { hp: base.hp, damage: base.damage, attackSpeed: base.attackSpeed, range: base.range, armor: spec.info.armor };
+      const s = { hp: base.hp, damage: base.damage, attackSpeed: base.attackSpeed, range: base.range, armor: spec.info.armor, moveSpeed: spec.speed };
       if (entity) Object.assign(s, entity.stats);
-      else if (spec.armory) for (const u of g.armory) u.apply(s);
+      else if (spec.armory) for (const u of g.marineUpgrades) u.apply(s);
       const shots = kind === 'goliath' || kind === 'falcon' ? 2 : 1;
 
       $('pName').textContent = spec.info.name;
@@ -253,13 +336,13 @@ export class UI {
       const accent = spec.info.accent;
       $('stats').innerHTML =
         statRow('Hit Points', Math.round(s.hp), s.hp / 380, '#5ef08a') +
-        statRow('Damage', shots > 1 ? s.damage + ' ×2' : s.damage, (s.damage * shots) / 50, '#f0b23c') +
+        statRow('Damage', shots > 1 ? Number(s.damage.toFixed(1)) + ' ×2' : Number(s.damage.toFixed(1)), (s.damage * shots) / 50, '#f0b23c') +
         statRow('Armour', s.armor, s.armor / 4, '#9aa3a8') +
         statRow('Fire Rate', (1 / s.attackSpeed).toFixed(2) + '/s', (1 / s.attackSpeed) / 3.5, '#f0b23c') +
         statRow('Range', s.range.toFixed(1) + ' tiles', s.range / 8, accent) +
         (spec.splash ? statRow('Blast', spec.splash.toFixed(1) + ' tiles', spec.splash / 2, accent) : '') +
         statRow('Targets', spec.targetsAir === false ? 'Ground' : 'Ground + Air', 1, accent) +
-        statRow('Move Speed', spec.mobile ? spec.speed.toFixed(1) + ' t/s' : 'Emplaced', spec.speed / 3, accent);
+        statRow('Move Speed', spec.mobile ? s.moveSpeed.toFixed(1) + ' t/s' : 'Emplaced', s.moveSpeed / 3, accent);
     } else {
       const b = entity?.breed || BREEDS.zergling;
       $('pName').textContent = b.name;
@@ -318,11 +401,30 @@ export class UI {
     const g = this.game;
     $('rMinerals').textContent = g.minerals;
     $('rWave').textContent = g.level;
+    this.updateAssault();
     $('rKills').textContent = g.kills;
     const pct = Math.max(0, g.core.hp / g.core.maxHp);
     $('rCore').textContent = Math.ceil(pct * 100) + '%';
     $('rCore').style.color = pct > 0.5 ? '' : pct > 0.25 ? '#f0b23c' : '#ff5a4a';
 
+    $('treasure').hidden = !g.treasureLoot.length;
+    const silver = g.treasureLoot.filter(item => item.boxType === 'silver').length;
+    const gold = g.treasureLoot.length - silver;
+    $('treasureSummary').textContent = `Auto upgrades · ▣ ${silver} silver · ▣ ${gold} gold`;
+    const lootCounts = new Map();
+    for (const item of g.treasureLoot) {
+      const key = `${item.boxType}:${item.id}:${item.expiresAfterLevel}`;
+      const entry = lootCounts.get(key);
+      if (entry) entry.count++;
+      else lootCounts.set(key, { item, count: 1 });
+    }
+    $('treasureNote').replaceChildren(...[...lootCounts.values()].map(({ item, count }) => {
+      const row = document.createElement('div');
+      row.className = `treasure__item treasure__item--${item.boxType}`;
+      const duration = item.boxType === 'gold' ? 'Permanent this run' : `Active through Round ${item.expiresAfterLevel}`;
+      row.textContent = `▣ ${item.boxType === 'gold' ? 'Gold' : 'Silver'} · ${item.effect} ×${count} · ${duration}`;
+      return row;
+    }));
     const next = g.nextArmory;
     $('armoryLabel').textContent = next ? next.name : 'All tech unlocked';
     $('armoryNote').textContent = next ? `${next.effect} · ${g.kills}/${next.kills} kills` : 'Maximum loadout';
@@ -330,12 +432,10 @@ export class UI {
       ? Math.min(100, (g.kills / next.kills) * 100) + '%'
       : '100%';
 
-    $('btnWave').disabled = g.state !== 'build';
-    $('btnWave').textContent = g.state === 'build' ? `Launch Level ${g.level}`
-      : g.state === 'brief' ? 'Contact'
-      : g.state === 'victory' ? 'Sector secure'
-      : g.state === 'defeat' ? 'Outpost lost'
-      : `Level ${g.level}`;
+    $('btnPause').disabled = g.state === 'defeat' || !$('intro').hidden;
+    $('btnPause').title = `${g.paused ? 'Resume' : 'Pause'} game (Space)`;
+    $('btnPause').textContent = g.paused ? 'Resume' : 'Pause';
+    $('btnPause').setAttribute('aria-pressed', String(g.paused));
     this.syncAir();
     $('btnScv').hidden = !g.scv?.dead;
     $('btnScv').disabled = g.minerals < ECON.scvCost;
@@ -403,7 +503,7 @@ export class UI {
     set('salvage', g.state === 'build' && !!mine);
     set('army', g.gunners.some(unitLike));
     set('scv', !!g.scv && !g.scv.dead);
-    set('wave', g.state === 'build' || (fighting && !!g.lastAlert), g.state === 'build' ? 'Launch' : 'Last Alert');
+    set('wave', fighting && !!g.lastAlert, 'Last Alert');
   }
 
   hideReel() { this.say(''); }
@@ -458,24 +558,20 @@ export class UI {
     const fighting = g.state === 'wave' || g.state === 'brief';
     const ready = g.airStrikeReady;
     btn.disabled = !fighting || !ready;
-    if (!fighting) btn.textContent = `Air Strike (${AIR_STRIKE.key})`;
-    else if (!ready) btn.textContent = `Air Strike ${Math.ceil(g.airStrikeCd)}s`;
-    else btn.textContent = `Air Strike (${AIR_STRIKE.key})`;
+    if (!fighting) btn.textContent = 'Strike';
+    else if (!ready) btn.textContent = `Strike ${Math.ceil(g.airStrikeCd)}s`;
+    else btn.textContent = 'Strike';
   }
+
 
   updateAssault() {
     const g = this.game, a = g.assault;
     const playing = $('intro').hidden && g.state !== 'defeat';
+    $('battleReadouts').hidden = !playing || (!a.plan && !g.treasureLoot.length);
     $('assaultHud').hidden = !playing || !a.plan;
-    $('waveTelemetry').hidden = !playing;
-    const alive = g.zerglings.filter(z => !z.dead).length;
-    const next = (Math.floor(g.level / 10) + 1) * 10;
-    $('waveTelemetry').textContent = g.state === 'wave'
-      ? `${alive} HOSTILES · ${g.queue.length} INBOUND${a.plan ? ' · BOSS ASSAULT' : ` · NEXT BOSS / ${next}`}`
-      : a.plan ? 'MILESTONE ASSAULT · SPREAD OUT · KEEP AIR STRIKE READY' : `FORTIFY YOUR LINE · NEXT BOSS / ${next}`;
     if (!a.plan || !playing) return;
     const ratio = a.boss ? Math.max(0, a.boss.hp / a.boss.maxHp) : 1;
-    $('bossKicker').textContent = `MILESTONE / ${g.level} · ${a.cleared ? 'DEFEATED' : a.enraged ? 'ENRAGED' : 'BOSS ASSAULT'}`;
+    $('bossKicker').textContent = `MILESTONE / ${g.level} · ${a.cleared ? 'DEFEATED' : a.enraged ? 'ENRAGED' : a.plan.difficulty + ' BOSS'}`;
     $('bossName').textContent = a.plan.name;
     $('bossHealth').textContent = a.boss ? `${Math.ceil(a.boss.hp).toLocaleString()} / ${a.boss.maxHp.toLocaleString()}` : 'INBOUND';
     $('bossFill').style.width = (ratio * 100) + '%';
@@ -494,6 +590,10 @@ export class UI {
 
   update(dt) {
     this.portrait.update(dt);
+    this.pendingHudTime = (this.pendingHudTime || 0) + dt;
+    if (this.pendingHudTime < 0.1) return;
+    dt = this.pendingHudTime;
+    this.pendingHudTime = 0;
     this.updateAssault();
     const g = this.game;
     const pct = Math.max(0, g.core.hp / g.core.maxHp);

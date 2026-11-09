@@ -8,7 +8,7 @@ import { COLS, ROWS } from './config.js';
  * 128 x 128 battlefield cheap to draw.
  */
 
-const MARGIN = 14;          // mountains carry on past the map edge so the horizon is not a cliff
+const MARGIN = 0;           // hard boundary: no terrain exists beyond the playable map
 const PEAK = 5.6;           // how high the deep rock gets, in tiles
 const RISE = 4.6;           // how quickly it climbs away from the lane
 
@@ -41,14 +41,14 @@ const CLIFF = new THREE.Color(0x3f3933);   // steep faces
  * @returns { mesh, heightAt(x, z), flatRock: [[x, y]] } — flatRock are blocked cells the
  *          mountains could not rise over (one-tile ribs between lanes); they need a boulder.
  */
-export function buildTerrain(depth, seed) {
+export function buildTerrain(depth, seed, cols = COLS, rows = ROWS) {
   const cellDepth = (x, y) => {
-    const cx = Math.max(0, Math.min(COLS - 1, x)), cy = Math.max(0, Math.min(ROWS - 1, y));
+    const cx = Math.max(0, Math.min(cols - 1, x)), cy = Math.max(0, Math.min(rows - 1, y));
     const out = Math.max(Math.abs(x - cx), Math.abs(y - cy));
-    return depth[cy * COLS + cx] + out * 1.3;
+    return depth[cy * cols + cx] + out * 1.3;
   };
 
-  const vx = COLS + 1 + MARGIN * 2, vy = ROWS + 1 + MARGIN * 2;
+  const vx = cols + 1 + MARGIN * 2, vy = rows + 1 + MARGIN * 2;
   const heights = new Float32Array(vx * vy);
   const pos = new Float32Array(vx * vy * 3);
   for (let j = 0; j < vy; j++) {
@@ -75,7 +75,7 @@ export function buildTerrain(depth, seed) {
       if (heights[a] + heights[b] + heights[c] + heights[d] < 1e-4) {
         // flat quad: open ground, or a rock rib squeezed between lanes
         const x = i - MARGIN, y = j - MARGIN;
-        if (x >= 0 && y >= 0 && x < COLS && y < ROWS && depth[y * COLS + x] > 0) flatRock.push([x, y]);
+        if (x >= 0 && y >= 0 && x < cols && y < rows && depth[y * cols + x] > 0) flatRock.push([x, y]);
         continue;
       }
       index.push(a, c, b, b, c, d);
@@ -104,7 +104,7 @@ export function buildTerrain(depth, seed) {
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
 
   const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
-    vertexColors: true, roughness: 0.96, metalness: 0.02
+    vertexColors: true, color: 0xa5a5a5, roughness: 0.96, metalness: 0.02
   }));
   mesh.castShadow = true;
   mesh.receiveShadow = true;

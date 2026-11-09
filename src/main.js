@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BUILD, COLS, ROWS, UNITS, AIR_STRIKE } from './config.js';
+import { BUILD, UNITS, AIR_STRIKE } from './config.js';
 import { Stage } from './scene.js';
 import { Game } from './game.js';
 import { UI } from './ui.js';
@@ -116,7 +116,7 @@ function tileAt(ev) {
   const p = stage.pick(ndc);
   if (!p) return null;
   const tx = Math.floor(p.x), ty = Math.floor(p.z);
-  if (tx < 0 || ty < 0 || tx >= COLS || ty >= ROWS) return null;
+  if (tx < 0 || ty < 0 || tx >= game.grid.COLS || ty >= game.grid.ROWS) return null;
   return { x: tx, y: ty, world: p };
 }
 
@@ -465,8 +465,7 @@ function runCommand(id) {
   else if (id === 'army') setSelection(candidates().filter(isGun));
   else if (id === 'scv') { if (isUnit(game.scv)) { select(game.scv); centerOn([game.scv]); } }
   else if (id === 'wave') {
-    if (game.state === 'build') game.startWave();
-    else if (game.lastAlert) stage.focus.set(game.lastAlert.x, 0, game.lastAlert.z);
+    if (game.lastAlert) stage.focus.set(game.lastAlert.x, 0, game.lastAlert.z);
   }
 }
 
@@ -495,8 +494,8 @@ function grabPan(ev) {
   if (!p) return;
   stage.focus.x += drag.anchor.x - p.x;
   stage.focus.z += drag.anchor.z - p.z;
-  stage.focus.x = Math.max(-4, Math.min(COLS + 4, stage.focus.x));
-  stage.focus.z = Math.max(-4, Math.min(ROWS + 4, stage.focus.z));
+  stage.focus.x = Math.max(0, Math.min(game.grid.COLS, stage.focus.x));
+  stage.focus.z = Math.max(0, Math.min(game.grid.ROWS, stage.focus.z));
   stage.updateCamera();
 }
 
@@ -646,13 +645,13 @@ canvas.addEventListener('contextmenu', (ev) => ev.preventDefault());
 
 canvas.addEventListener('wheel', (ev) => {
   ev.preventDefault();
-  stage.zoomBy(ev.deltaY > 0 ? 1.12 : 0.88);
+  stage.zoomBy(ev.deltaY > 0 ? 1.1 : 1 / 1.1);
 }, { passive: false });
 
 document.getElementById('camLeft').addEventListener('click', () => stage.spin(-0.4));
 document.getElementById('camRight').addEventListener('click', () => stage.spin(0.4));
-document.getElementById('camIn').addEventListener('click', () => stage.zoomBy(0.82));
-document.getElementById('camOut').addEventListener('click', () => stage.zoomBy(1.22));
+document.getElementById('camIn').addEventListener('click', () => stage.zoomBy(1 / 1.1));
+document.getElementById('camOut').addEventListener('click', () => stage.zoomBy(1.1));
 document.getElementById('camReset').addEventListener('click', () => stage.resetView());
 
 /* ---------------- minimap ---------------- */
@@ -689,7 +688,7 @@ window.addEventListener('keydown', (ev) => {
 
   if (ev.key === 'F1') { ev.preventDefault(); runCommand('scv'); return; }
   if (ev.key === 'F2') { ev.preventDefault(); runCommand('army'); return; }
-  if (ev.code === 'Space') { ev.preventDefault(); runCommand('wave'); return; }
+  if (ev.code === 'Space') { ev.preventDefault(); if (!ev.repeat && intro.hidden) game.togglePause(); return; }
   if (ev.key === 'Escape') {
     if (placing || airAim || targeting) cancelModes();
     else { game.focus = null; select(null); }
@@ -709,8 +708,8 @@ window.addEventListener('keydown', (ev) => {
   else if (k === 'x') runCommand('salvage');
   else if (k === 'q') stage.spin(-0.35);
   else if (k === 'e') stage.spin(0.35);
-  else if (k === '-' || k === '_') stage.zoomBy(1.15);
-  else if (k === '=' || k === '+') stage.zoomBy(0.87);
+  else if (k === '-' || k === '_') stage.zoomBy(1.1);
+  else if (k === '=' || k === '+') stage.zoomBy(1 / 1.1);
 });
 
 window.addEventListener('keyup', (ev) => keys.delete(ev.key));
@@ -761,7 +760,7 @@ function updateGuide() {
   document.getElementById('guideText').textContent = !hasSquad
     ? 'Press M, then click open ground near your base to place a soldier.'
     : fighting ? 'Drag to select · right-click to move · R, then click for an air strike.'
-    : 'Add walls with W. Press Space when your defense is ready.';
+    : 'Add walls with W. Press Space to pause or resume.';
 }
 document.getElementById('guideDismiss').addEventListener('click', () => { guideDismissed = true; updateGuide(); });
 game.on('change', () => { updateGuide(); updateChallenge(); });
@@ -822,6 +821,7 @@ document.getElementById('introForm').addEventListener('submit', (ev) => {
   voice.unlock();
   quickDeployment = ev.submitter?.value !== 'build';
   if (quickDeployment) game.quickDeploy();
+  else { game.startWave(); game.togglePause(); }
   updateTip();
   updateGuide();
   updateChallenge();
@@ -862,7 +862,10 @@ game.on('restart', () => {
   ui.hideReel();
   ui.sync();
   btnSpeed.textContent = '1x';
-  if (intro.hidden && quickDeployment) game.quickDeploy();
+  if (intro.hidden) {
+    if (quickDeployment) game.quickDeploy();
+    else { game.startWave(); game.togglePause(); }
+  }
   updateGuide();
   updateChallenge();
 });
@@ -874,7 +877,7 @@ game.on('alert', (e) => {
   alertShownAt = game.time;
   const what = e.kind === 'core' ? 'Command Center' : e.kind === 'scv' ? 'SCV'
     : e.kind === 'wall' ? 'Wall' : e.kind === 'bunker' ? 'Bunker' : UNITS[e.kind]?.info.name || 'Outpost';
-  ui.say(`<b>${what} under attack.</b> Space to look.`);
+  ui.say(`<b>${what} under attack.</b> Use the minimap to look.`);
 });
 game.on('change', () => {
   pruneSelection();
@@ -883,26 +886,46 @@ game.on('change', () => {
 
 /* ---------------- audio + speed toggles ---------------- */
 
+const btnInspector = document.getElementById('btnInspector');
+btnInspector.addEventListener('click', () => {
+  const open = document.querySelector('.app').classList.toggle('is-inspecting');
+  btnInspector.setAttribute('aria-expanded', String(open));
+});
+
+const btnMore = document.getElementById('btnMore');
+function closeTools() {
+  document.querySelector('.hud').classList.remove('is-tools-open');
+  btnMore.setAttribute('aria-expanded', 'false');
+}
+btnMore.addEventListener('click', () => {
+  const open = document.querySelector('.hud').classList.toggle('is-tools-open');
+  btnMore.setAttribute('aria-expanded', String(open));
+});
+document.addEventListener('pointerdown', (ev) => { if (!ev.target.closest('.hud')) closeTools(); });
+document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') closeTools(); });
+
 const btnSound = document.getElementById('btnSound');
 btnSound.addEventListener('click', () => {
   sfx.resume();
   const on = !sfx.isEnabled();
   sfx.setEnabled(on);
-  btnSound.textContent = on ? 'ON' : 'OFF';
+  btnSound.setAttribute('aria-pressed', String(on));
+  btnSound.title = on ? 'Sound on' : 'Sound off';
   btnSound.classList.toggle('btn--off', !on);
 });
 
 const btnFx = document.getElementById('btnFx');
 function setFx(high) {
   stage.setQuality(high ? 'high' : 'low');
-  btnFx.textContent = high ? 'FX HI' : 'FX LO';
+  btnFx.textContent = high ? 'HI' : 'ECO';
+  btnFx.title = high ? 'High: 60 fps, up to 2× resolution, shadows, ambient occlusion and bloom. Click for cooler Eco mode.' : 'Eco: 30 fps, antialiasing, sharp native resolution (up to 2×), no expensive effects. Click for High graphics.';
   btnFx.classList.toggle('btn--off', !high);
-  try { localStorage.setItem('td.fx', high ? 'high' : 'low'); } catch { /* storage unavailable */ }
+  try { localStorage.setItem('td.graphics', high ? 'high' : 'low'); } catch { /* storage unavailable */ }
 }
 btnFx.addEventListener('click', () => { setFx(stage.quality !== 'high'); sfx.ui(); });
-let savedFx = 'high';
-try { savedFx = localStorage.getItem('td.fx') || 'high'; } catch { /* storage unavailable */ }
-setFx(savedFx !== 'low');
+let savedFx = 'low';
+try { savedFx = localStorage.getItem('td.graphics') || 'low'; } catch { /* storage unavailable */ }
+setFx(savedFx === 'high');
 
 const btnSpeed = document.getElementById('btnSpeed');
 btnSpeed.addEventListener('click', () => {
@@ -920,14 +943,35 @@ function resize() {
   ui.portrait.resize();
 }
 window.addEventListener('resize', resize);
+// Readout rows can change height when a boss arrives or a round finishes.
+new ResizeObserver(resize).observe(canvas.parentElement);
 
 let last = performance.now();
+let lastTick = last;
+let lastMinimap = -Infinity;
+let animationFrame = 0;
 function frame(now) {
-  const raw = Math.min(0.05, (now - last) / 1000);
-  last = now;
-  const dt = raw * game.speed * (game.drama || 1);
+  animationFrame = 0;
+  if (document.hidden) return;
+  animationFrame = requestAnimationFrame(frame);
+  const idle = !intro.hidden || game.state === 'defeat';
+  const interval = 1000 / (idle ? 4 : stage.quality === 'high' ? 60 : 30);
+  const elapsed = now - last;
+  if (elapsed < interval - 0.5) return;
+  last += interval * Math.max(1, Math.floor((elapsed + 0.5) / interval));
+  const raw = Math.min(0.1, (now - lastTick) / 1000);
+  lastTick = now;
+  const dt = game.state === 'brief' ? raw : raw * game.speed * (game.drama || 1);
 
-  if (intro.hidden && game.state !== 'defeat') game.update(dt);
+  if (!idle && !game.paused) {
+    // Keep movement and combat steps small when rendering at a lower frame rate.
+    let remaining = dt;
+    while (remaining > 0.000001 && game.state !== 'defeat') {
+      const step = Math.min(0.05, remaining);
+      game.update(step);
+      remaining -= step;
+    }
+  }
 
   pruneSelection();
   syncDecals(raw);
@@ -970,13 +1014,23 @@ function frame(now) {
   ui.update(raw);
   stage.updateCamera();
   stage.applyShake(raw);
-  minimap.draw();
+  if (now - lastMinimap >= 100) {
+    minimap.draw();
+    lastMinimap = now;
+  }
   stage.render();
-  requestAnimationFrame(frame);
 }
 
 resize();
 ui.sync();
 updateTip();
 showIntro();
-requestAnimationFrame(frame);
+document.addEventListener('visibilitychange', () => {
+  if (animationFrame) cancelAnimationFrame(animationFrame);
+  animationFrame = 0;
+  last = lastTick = performance.now();
+  keys.clear();
+  pointer.inside = false;
+  if (!document.hidden) animationFrame = requestAnimationFrame(frame);
+});
+if (!document.hidden) animationFrame = requestAnimationFrame(frame);

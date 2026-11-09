@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CELL, COLS, ROWS } from './config.js';
+import { CELL } from './config.js';
 
 const CELL_RGB = {
   [CELL.OPEN]: [138, 112, 82],
@@ -23,7 +23,9 @@ export class Minimap {
     this.game = game;
     this.stage = stage;
     this.onCommand = onCommand;
-    this.scale = 130 / Math.max(COLS, ROWS);   // longest side is always 130 px, whatever the map size
+    this.cols = game.grid.COLS;
+    this.rows = game.grid.ROWS;
+    this.scale = 130 / Math.max(this.cols, this.rows);
     this.ndc = new THREE.Vector2();
     this.dragging = false;
     this.terrain = document.createElement('canvas');
@@ -52,9 +54,13 @@ export class Minimap {
   }
 
   resize() {
+    this.cols = this.game.grid.COLS;
+    this.rows = this.game.grid.ROWS;
+    this.scale = 130 / Math.max(this.cols, this.rows);
+    this.pixels = null;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-    const w = Math.round(COLS * this.scale), h = Math.round(ROWS * this.scale);
-    this.scale = w / COLS;
+    const w = Math.round(this.cols * this.scale), h = Math.round(this.rows * this.scale);
+    this.scale = w / this.cols;
     this.canvas.width = Math.round(w * dpr);
     this.canvas.height = Math.round(h * dpr);
     this.canvas.style.width = w + 'px';
@@ -66,10 +72,11 @@ export class Minimap {
   }
 
   toWorld(ev) {
+    if (this.cols !== this.game.grid.COLS || this.rows !== this.game.grid.ROWS) this.resize();
     const r = this.canvas.getBoundingClientRect();
     return {
-      x: Math.max(0, Math.min(COLS - 0.01, ((ev.clientX - r.left) / r.width) * COLS)),
-      z: Math.max(0, Math.min(ROWS - 0.01, ((ev.clientY - r.top) / r.height) * ROWS))
+      x: Math.max(0, Math.min(this.cols - 0.01, ((ev.clientX - r.left) / r.width) * this.cols)),
+      z: Math.max(0, Math.min(this.rows - 0.01, ((ev.clientY - r.top) / r.height) * this.rows))
     };
   }
 
@@ -84,15 +91,15 @@ export class Minimap {
     this.terrainVersion = grid.version;
     if (!this.pixels) {
       this.tiles = document.createElement('canvas');
-      this.tiles.width = COLS;
-      this.tiles.height = ROWS;
-      this.pixels = this.tiles.getContext('2d').createImageData(COLS, ROWS);
+      this.tiles.width = this.cols;
+      this.tiles.height = this.rows;
+      this.pixels = this.tiles.getContext('2d').createImageData(this.cols, this.rows);
     }
     const data = this.pixels.data;
     const depth = this.game.layout?.depth;
-    for (let y = 0; y < ROWS; y++) {
-      for (let x = 0; x < COLS; x++) {
-        const i = y * COLS + x;
+    for (let y = 0; y < this.rows; y++) {
+      for (let x = 0; x < this.cols; x++) {
+        const i = y * this.cols + x;
         const kind = grid.get(x, y);
         let rgb = CELL_RGB[kind];
         if (!rgb) {
@@ -113,6 +120,7 @@ export class Minimap {
   draw() {
     const g = this.game;
     if (!g.grid || !g.core) return;
+    if (this.cols !== g.grid.COLS || this.rows !== g.grid.ROWS) this.resize();
     this.paintTerrain();
     const ctx = this.ctx;
     const s = this.scale * this.dpr;

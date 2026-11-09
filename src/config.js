@@ -1,6 +1,12 @@
 export const TILE = 40;
 export const COLS = 128;
 export const ROWS = 128;
+
+/** Real grid dimensions, growing every five levels and capped at 128×128. */
+export function mapDimensions(level) {
+  const size = Math.min(COLS, 56 + Math.floor(Math.max(0, level - 1) / 5) * 16);
+  return { cols: size, rows: size, routeCount: level <= 5 ? 1 : level <= 15 ? 2 : 3 };
+}
 export const W = TILE * COLS;
 export const H = TILE * ROWS;
 
@@ -91,17 +97,17 @@ export const FALCON_INFO = {
 
 export const UNITS = {
   marine: {
-    id: 'marine', tiers: MARINE_TIERS, info: MARINE_INFO,
+    id: 'marine', tiers: MARINE_TIERS, info: MARINE_INFO, visualScale: 0.56,
     shell: false, splash: 0, canBunker: true, canStim: true, armory: true, turret: false,
     mobile: true, speed: 2.15, accent: 0x5ad7ff
   },
   goliath: {
-    id: 'goliath', tiers: GOLIATH_TIERS, info: GOLIATH_INFO,
+    id: 'goliath', tiers: GOLIATH_TIERS, info: GOLIATH_INFO, visualScale: 0.8,
     shell: false, splash: 0, canBunker: false, canStim: false, armory: false, turret: false,
     mobile: false, speed: 0, accent: 0xc6e07a
   },
   falcon: {
-    id: 'falcon', tiers: FALCON_TIERS, info: FALCON_INFO,
+    id: 'falcon', tiers: FALCON_TIERS, info: FALCON_INFO, visualScale: 0.8,
     flying: true, targetsAir: true, shell: false, splash: 0, canBunker: false, canStim: false, armory: false, turret: true,
     mobile: true, speed: 5.2, accent: 0x71e7e0
   },
@@ -179,7 +185,7 @@ export const MODEL_FILES = {
 };
 
 /* Units and bugs are drawn a bit larger than one tile so they read against the rock. */
-export const UNIT_SCALE = 1.2;
+export const UNIT_SCALE = 1.45;
 export const BUG_SCALE = 1.12;
 
 export const CORE_HP = 500;
@@ -236,23 +242,36 @@ export function wavePlan(n) {
   return out;
 }
 
-/* Every tenth canyon is a real-time boss assault. Later decades keep escalating. */
+// Silver lasts through the next three full rounds; gold lasts for the run.
+export const TREASURE_RULES = { silverRounds: 3, goldChance: 0.35 };
+// Treasure bonuses stack for all current and future Marines.
+export const TREASURE = [
+  { id: 'gun', name: 'Gauss Rifle Kit', effect: '+15% Marine gun damage', apply: s => { s.damage *= 1.15; } },
+  { id: 'range', name: 'Targeting Scope', effect: '+0.5 Marine range', apply: s => { s.range += 0.5; } },
+  { id: 'fire', name: 'Rapid-fire Loader', effect: '+15% Marine firing speed', apply: s => { s.attackSpeed /= 1.15; } },
+  { id: 'speed', name: 'Servo Boosters', effect: '+10% Marine movement speed', apply: s => { s.moveSpeed *= 1.1; } }
+];
+
+/* Bosses every five levels; decade bosses are the harder encounters. */
 export function milestonePlan(level) {
-  if (level < 10 || level % 10 !== 0) return null;
-  const tier = Math.floor(level / 10);
+  if (level < 5 || level % 5 !== 0) return null;
+  const hard = level % 10 === 0;
+  const tier = Math.ceil(level / 10);
   const names = ['THE BREACHER', 'BROODMOTHER', 'THE WORLD EATER'];
   return {
-    tier, name: names[Math.min(tier - 1, 2)],
-    hp: 1800 + (tier - 1) * 2800,
-    armor: 3 + tier, damage: 22 + tier * 8,
+    tier, difficulty: hard ? 'HARD' : 'MEDIUM', hard,
+    treasureMin: hard ? 2 : 1, treasureMax: hard ? 3 : 2,
+    name: hard ? names[Math.min(tier - 1, 2)] : 'BROOD GUARDIAN',
+    hp: Math.round((1800 + (tier - 1) * 2800) * (hard ? 1 : 0.5)),
+    armor: (hard ? 3 : 1) + tier, damage: Math.round((22 + tier * 8) * (hard ? 1 : 0.65)),
     scale: 2.1 + Math.min(tier, 5) * 0.25,
     speed: 1.15 + Math.min(tier, 5) * 0.1,
-    strikeInterval: Math.max(5, 11 - tier),
-    strikeDamage: 30 + tier * 15,
+    strikeInterval: Math.max(5, 11 - tier) * (hard ? 1 : 1.4),
+    strikeDamage: Math.round((30 + tier * 15) * (hard ? 1 : 0.6)),
     strikeRadius: 2.3 + Math.min(tier, 5) * 0.3,
     telegraph: Math.max(1.8, 3.2 - tier * 0.25),
-    reinforcementInterval: Math.max(7, 15 - tier * 2),
-    reinforcements: Math.min(12, 2 + tier * 2),
-    reward: 300 + tier * 250
+    reinforcementInterval: Math.max(7, 15 - tier * 2) * (hard ? 1 : 1.4),
+    reinforcements: Math.min(12, (hard ? 2 : 0) + tier * 2),
+    reward: Math.round((300 + tier * 250) * (hard ? 1 : 0.6))
   };
 }

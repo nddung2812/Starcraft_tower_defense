@@ -4,9 +4,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
-import { COLS, ROWS } from './config.js';
-
-const CX = COLS / 2, CZ = ROWS / 2;
+import { mapDimensions } from './config.js';
 
 function groundTexture() {
   const c = document.createElement('canvas');
@@ -82,7 +80,7 @@ function environment(renderer) {
   return env;
 }
 
-function gridTexture() {
+function gridTexture(cols, rows) {
   const c = document.createElement('canvas');
   c.width = c.height = 128;
   const x = c.getContext('2d');
@@ -92,15 +90,18 @@ function gridTexture() {
   x.strokeRect(1.5, 1.5, 125, 125);
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(COLS, ROWS);
+  tex.repeat.set(cols, rows);
   return tex;
 }
 
 export class Stage {
   constructor(canvas) {
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
-    this.renderer.shadowMap.enabled = true;
+    const initialMap = mapDimensions(1);
+    this.cols = initialMap.cols;
+    this.rows = initialMap.rows;
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'low-power' });
+    this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    this.renderer.shadowMap.enabled = false;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
@@ -109,21 +110,34 @@ export class Stage {
     this.scene.background = new THREE.Color(0x0a0f16);
     this.scene.fog = new THREE.Fog(0x0a0f16, 30, 62);
     this.scene.environment = environment(this.renderer);
-    this.scene.environmentIntensity = 0.85;
+    this.scene.environmentIntensity = 0.65;
 
     this.camera = new THREE.PerspectiveCamera(42, 1, 0.5, 200);
     this.yaw = Math.PI / 2;
-    this.pitch = 0.62;
-    this.dist = 15;
-    this.minDist = 3.2;
-    this.maxDist = 120;
-    this.focus = new THREE.Vector3(CX, 0, CZ);
+    this.pitch = 0.82;
+    this.dist = 14;
+    // Keep units readable and enough ground visible at either zoom limit.
+    this.minDist = 10;
+    this.maxDist = 22;
+    this.focus = new THREE.Vector3(this.cols / 2, 0, this.rows / 2);
+    this.homeFocus = this.focus.clone();
     this.shake = 0;
     this.updateCamera();
 
     this.buildLights();
     this.buildGround();
 
+    // Eco renders directly. Allocate expensive post-processing only if High is selected.
+    this.composer = null;
+    this.gtao = null;
+    this.bloom = null;
+    this.quality = 'low';
+
+    this.raycaster = new THREE.Raycaster();
+    this.groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  }
+
+  buildPostProcessing() {
     // multisampled targets: the renderer's own antialias does not reach post-processing
     const target = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 });
     this.composer = new EffectComposer(this.renderer, target);
@@ -145,26 +159,23 @@ export class Stage {
       });
     };
     this.composer.addPass(this.gtao);
-    this.quality = 'high';
 
     this.bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.48, 0.55, 0.92);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
-
-    this.raycaster = new THREE.Raycaster();
-    this.groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   }
 
   buildLights() {
-    this.scene.add(new THREE.HemisphereLight(0x7ea6cc, 0x3a2a1c, 0.42));
+    const CX = this.cols / 2, CZ = this.rows / 2;
+    this.scene.add(new THREE.HemisphereLight(0xa5c7e8, 0x3a2a1c, 0.9));
     this.scene.add(new THREE.AmbientLight(0x2e3c4c, 0.42));
 
-    const sun = new THREE.DirectionalLight(0xffe0b4, 2.9);
+    const sun = new THREE.DirectionalLight(0xffe0b4, 2.2);
     sun.position.set(CX + 7, 20, CZ + 13);
     sun.target.position.set(CX, 0, CZ);
     sun.castShadow = true;
     // the shadow box follows the camera (see updateCamera): a big map can't be shadowed all at once
-    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.mapSize.set(1024, 1024);
     this.sunOffset = new THREE.Vector3(7, 20, 13);
     this.shadowSpan = 0;
     sun.shadow.camera.near = 1;
@@ -175,37 +186,55 @@ export class Stage {
     this.sun = sun;
 
     // cool rim light so the blue armour pops against the dirt
-    const rim = new THREE.DirectionalLight(0x6ab6ff, 1.1);
+    const rim = new THREE.DirectionalLight(0x6ab6ff, 1.5);
     rim.position.set(CX - 13, 8, CZ - 11);
     this.scene.add(rim);
   }
 
   buildGround() {
     const g = new THREE.Mesh(
-      new THREE.PlaneGeometry(Math.max(COLS, ROWS) + 90, Math.max(COLS, ROWS) + 90),
-      new THREE.MeshStandardMaterial({ map: groundTexture(), roughness: 0.97, metalness: 0 })
+      new THREE.PlaneGeometry(this.cols, this.rows),
+      new THREE.MeshStandardMaterial({ map: groundTexture(), color: 0xaeb7c0, roughness: 0.97, metalness: 0 })
     );
     g.rotation.x = -Math.PI / 2;
-    g.position.set(CX, 0, CZ);
+    g.position.set(this.cols / 2, 0, this.rows / 2);
     g.receiveShadow = true;
     this.scene.add(g);
     this.ground = g;
 
     const grid = new THREE.Mesh(
-      new THREE.PlaneGeometry(COLS, ROWS),
-      new THREE.MeshBasicMaterial({ map: gridTexture(), transparent: true, opacity: 0.2, depthWrite: false })
+      new THREE.PlaneGeometry(this.cols, this.rows),
+      new THREE.MeshBasicMaterial({ map: gridTexture(this.cols, this.rows), transparent: true, opacity: 0.08, depthWrite: false })
     );
     grid.rotation.x = -Math.PI / 2;
-    grid.position.set(CX, 0.012, CZ);
+    grid.position.set(this.cols / 2, 0.012, this.rows / 2);
     this.scene.add(grid);
     this.grid = grid;
 
-    // playfield boundary
-    const edge = new THREE.Mesh(
-      new THREE.RingGeometry(0.1, 0.1, 4),
-      new THREE.MeshBasicMaterial({ visible: false })
-    );
-    this.scene.add(edge);
+    this.boundary = new THREE.LineLoop(new THREE.BufferGeometry(),
+      new THREE.LineBasicMaterial({ color: 0x5f91a5, transparent: true, opacity: 0.55 }));
+    this.scene.add(this.boundary);
+    this.setMapSize(this.cols, this.rows);
+  }
+
+  setMapSize(cols, rows) {
+    this.cols = cols; this.rows = rows;
+    this.dist = Math.max(this.minDist, Math.min(this.maxDist, this.dist));
+    this.camera.far = Math.max(150, Math.max(cols, rows) * 3);
+    this.camera.updateProjectionMatrix();
+    for (const mesh of [this.ground, this.grid]) {
+      mesh.geometry.dispose();
+      mesh.geometry = new THREE.PlaneGeometry(cols, rows);
+      mesh.position.x = cols / 2;
+      mesh.position.z = rows / 2;
+    }
+    this.ground.material.map.repeat.set(cols / 9, rows / 9);
+    this.grid.material.map.repeat.set(cols, rows);
+    this.boundary.geometry.dispose();
+    this.boundary.geometry = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, 0.03, 0), new THREE.Vector3(cols, 0.03, 0),
+      new THREE.Vector3(cols, 0.03, rows), new THREE.Vector3(0, 0.03, rows)
+    ]);
   }
 
   updateCamera() {
@@ -260,8 +289,8 @@ export class Stage {
   fitDistance() {
     const tanV = Math.tan((this.camera.fov * Math.PI / 180) / 2);
     const tanH = tanV * this.camera.aspect;
-    const needV = (ROWS * Math.sin(this.pitch) + 4) / 2;
-    const needH = (COLS + 3) / 2;
+    const needV = (this.rows * Math.sin(this.pitch) + 4) / 2;
+    const needH = (this.cols + 3) / 2;
     return Math.max(needV / tanV, needH / tanH) * 1.06;
   }
 
@@ -277,15 +306,15 @@ export class Stage {
     const fx = Math.cos(this.yaw), fz = Math.sin(this.yaw);
     this.focus.x += fx * sy + fz * sx;
     this.focus.z += fz * sy - fx * sx;
-    this.focus.x = Math.max(-4, Math.min(COLS + 4, this.focus.x));
-    this.focus.z = Math.max(-4, Math.min(ROWS + 4, this.focus.z));
+    this.focus.x = Math.max(0, Math.min(this.cols, this.focus.x));
+    this.focus.z = Math.max(0, Math.min(this.rows, this.focus.z));
   }
 
   resetView() {
     this.yaw = Math.PI / 2;
-    this.pitch = 0.62;
-    this.dist = 15;
-    this.focus.set(CX, 0, CZ);
+    this.pitch = 0.82;
+    this.dist = 14;
+    this.focus.copy(this.homeFocus);
     this.userZoomed = true;
   }
 
@@ -293,22 +322,27 @@ export class Stage {
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h, false);
-    this.composer.setSize(w, h);
+    this.composer?.setSize(w, h);
     this.dist = Math.max(this.minDist, Math.min(this.maxDist, this.dist));
   }
 
-  /** 'high': ambient occlusion on, full pixel ratio. 'low': off, 1x pixels, for slower machines. */
+  /** Both modes use sharp native pixels (up to 2×); Eco keeps effects off and 30 fps. */
   setQuality(q) {
-    this.quality = q;
-    this.gtao.enabled = q === 'high';
-    this.renderer.setPixelRatio(q === 'high' ? Math.min(2, window.devicePixelRatio) : 1);
+    this.quality = q === 'high' ? 'high' : 'low';
+    const high = this.quality === 'high';
+    this.renderer.shadowMap.enabled = high;
+    this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    if (high && !this.composer) this.buildPostProcessing();
+    if (this.gtao) this.gtao.enabled = high;
     const size = this.renderer.getSize(new THREE.Vector2());
-    if (size.x && size.y) {
-      this.renderer.setSize(size.x, size.y, false);
+    if (this.composer) {
       this.composer.setPixelRatio(this.renderer.getPixelRatio());
       this.composer.setSize(size.x, size.y);
     }
   }
 
-  render() { this.composer.render(); }
+  render() {
+    if (this.quality === 'high') this.composer.render();
+    else this.renderer.render(this.scene, this.camera);
+  }
 }

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
 /* ------------------------------------------------------------------ */
 /*  Materials — CMC-300 armour, sampled off the painted miniature      */
@@ -37,15 +37,15 @@ export const MAT = {
 
   wall: new THREE.MeshStandardMaterial({ color: 0x6d777d, metalness: 0.75, roughness: 0.55 }),
   wallTrim: new THREE.MeshStandardMaterial({ color: 0xe8a72c, metalness: 0.5, roughness: 0.5 }),
-  rock: new THREE.MeshStandardMaterial({ color: 0x6a6256, metalness: 0.08, roughness: 0.96, flatShading: true }),
-  rockDark: new THREE.MeshStandardMaterial({ color: 0x3c3832, metalness: 0.06, roughness: 1, flatShading: true }),
-  rockLite: new THREE.MeshStandardMaterial({ color: 0x8a8172, metalness: 0.05, roughness: 0.92, flatShading: true }),
+  rock: new THREE.MeshStandardMaterial({ color: 0x6a6256, metalness: 0.08, roughness: 0.96 }),
+  rockDark: new THREE.MeshStandardMaterial({ color: 0x3c3832, metalness: 0.06, roughness: 1 }),
+  rockLite: new THREE.MeshStandardMaterial({ color: 0x8a8172, metalness: 0.05, roughness: 0.92 }),
   stone: new THREE.MeshStandardMaterial({ color: 0x4a453c, metalness: 0.05, roughness: 1 }),
   coreGlow: new THREE.MeshStandardMaterial({ color: 0x9ae8ff, emissive: 0x3cc8ff, emissiveIntensity: 3 }),
   creep: new THREE.MeshStandardMaterial({ color: 0x3d1646, metalness: 0.1, roughness: 0.9 })
 };
 
-const box = (w, h, d, r = 0.015, s = 2) => new RoundedBoxGeometry(w, h, d, s, Math.min(r, Math.min(w, h, d) / 2.05));
+const box = (w, h, d, r = 0.025, s = 2) => new RoundedBoxGeometry(w, h, d, s, Math.min(r * 1.35, Math.min(w, h, d) / 2.05));
 
 function mesh(geo, mat, x = 0, y = 0, z = 0) {
   const m = new THREE.Mesh(geo, mat);
@@ -699,7 +699,7 @@ export function buildCore() {
   const padMat = new THREE.MeshStandardMaterial({ color: 0x3a4148, metalness: 0.7, roughness: 0.5 });
 
   // segmented foundation skirt
-  g.add(mesh(new THREE.CylinderGeometry(0.98, 1.05, 0.22, 10), dark, 0, 0.11, 0));
+  g.add(mesh(new THREE.CylinderGeometry(0.98, 1.05, 0.22, 32), dark, 0, 0.11, 0));
   for (let i = 0; i < 8; i++) {
     const a = (i / 8) * Math.PI * 2;
     const block = mesh(box(0.34, 0.34, 0.22, 0.04), hull, Math.cos(a) * 0.86, 0.2, Math.sin(a) * 0.86);
@@ -708,11 +708,11 @@ export function buildCore() {
   }
 
   // main drum and the red armour band
-  g.add(mesh(new THREE.CylinderGeometry(0.74, 0.8, 0.46, 12), hull, 0, 0.52, 0));
+  g.add(mesh(new THREE.CylinderGeometry(0.74, 0.8, 0.46, 32), hull, 0, 0.52, 0));
   const band = mesh(new THREE.TorusGeometry(0.76, 0.05, 8, 24), red, 0, 0.66, 0);
   band.rotation.x = Math.PI / 2;
   g.add(band);
-  g.add(mesh(new THREE.CylinderGeometry(0.6, 0.66, 0.16, 12), dark, 0, 0.82, 0));
+  g.add(mesh(new THREE.CylinderGeometry(0.6, 0.66, 0.16, 32), dark, 0, 0.82, 0));
 
   // dome
   const dome = mesh(new THREE.SphereGeometry(0.5, 24, 14, 0, Math.PI * 2, 0, Math.PI / 2), hull, 0, 0.88, 0);
@@ -805,7 +805,7 @@ function makeMountain(seed) {
   const piles = 3 + Math.floor(rnd() * 2);
   for (let i = 0; i < piles; i++) {
     const r = 0.18 + rnd() * 0.16;
-    const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 0), i === piles - 1 ? ROCK_MATS[(seed + 1) % ROCK_MATS.length] : mat);
+    const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 2), i === piles - 1 ? ROCK_MATS[(seed + 1) % ROCK_MATS.length] : mat);
     rock.position.set((rnd() - 0.5) * 0.38, 0.12 + i * 0.16 + rnd() * 0.08, (rnd() - 0.5) * 0.38);
     rock.rotation.set(rnd() * 2, rnd() * 6, rnd() * 2);
     rock.scale.set(1.1 + rnd() * 0.35, 1.3 + rnd() * 0.8, 1.05 + rnd() * 0.3);
@@ -814,7 +814,7 @@ function makeMountain(seed) {
     g.add(rock);
   }
   const h = 0.85 + rnd() * 0.55;
-  const summit = new THREE.Mesh(new THREE.ConeGeometry(0.14 + rnd() * 0.08, h, 5), mat);
+  const summit = new THREE.Mesh(new THREE.ConeGeometry(0.14 + rnd() * 0.08, h, 16), mat);
   summit.position.set((rnd() - 0.5) * 0.12, 0.72 + rnd() * 0.2, (rnd() - 0.5) * 0.12);
   summit.rotation.y = rnd() * 6;
   summit.castShadow = true;
@@ -834,7 +834,12 @@ const BOULDER_PROTOS = [];
 function makeBoulder(seed) {
   let s = seed * 9301 + 49297;
   const rnd = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
-  const geo = new THREE.IcosahedronGeometry(0.5, 2);
+  // Weld shared positions before deformation so adjacent faces share smooth normals.
+  const source = new THREE.IcosahedronGeometry(0.5, 3);
+  source.deleteAttribute('normal');
+  source.deleteAttribute('uv');
+  const geo = mergeVertices(source);
+  source.dispose();
   const p = geo.attributes.position;
   const v = new THREE.Vector3();
   const lumps = Array.from({ length: 5 }, () => new THREE.Vector3(rnd() - 0.5, rnd() * 0.6, rnd() - 0.5).normalize());
@@ -843,7 +848,7 @@ function makeBoulder(seed) {
     const dir = v.clone().normalize();
     let k = 0.86;
     for (const l of lumps) k += Math.max(0, dir.dot(l)) ** 3 * 0.18;
-    v.multiplyScalar(k + (rnd() - 0.5) * 0.05);
+    v.multiplyScalar(k);
     if (v.y < 0) v.y *= 0.35;           // sits flat on the ground
     p.setXYZ(i, v.x, v.y * 0.72, v.z);
   }

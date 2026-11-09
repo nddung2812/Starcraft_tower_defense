@@ -41,11 +41,11 @@ class MinHeap {
 }
 
 export class Grid {
-  constructor() {
-    this.COLS = COLS;
-    this.ROWS = ROWS;
-    this.cells = new Uint8Array(COLS * ROWS);
-    this.occupants = new Array(COLS * ROWS).fill(null);
+  constructor(cols = COLS, rows = ROWS) {
+    this.COLS = cols;
+    this.ROWS = rows;
+    this.cells = new Uint8Array(cols * rows);
+    this.occupants = new Array(cols * rows).fill(null);
     this.version = 0;
     this.spawn = { x: 0, y: 7 };
     this.spawns = [this.spawn];
@@ -53,12 +53,19 @@ export class Grid {
     this.cells.fill(CELL.ROCK);
   }
 
-  idx(x, y) { return y * COLS + x; }
-  inside(x, y) { return x >= 0 && y >= 0 && x < COLS && y < ROWS; }
+  idx(x, y) { return y * this.COLS + x; }
+  inside(x, y) { return x >= 0 && y >= 0 && x < this.COLS && y < this.ROWS; }
   get(x, y) { return this.inside(x, y) ? this.cells[this.idx(x, y)] : CELL.ROCK; }
   occupant(x, y) { return this.inside(x, y) ? this.occupants[this.idx(x, y)] : null; }
 
   load(layout) {
+    const cols = layout.cols || this.COLS, rows = layout.rows || this.ROWS;
+    if (cols !== this.COLS || rows !== this.ROWS) {
+      this.COLS = cols; this.ROWS = rows;
+      this.cells = new Uint8Array(cols * rows);
+      this.occupants = new Array(cols * rows).fill(null);
+      this._field = null;
+    }
     this.spawn = layout.spawn;
     this.spawns = layout.spawns?.length ? layout.spawns : [layout.spawn];
     this.core = layout.core;
@@ -112,7 +119,7 @@ export class Grid {
 
   /** A*. walk=true stays on open ground and will not chew through buildings. */
   findPath(sx, sy, tx, ty, walk = false) {
-    const n = COLS * ROWS;
+    const n = this.COLS * this.ROWS;
     const g = new Float64Array(n).fill(Infinity);
     const from = new Int32Array(n).fill(-1);
     const closed = new Uint8Array(n);
@@ -141,7 +148,7 @@ export class Grid {
       if (closed[cur]) continue;
       closed[cur] = 1;
 
-      const cx = cur % COLS, cy = (cur / COLS) | 0;
+      const cx = cur % this.COLS, cy = (cur / this.COLS) | 0;
       if (cx === tx && cy === ty) return this.rebuild(from, cur);
 
       for (let dy = -1; dy <= 1; dy++) {
@@ -174,7 +181,7 @@ export class Grid {
    */
   field() {
     if (this._field && this._field.version === this.version) return this._field;
-    const n = COLS * ROWS;
+    const n = this.COLS * this.ROWS;
     const dist = new Float64Array(n).fill(Infinity);
     const next = new Int32Array(n).fill(-1);
     const heap = new MinHeap();
@@ -188,7 +195,7 @@ export class Grid {
     }
     while (heap.size) {
       const cur = heap.pop();
-      const cx = cur % COLS, cy = (cur / COLS) | 0;
+      const cx = cur % this.COLS, cy = (cur / this.COLS) | 0;
       // stepping onto `cur` from a neighbour costs whatever `cur` costs to get through
       const enter = this.cost(cx, cy);
       if (enter === Infinity) continue;
@@ -218,7 +225,7 @@ export class Grid {
     const out = [];
     let cur = end;
     while (cur !== -1) {
-      out.push({ x: cur % COLS, y: (cur / COLS) | 0 });
+      out.push({ x: cur % this.COLS, y: (cur / this.COLS) | 0 });
       cur = from[cur];
     }
     return out.reverse();
@@ -283,10 +290,10 @@ export class Grid {
       if (best < 0) return [];
       cur = best;
     }
-    const cells = [{ x: cur % COLS, y: (cur / COLS) | 0 }];
+    const cells = [{ x: cur % this.COLS, y: (cur / this.COLS) | 0 }];
     while (cells.length < ahead && f.next[cur] !== -1) {
       cur = f.next[cur];
-      cells.push({ x: cur % COLS, y: (cur / COLS) | 0 });
+      cells.push({ x: cur % this.COLS, y: (cur / this.COLS) | 0 });
     }
     return this.smooth(cells);
   }

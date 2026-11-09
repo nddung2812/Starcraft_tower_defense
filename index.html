@@ -27,22 +27,36 @@
       </div>
     </div>
 
-    <div class="hud__readouts">
-      <div class="readout readout--mineral"><span class="readout__k">Minerals</span><span class="readout__v" id="rMinerals">0</span></div>
-      <div class="readout"><span class="readout__k">Level</span><span class="readout__v" id="rWave">1</span></div>
-      <div class="readout readout--score"><span class="readout__k">Score · Kills</span><span class="readout__v" id="rKills">0</span></div>
-      <div class="readout"><span class="readout__k">Command Center</span><span class="readout__v" id="rCore">100%</span></div>
+    <div class="hud__readouts" aria-label="Resources and progress">
+      <div class="readout readout--mineral" title="Minerals"><svg class="hud-icon hud-icon--mineral" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 8 6-3 11-5 3-7-6L4 7Z"/><path d="m12 2 2 8 6-2M4 7l10 3-2 12m2-12 3 9"/></svg><span class="sr-only">Minerals </span><span class="readout__v" id="rMinerals">0</span></div>
+      <div class="readout" title="Level"><span class="readout__k">RND</span><span class="readout__v" id="rWave">1</span></div>
+      <div class="readout readout--score" title="Score · bugs killed"><svg class="hud-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><path d="M12 1v6m0 10v6M1 12h6m10 0h6"/></svg><span class="sr-only">Score </span><span class="readout__v" id="rKills">0</span></div>
+      <div class="readout" title="Command center health"><svg class="hud-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 8 3v6c0 6-8 11-8 11S4 17 4 11V5Z"/><path d="M8 12h8m-4-4v8"/></svg><span class="sr-only">Base health </span><span class="readout__v" id="rCore">100%</span></div>
     </div>
 
+    <div id="hudTools" class="hud__tools">
+      <div class="cam" aria-label="Camera">
+        <button id="camLeft" class="cam__btn" title="Rotate left" aria-label="Rotate left">↺</button>
+        <button id="camRight" class="cam__btn" title="Rotate right" aria-label="Rotate right">↻</button>
+        <button id="camOut" class="cam__btn" title="Zoom out" aria-label="Zoom out">−</button>
+        <button id="camIn" class="cam__btn" title="Zoom in" aria-label="Zoom in">+</button>
+        <button id="camReset" class="cam__btn" title="Reset view" aria-label="Reset view"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9V3h6m6 0h6v6M3 15v6h6m6 0h6v-6"/><circle cx="12" cy="12" r="3"/></svg></button>
+      </div>
+      <div class="hud__settings">
+        <button id="btnSound" class="btn btn--icon" title="Sound on" aria-label="Toggle sound" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-5v16l-5-5H3ZM16 8c3 2 3 6 0 8"/><path class="sound-mute" d="m16 9 6 6m0-6-6 6"/></svg></button>
+        <button id="btnFx" class="btn btn--icon" title="Eco graphics: cooler 30 fps rendering">ECO</button>
+        <button id="btnSpeed" class="btn btn--icon" title="Game speed">1x</button>
+        <button id="btnInspector" class="btn btn--inspector" title="Unit info" aria-label="Unit info" aria-expanded="false" aria-controls="unitPanel"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 10v7m0-10v1"/></svg></button>
+        <button id="btnRestart" class="btn" title="Restart" aria-label="Restart"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8a8 8 0 1 1-1 7M4 3v6h6"/></svg></button>
+      </div>
+    </div>
     <div class="hud__controls">
-      <button id="btnAir" class="btn btn--strike" title="Air Strike (R)">Air Strike</button>
-      <button id="btnSound" class="btn btn--icon" title="Sound">ON</button>
-      <button id="btnFx" class="btn btn--icon" title="Graphics quality: ambient occlusion and anti-aliasing">FX HI</button>
-      <button id="btnSpeed" class="btn btn--icon" title="Game speed">1x</button>
-      <button id="btnRestart" class="btn">Restart</button>
-      <button id="btnWave" class="btn btn--primary">Launch Wave 1</button>
+      <button id="btnAir" class="btn btn--strike" title="Air Strike (R)" aria-label="Air Strike">Strike</button>
+      <button id="btnPause" class="btn btn--primary" title="Pause game (Space)" aria-pressed="false">Pause</button>
+      <button id="btnMore" class="btn btn--more" title="Camera and settings" aria-label="Camera and settings" aria-expanded="false" aria-controls="hudTools">⋯</button>
     </div>
   </header>
+
 
   <main class="stage">
     <canvas id="game"></canvas>
@@ -50,22 +64,14 @@
     <div id="selbox" class="selbox" hidden></div>
     <canvas id="minimap" class="minimap" title="Minimap — click to look, right-click to send selected units"></canvas>
 
-    <div class="cam" aria-label="Camera">
-      <button id="camLeft" class="cam__btn" title="Rotate left">↺</button>
-      <button id="camRight" class="cam__btn" title="Rotate right">↻</button>
-      <button id="camOut" class="cam__btn" title="Zoom out">−</button>
-      <button id="camIn" class="cam__btn" title="Zoom in">+</button>
-      <button id="camReset" class="cam__btn cam__btn--wide" title="Reset view">View</button>
-    </div>
+  <section class="dock" aria-label="Build units and issue orders">
+    <div class="buildbar" id="buildBar"></div>
+    <div id="toasts" class="toasts"></div>
+    <div class="cmdcard" id="cmdCard" aria-label="Commands"></div>
+  </section>
 
-    <section id="assaultHud" class="assault-hud" hidden aria-label="Milestone assault">
-      <div class="assault-hud__top"><span id="bossKicker">MILESTONE / 10</span><button id="btnLocateBoss" type="button">Locate boss ↗</button></div>
-      <div class="assault-hud__title"><strong id="bossName"></strong><span id="bossHealth"></span></div>
-      <div id="bossMeter" class="boss-meter" role="progressbar" aria-label="Boss health" aria-valuemin="0" aria-valuemax="100"><i id="bossFill"></i></div>
-      <p id="bossStatus"></p>
-      <div class="assault-hud__timers"><span id="bossAttack"></span><span id="bossAdds"></span></div>
-    </section>
-    <div id="waveTelemetry" class="wave-telemetry" hidden></div>
+
+
     <div id="fieldGuide" class="field-guide" hidden>
       <span class="field-guide__tag">FIELD MANUAL / 01</span>
       <strong id="guideTitle">Your squad fires automatically.</strong>
@@ -96,8 +102,9 @@
         <h2 class="is-win">Hold the Line</h2>
         <p>The swarm never stops. Every canyon is harder than the last. How far can you hold?</p>
         <div class="milestone-track" aria-label="Boss milestones">
-          <span><b>10</b>BREACHER</span><span><b>20</b>BROODMOTHER</span><span><b>30</b>WORLD EATER</span>
+          <span><b>5 · 15 · 25</b>MEDIUM BOSSES</span><span><b>10 · 20 · 30</b>HARD BOSSES</span>
         </div>
+        <p class="intro__hint">Boss every 5 levels · automatic Marine upgrades · silver boosts / gold permanent</p>
         <p id="challengeIntro" class="challenge-intro" hidden></p>
         <label class="intro__label" for="playerName">Your name</label>
         <input id="playerName" class="intro__input" maxlength="16" placeholder="Commander" spellcheck="false">
@@ -110,14 +117,24 @@
     </div>
   </main>
 
-  <footer class="dock">
-    <div class="buildbar" id="buildBar"></div>
-    <p id="status" class="status"></p>
-    <div id="toasts" class="toasts"></div>
-    <div class="cmdcard" id="cmdCard" aria-label="Commands"></div>
-  </footer>
 
-  <aside class="panel" data-faction="marine">
+
+  <aside id="unitPanel" class="panel" data-faction="marine">
+  <section id="battleReadouts" class="battle-readouts" aria-label="Round and boss progress" hidden>
+    <section id="assaultHud" class="assault-hud" hidden aria-label="Milestone assault">
+      <div class="assault-hud__top"><span id="bossKicker">MILESTONE / 10</span><button id="btnLocateBoss" type="button">Locate boss ↗</button></div>
+      <div class="assault-hud__title"><strong id="bossName"></strong><span id="bossHealth"></span></div>
+      <div id="bossMeter" class="boss-meter" role="progressbar" aria-label="Boss health" aria-valuemin="0" aria-valuemax="100"><i id="bossFill"></i></div>
+      <p id="bossStatus"></p>
+      <div class="assault-hud__timers"><span id="bossAttack"></span><span id="bossAdds"></span></div>
+    </section>
+    <details id="treasure" class="treasure" hidden>
+      <summary id="treasureSummary">Marine upgrades · automatically applied</summary>
+      <p class="treasure__help">All current and future Marines. Silver: next 3 rounds. Gold: permanent this run.</p>
+      <div id="treasureNote" class="treasure__list"></div>
+    </details>
+  </section>
+
     <div class="panel__tabs">
       <button class="tab tab--active" data-unit="marine">Marine</button>
       <button class="tab" data-unit="goliath">Goliath</button>

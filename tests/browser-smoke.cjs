@@ -26,7 +26,7 @@ const os = require('node:os');
     return { contact, seed: g.mapSeed, soldiers: g.gunners.length, minerals: g.minerals, state: g.state };
   });
   assert.equal(opening.seed, 12345); assert.equal(opening.soldiers, 3);
-  assert.ok(opening.contact && opening.contact < 240, JSON.stringify(opening));
+  assert.ok(opening.contact && opening.contact < 40, JSON.stringify(opening));
   console.log('Opening:', opening);
   const maps = await page.evaluate(async () => {
     const { carveLevel } = await import('/src/levels.js');
@@ -37,7 +37,7 @@ const os = require('node:os');
         const map = carveLevel(level, seed), grid = new Grid(); grid.load(map);
         const lengths = map.spawns.map(s => grid.findPath(s.x, s.y, map.core.x, map.core.y)?.length || 0);
         if (lengths.some(n => !n)) throw Error(`Unreachable level ${level}, seed ${seed}`);
-        if (map.spawn.x > 10 || map.core.x < 115 || map.spawns.length !== 1) throw Error('Bases must occupy opposite ends');
+        if (map.spawn.x > 6 || map.core.x < map.cols - 6 || map.spawns.length !== (level <= 5 ? 1 : level <= 15 ? 2 : 3)) throw Error('Bases or difficulty-based route count incorrect');
         if (JSON.stringify(map) !== JSON.stringify(carveLevel(level, seed))) throw Error('Map seed mismatch');
         results.push({ level, seed, lengths });
       }
@@ -65,10 +65,11 @@ const os = require('node:os');
   await page.waitForFunction(() => window.game);
   assert.match(await page.locator('#challengeIntro').textContent(), /9 kills/);
   await page.getByRole('button', { name: 'Build my own defense' }).click();
-  assert.deepEqual(await page.evaluate(() => ({ state: game.state, squad: game.gunners.length })), { state: 'build', squad: 0 });
+  assert.deepEqual(await page.evaluate(() => ({ state: game.state, paused: game.paused, squad: game.gunners.length })), { state: 'brief', paused: true, squad: 0 });
   const milestones = await page.evaluate(async () => {
     const { milestonePlan } = await import('/src/config.js');
     const g = game;
+    g.paused = false;
     const results = [];
     for (const level of [10, 20, 30]) {
       g.wipeUnits(); g.level = level; g.state = 'build'; g.minerals = 5000; g.loadLevel();
