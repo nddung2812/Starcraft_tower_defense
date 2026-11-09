@@ -4,6 +4,20 @@ A browser 3D tower defense / RTS hybrid in plain JavaScript and three.js (r169, 
 hold a canyon against an endless bug swarm: build walls, bunkers and units, then command them
 with StarCraft-style mouse controls while waves keep coming. Score is the number of bugs killed.
 
+## Inspiration
+
+- **StarCraft (Terran side):** the look and feel of the Terran army (power-armoured marines,
+  walkers, siege tanks, bunkers, an SCV keeping the line patched) and RTS mouse control:
+  box-select, right-click orders, control groups, a command card, a minimap.
+- **The battle of Outpost 29 in *Starship Troopers*:** the mood. A doomed outpost, an endless
+  bug swarm pouring through the canyons, soldiers digging in and holding as long as they can.
+  That is why levels never end and the score is simply how many bugs you killed before the
+  base fell.
+
+The aim is to capture that feel with original work. Gameplay mechanics and genre are fair game,
+but the names, characters, art and lines belong to their owners. That's why "Rename away from
+StarCraft" under Open decisions has to happen before the game goes public.
+
 **Status: parked (Nov 2026).** The game plays end to end locally. Not yet hosted. See
 "Open decisions" before doing anything public.
 
