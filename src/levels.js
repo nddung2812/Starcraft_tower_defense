@@ -31,53 +31,6 @@ function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
 function key(x, y) { return y * COLS + x; }
 
-function sideDir(path, index) {
-  const a = path[Math.max(0, index - 1)];
-  const b = path[Math.min(path.length - 1, index + 1)];
-  const dx = b[0] - a[0], dy = b[1] - a[1];
-  const len = Math.hypot(dx, dy) || 1;
-  const px = -dy / len, py = dx / len;
-  if (Math.abs(px) >= Math.abs(py)) return [Math.sign(px) || 1, 0];
-  return [0, Math.sign(py) || 1];
-}
-
-function mouthAt(origin, dir, steps = 5) {
-  let x = origin[0], y = origin[1];
-  let last = null;
-  for (let step = 0; step < steps; step++) {
-    x += dir[0];
-    y += dir[1];
-    const cx = Math.floor(x), cy = Math.floor(y);
-    if (cx < 1 || cy < 1 || cx >= COLS - 1 || cy >= ROWS - 1) break;
-    last = [cx, cy];
-    if (cx <= 2 || cy <= 2 || cx >= COLS - 3 || cy >= ROWS - 3) break;
-  }
-  if (!last) return null;
-  return { x: clamp(last[0], 0, COLS - 2), y: clamp(last[1], 0, ROWS - 3) };
-}
-
-function carveSpur(open, origin, dir, mouth) {
-  const dx = dir[0], dy = dir[1];
-  const steps = Math.abs(mouth.x - Math.floor(origin[0])) + Math.abs(mouth.y - Math.floor(origin[1]));
-  let x = Math.floor(origin[0]), y = Math.floor(origin[1]);
-  for (let step = 0; step <= steps; step++) {
-    for (let oy = -1; oy <= 1; oy++) {
-      for (let ox = -1; ox <= 1; ox++) {
-        const ix = x + ox, iy = y + oy;
-        if (ix >= 0 && iy >= 0 && ix < COLS && iy < ROWS) open.add(key(ix, iy));
-      }
-    }
-    x += dx;
-    y += dy;
-  }
-  for (let oy = -1; oy <= 2; oy++) {
-    for (let ox = 0; ox <= 1; ox++) {
-      const ix = mouth.x + ox, iy = mouth.y + oy;
-      if (ix >= 0 && iy >= 0 && ix < COLS && iy < ROWS) open.add(key(ix, iy));
-    }
-  }
-}
-
 /* The level paths in config.js were drawn on a 26 x 16 grid; they stretch to whatever COLS x ROWS is. */
 const AUTHORED_COLS = 26, AUTHORED_ROWS = 16;
 const SX = COLS / AUTHORED_COLS, SY = ROWS / AUTHORED_ROWS;
@@ -132,6 +85,9 @@ export function carveLevel(level, seed) {
   const rng = mulberry32((seed ^ (level * 0x9e3779b1)) >>> 0);
   const spec = level <= AUTHORED_LEVELS ? LEVELS[level - 1] : generatedSpec(level, rng);
   const path = spec.path.map(([x, y]) => [x * SX, y * SY]);
+  // Opposing bases: swarm at the western entrance, command center at the eastern exit.
+  path[0][0] = 7;
+  path[path.length - 1][0] = COLS - 8;
   const radius = spec.radius * LANE_WIDEN;
   const open = new Set();
 
@@ -166,30 +122,6 @@ export function carveLevel(level, seed) {
   }
 
   const spawns = [spawn];
-  const flanks = level >= 4 ? Math.min(4, 1 + Math.floor((level - 4) / 4)) : 0;
-  const taken = (mouth) => !mouth
-    || spawns.some((s) => Math.abs(s.x - mouth.x) + Math.abs(s.y - mouth.y) < 5)
-    || Math.abs(mouth.x - core.x) + Math.abs(mouth.y - core.y) < 5;
-  for (let f = 0; f < flanks; f++) {
-    const base = Math.max(1, Math.min(path.length - 2, Math.round(((f + 1) * (path.length - 1)) / (flanks + 1))));
-    let placed = false;
-    for (const shift of [0, 1, -1]) {
-      const idx = Math.max(1, Math.min(path.length - 2, base + shift));
-      const dir = sideDir(path, idx);
-      if (f % 2 === 1) { dir[0] *= -1; dir[1] *= -1; }
-      const options = [dir, [-dir[0], -dir[1]]];
-      for (const d of options) {
-        const mouth = mouthAt(path[idx], d, Math.round(5 * Math.min(2, STRETCH)));
-        if (taken(mouth)) continue;
-        carveSpur(open, path[idx], d, mouth);
-        spawns.push(mouth);
-        placed = true;
-        break;
-      }
-      if (placed) break;
-    }
-  }
-
   const grid = new Grid();
   grid.load({ open: [...open].map((k) => [k % COLS, (k / COLS) | 0]), spawn, spawns, core });
 

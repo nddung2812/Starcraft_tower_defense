@@ -59,6 +59,8 @@ export class Marine {
   constructor(kind, tx, ty, armory) {
     this.kind = kind;
     this.spec = UNITS[kind];
+    this.flying = !!this.spec.flying;
+    this.altitude = this.flying ? 2.6 : 0;
     this.tiers = this.spec.tiers;
     this.info = this.spec.info;
     this.tx = tx; this.ty = ty;
@@ -140,6 +142,13 @@ export class Marine {
 
   orderMove(tx, ty, game) {
     if (!this.spec.mobile || this.dead || this.downed || this.bunker) return false;
+    if (this.flying) {
+      if (!game.grid.inside(tx, ty)) return false;
+      this.goalTx = tx; this.goalTy = ty;
+      this.waypoints = [{ x: tx + 0.5, y: ty + 0.5 }];
+      this.wp = 0; this.driving = true;
+      return true;
+    }
     if (!game.grid.inside(tx, ty) || game.grid.get(tx, ty) !== CELL.OPEN) return false;
     const sx = Math.max(0, Math.min(game.grid.COLS - 1, Math.floor(this.x)));
     const sy = Math.max(0, Math.min(game.grid.ROWS - 1, Math.floor(this.z)));
@@ -170,8 +179,8 @@ export class Marine {
     const step = Math.min(dist, this.spec.speed * (this.stimT > 0 ? 1.5 : 1) * dt);
     const nx = this.x + (dx / dist) * step;
     const nz = this.z + (dz / dist) * step;
-    if (game.grid.get(Math.floor(nx), Math.floor(this.z)) !== CELL.ROCK) this.x = nx;
-    if (game.grid.get(Math.floor(this.x), Math.floor(nz)) !== CELL.ROCK) this.z = nz;
+    if (this.flying || game.grid.get(Math.floor(nx), Math.floor(this.z)) !== CELL.ROCK) this.x = nx;
+    if (this.flying || game.grid.get(Math.floor(this.x), Math.floor(nz)) !== CELL.ROCK) this.z = nz;
     this.trackDist += step;
     const treads = this.model.userData.treads;
     if (treads) {
@@ -185,10 +194,11 @@ export class Marine {
   }
 
   /** Standing on its own tile, as opposed to walking or garrisoned. */
-  isPlaced(game) { return game.grid.occupant(this.tx, this.ty) === this; }
+  isPlaced(game) { return !this.flying && game.grid.occupant(this.tx, this.ty) === this; }
 
   /** Stop where you are: walk the last few steps onto the current tile and dig in. */
   halt(game) {
+    if (this.flying) { this.driving = false; this.waypoints = null; return; }
     if (!this.driving) return;
     const cx = Math.floor(this.x), cy = Math.floor(this.z);
     this.goalTx = cx;
@@ -204,7 +214,7 @@ export class Marine {
 
   /** Shoot this bug. Mobile units close the distance if it is out of range. */
   orderAttack(target, game) {
-    if (this.dead || this.downed || !target || target.dead) return false;
+    if (this.dead || this.downed || !target || target.dead || (target.flying && this.spec.targetsAir === false)) return false;
     this.order = { type: 'attack', target };
     this.chaseT = 0;
     return true;
@@ -213,6 +223,7 @@ export class Marine {
   /** Re-route toward an attack target that is out of range. */
   chase(game) {
     const t = this.order.target;
+    if (this.flying) { this.orderMove(Math.floor(t.x), Math.floor(t.z), game); return; }
     const goal = game.grid.nearestOpen(Math.floor(t.x), Math.floor(t.z), 3);
     if (!goal) return;
     if (this.driving && goal.x === this.goalTx && goal.y === this.goalTy) return;
@@ -224,6 +235,7 @@ export class Marine {
     this.waypoints = null;
     const o = this.order;
     if (o?.type === 'amove') this.order = null;
+    if (this.flying) { this.tx = Math.floor(this.x); this.ty = Math.floor(this.z); return; }
     if (o?.type === 'garrison') {
       this.order = null;
       const b = o.bunker;
@@ -252,6 +264,10 @@ export class Marine {
   }
 
   update(dt, game) {
+    if (this.flying && !this.dead) {
+      this.altitude = (game.heightAt?.(this.x, this.z) || 0) + 2.6 + Math.sin(game.time * 2.5) * 0.1;
+      this.obj.position.y = this.altitude;
+    }
     this.spawnT = Math.min(1, this.spawnT + dt * 3);
     this.recoil = Math.max(0, this.recoil - dt * 8);
     this.hurt = Math.max(0, this.hurt - dt * 4);
@@ -306,7 +322,7 @@ export class Marine {
       this.obj.visible = false;
     } else {
       this.obj.visible = true;
-      this.obj.position.set(this.x, 0, this.z);
+      this.obj.position.set(this.x, this.altitude, this.z);
     }
 
     const grow = this.spawnT * this.spawnT * (3 - 2 * this.spawnT);
@@ -366,12 +382,12 @@ export class Marine {
 
   acquire(game) {
     const mine = this.order?.type === 'attack' ? this.order.target : null;
-    if (mine && !mine.dead && this.distTo(mine) <= this.stats.range && this.inArc(mine)) return mine;
+    if (mine && !(mine.flying && this.spec.targetsAir === false) && !mine.dead && this.distTo(mine) <= this.stats.range && this.inArc(mine)) return mine;
     const focus = game.focus;
-    if (focus && !focus.dead && this.distTo(focus) <= this.stats.range && this.inArc(focus)) return focus;
+    if (focus && !(focus.flying && this.spec.targetsAir === false) && !focus.dead && this.distTo(focus) <= this.stats.range && this.inArc(focus)) return focus;
     let best = null, bestScore = -Infinity;
     for (const z of game.zerglings) {
-      if (z.dead) continue;
+      if (z.dead || (z.flying && this.spec.targetsAir === false)) continue;
       if (this.distTo(z) > this.stats.range || !this.inArc(z)) continue;
       const score = -Math.hypot(z.x - game.core.x, z.z - game.core.z) + (z.breedId === 'tanker' ? 2 : z.breedId === 'needler' ? 1.5 : 0);
       if (score > bestScore) { bestScore = score; best = z; }
@@ -426,6 +442,7 @@ export class Marine {
     }
     if (this.hp <= 0 && !this.dead) {
       this.hp = 0;
+      if (this.flying) { this.finishDeath(game); return; }
       this.downed = true;
       this.downT = 9;
       this.target = null;
@@ -584,6 +601,8 @@ export class Zergling {
     this.kind = 'zergling';
     this.breedId = breedId;
     this.breed = BREEDS[breedId];
+    this.flying = !!this.breed.flying;
+    this.altitude = this.flying ? 2.6 : 0;
     this.x = x; this.z = z;
     this.yaw = 0;
     this.maxHp = Math.round(this.breed.hp * hpScale);
@@ -637,6 +656,22 @@ export class Zergling {
     this.jumpCd = Math.max(0, this.jumpCd - dt);
     if (!this.air) this.model.scale.setScalar(this.scale * (0.35 + this.spawnT * 0.65));
 
+    if (this.flying) {
+      this.altitude = (game.heightAt?.(this.x, this.z) || 0) + 2.6;
+      const prey = this.rangedPrey(game);
+      if (prey) this.spit(prey, dt, game);
+      else {
+        const dx = game.core.x - this.x, dz = game.core.z - this.z;
+        const d = Math.hypot(dx, dz) || 1;
+        const step = Math.min(d, this.speed * dt);
+        this.x += dx / d * step; this.z += dz / d * step;
+        this.yaw = angleLerp(this.yaw, Math.atan2(dz, dx), Math.min(1, dt * 8));
+        this.moving = 1;
+      }
+      this.animate(dt, game);
+      this.bar.set(this.hp / this.maxHp, game.camera);
+      return;
+    }
     if (this.air) {
       this.fly(dt, game);
       this.animate(dt, game);
@@ -688,7 +723,7 @@ export class Zergling {
   looseVictim(game) {
     if (game.scv && !game.scv.dead && Math.hypot(game.scv.x - this.x, game.scv.z - this.z) < 0.85) return game.scv;
     for (const m of game.gunners) {
-      if (m.dead || m.bunker || m.isPlaced(game)) continue;
+      if (m.dead || m.flying || m.bunker || m.isPlaced(game)) continue;
       if (Math.hypot(m.x - this.x, m.z - this.z) < 0.85) return m;
     }
     return null;
@@ -696,7 +731,7 @@ export class Zergling {
 
   /** Worth chasing: alive, standing up, and out in the open (bunkered troops are the bunker's problem). */
   preyOk(p, game) {
-    if (!p || p.dead || p.downed || p.bunker) return false;
+    if (!p || p.dead || p.downed || p.bunker || p.flying) return false;
     if (p.kind === 'scv') return p === game.scv;
     if (p.kind === 'wall') return game.walls.includes(p);
     if (p.kind === 'bunker') return game.bunkers.includes(p);
@@ -765,12 +800,12 @@ export class Zergling {
     if (game.scv && !game.scv.dead) troops.push(game.scv);
     const pile = [...troops, ...game.walls, ...game.bunkers, game.core];
     for (const s of pile) {
-      if (!s || s.dead) continue;
+      if (!s || s.dead || (s.flying && !this.breed.targetsAir)) continue;
       const d = Math.hypot(s.x - this.x, s.z - this.z);
       if (d > this.breed.range) continue;
       const score = d + (troops.includes(s) ? 0 : 1.2);
       if (score >= bestScore) continue;
-      if (s.kind !== 'core' && !game.grid.lineOpen(cx, cz, Math.floor(s.x), Math.floor(s.z))) continue;
+      if (!this.flying && !s.flying && s.kind !== 'core' && !game.grid.lineOpen(cx, cz, Math.floor(s.x), Math.floor(s.z))) continue;
       bestScore = score; best = s;
     }
     return best;
@@ -788,7 +823,7 @@ export class Zergling {
       const [mx, my] = this.breed.muzzle || [0, 0.45];
       const s = this.scale;
       const shot = new Acid(
-        this.x + Math.cos(this.yaw) * mx * s, my * s, this.z + Math.sin(this.yaw) * mx * s,
+        this.x + Math.cos(this.yaw) * mx * s, this.altitude + my * s, this.z + Math.sin(this.yaw) * mx * s,
         victim, this.damage, this.breed.projectile
       );
       game.acids.push(shot);
@@ -890,7 +925,7 @@ export class Zergling {
   animate(dt, game) {
     const ud = this.model.userData;
     const hop = this.air ? Math.sin(Math.min(1, this.air.t / this.air.dur) * Math.PI) * 1.25 : 0;
-    this.obj.position.set(this.x, hop, this.z);
+    this.obj.position.set(this.x, this.flying ? this.altitude : hop, this.z);
     this.model.rotation.y = -this.yaw;
 
     if (ud.anim) {
@@ -1139,7 +1174,7 @@ export class Acid {
 
   update(dt, game) {
     if (!this.target || this.target.dead) { this.dead = true; return; }
-    const dx = this.target.x - this.x, dy = 0.4 - this.y, dz = this.target.z - this.z;
+    const dx = this.target.x - this.x, dy = (this.target.flying ? this.target.obj.position.y + 0.3 : 0.4) - this.y, dz = this.target.z - this.z;
     const d = Math.hypot(dx, dy, dz);
     const step = this.speed * dt;
     if (d <= step) {
@@ -1221,7 +1256,7 @@ export class AirBomb {
     game.sfx.cannonHit();
     game.stage.kick(3.2);
     for (const bug of game.zerglings) {
-      if (bug.dead) continue;
+      if (bug.dead || bug.flying) continue;
       const d = Math.hypot(bug.x - this.tx, bug.z - this.tz);
       if (d > this.radius) continue;
       const fall = 1 - (d / this.radius) * 0.45;
@@ -1264,7 +1299,7 @@ export class Shell {
     game.sfx.cannonHit();
     game.stage.kick(2.2);
     for (const bug of game.zerglings) {
-      if (bug.dead) continue;
+      if (bug.dead || bug.flying) continue;
       const d = Math.hypot(bug.x - this.tx, bug.z - this.tz);
       if (d > this.radius) continue;
       const fall = 1 - (d / this.radius) * 0.4;
@@ -1296,7 +1331,7 @@ export class Tracer {
 
   update(dt, game) {
     if (!this.target || this.target.dead) { this.dead = true; return; }
-    const ty = this.target.kind === 'zergling' ? 0.3 : 0.6;
+    const ty = (this.target.flying ? this.target.obj.position.y : 0) + (this.target.kind === 'zergling' ? 0.3 : 0.6);
     const dx = this.target.x - this.x, dy = ty - this.y, dz = this.target.z - this.z;
     const d = Math.hypot(dx, dy, dz);
     const step = this.speed * dt;

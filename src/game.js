@@ -8,8 +8,9 @@ import { buildTerrain } from './terrain.js';
 import { Fx } from './fx.js';
 import { sfx } from './audio.js';
 import { voice } from './voice.js';
+import { MilestoneAssault } from './milestones.js';
 
-const GUN = new Set(['marine', 'goliath', 'tank']);
+const GUN = new Set(Object.keys(UNITS));
 
 export class Game {
   constructor(stage) {
@@ -40,6 +41,7 @@ export class Game {
     this.shells = [];
     this.bombs = [];
     this.listeners = {};
+    this.assault = new MilestoneAssault(this);
     this.reset();
   }
 
@@ -73,10 +75,10 @@ export class Game {
     this.scv = null;
   }
 
-  reset() {
+  reset(seed = null) {
     this.wipeUnits();
     this.level = 1;
-    this.mapSeed = (Math.random() * 0x7fffffff) | 0;
+    this.mapSeed = Number.isInteger(seed) ? seed >>> 0 : (Math.random() * 0x7fffffff) >>> 0;
     this.minerals = ECON.startMinerals;
     this.kills = 0;
     this.score = 0;
@@ -101,6 +103,7 @@ export class Game {
   }
 
   loadLevel() {
+    this.assault.reset();
     for (const z of this.zerglings) this.world.remove(z.obj);
     this.zerglings = [];
     for (const t of this.tracers) this.scene.remove(t.mesh);
@@ -231,7 +234,7 @@ export class Game {
     m.restYaw = Math.atan2((sp.y + 1) - m.z, (sp.x + 0.5) - m.x);
     m.yaw = m.restYaw;
     m.invested = spec.cost;
-    this.grid.set(tx, ty, CELL.TOWER, m);
+    if (!m.flying) this.grid.set(tx, ty, CELL.TOWER, m);
     this.gunners.push(m);
     this.world.add(m.obj);
     this.minerals -= spec.cost;
@@ -375,6 +378,27 @@ export class Game {
 
   /* ---------------- waves ---------------- */
 
+  /** Spend the normal starting budget on a small squad, then get straight to play. */
+  quickDeploy() {
+    if (this.state !== 'build' || this.level !== 1 || this.gunners.length) return false;
+    const c = this.grid.core;
+    const route = this.grid.findPath(this.grid.spawn.x, this.grid.spawn.y, c.x, c.y);
+    if (!route?.length) return false;
+    const anchor = route[Math.max(0, route.length - 9)];
+    let placed = 0;
+    for (let r = 0; r <= 4 && placed < 3; r++) {
+      for (let dy = -r; dy <= r && placed < 3; dy++) {
+        for (let dx = -r; dx <= r && placed < 3; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          if (this.placeGunner('marine', Math.floor(anchor.x) + dx, Math.floor(anchor.y) + dy)) placed++;
+        }
+      }
+    }
+    if (!placed) return false;
+    this.startWave();
+    return true;
+  }
+
   startWave() {
     if (this.state !== 'build') return;
     this.queue = wavePlan(this.level);
@@ -384,6 +408,7 @@ export class Game {
     this.briefT = 3.15;
     this.called = false;
     this.state = 'brief';
+    this.assault.start();
     sfx.alarm();
     voice.say('contact');
     this.emit('brief', {
@@ -397,6 +422,7 @@ export class Game {
   }
 
   onKill(bug) {
+    if (bug?.isBoss) this.assault.defeated(bug);
     this.kills++;
     this.score = this.kills;   // your score is simply how many bugs you killed
     this.minerals += ECON.perKill * (bug?.breed?.bounty || 1);
@@ -414,6 +440,8 @@ export class Game {
 
   onCoreDestroyed() {
     this.state = 'defeat';
+    this.assault.clearMarks();
+    this.emit('change');
     this.fx.explosion({ x: this.core.x, y: 1, z: this.core.z }, 3);
     this.stage.kick(9);
     sfx.defeat();
@@ -488,16 +516,25 @@ export class Game {
    * mode: 'move' ignores bugs on the way, 'amove' stops to shoot.
    */
   commandMove(units, tx, ty, mode = 'move') {
-    const walkers = units.filter((u) => u.kind === 'scv' ? !u.dead : (u.spec?.mobile && !u.dead && !u.downed));
-    if (!walkers.length) return 0;
+    const flyers = units.filter(u => u.flying && !u.dead);
+    let flown = 0;
+    for (let i = 0; i < flyers.length; i++) {
+      const u = flyers[i];
+      const x = Math.max(0, Math.min(this.grid.COLS - 1, tx + (i % 3) - Math.min(1, flyers.length - 1)));
+      const y = Math.max(0, Math.min(this.grid.ROWS - 1, ty + Math.floor(i / 3)));
+      u.order = mode === 'amove' ? { type: 'amove' } : null;
+      if (u.orderMove(x, y, this)) flown++;
+    }
+    const walkers = units.filter(u => !u.flying).filter((u) => u.kind === 'scv' ? !u.dead : (u.spec?.mobile && !u.dead && !u.downed));
+    if (!walkers.length) return flown;
     const taken = new Set();
     for (const m of this.gunners) {
-      if (m.driving && !walkers.includes(m)) taken.add(this.grid.idx(m.goalTx, m.goalTy));
+      if (!m.flying && m.driving && !walkers.includes(m)) taken.add(this.grid.idx(m.goalTx, m.goalTy));
     }
 
     // breadth-first fan-out over open ground from the nearest open tile to the click
     const start = this.grid.nearestOpen(tx, ty, 4, taken);
-    if (!start) return 0;
+    if (!start) return flown;
     const slots = [];
     const seen = new Set([this.grid.idx(start.x, start.y)]);
     const q = [start];
@@ -512,7 +549,7 @@ export class Game {
       }
     }
 
-    let n = 0;
+    let n = flown;
     const left = walkers.slice();
     for (const slot of slots) {
       // nearest remaining unit takes the slot
@@ -610,6 +647,7 @@ export class Game {
     }
 
     if (this.state === 'wave') {
+      this.assault.update(dt);
       this.spawnTimer += dt;
       while (this.queue.length && this.queue[0].at <= this.spawnTimer) {
         const s = this.queue.shift();
@@ -676,10 +714,10 @@ export class Game {
     }
 
     const alive = this.zerglings.filter((z) => !z.dead).length;
-    this.drama = this.state === 'wave' && !this.queue.length && alive === 1 ? 0.38 : 1;
+    this.drama = this.state === 'wave' && !this.assault.plan && !this.queue.length && alive === 1 ? 0.38 : 1;
     if (this.focus && this.focus.dead) this.focus = null;
 
-    if (this.state === 'wave' && !this.queue.length && alive === 0) {
+    if (this.state === 'wave' && !this.assault.pending && !this.queue.length && alive === 0) {
       this.completeWave();
     }
 

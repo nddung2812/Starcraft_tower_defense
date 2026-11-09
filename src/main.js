@@ -8,6 +8,7 @@ import { loadModels } from './assets.js';
 import { topScores, submitScore, savedName, rememberName, cleanName, localBest } from './scores.js';
 import { sfx } from './audio.js';
 import { voice } from './voice.js';
+import { readChallenge, challengeUrl, makeRunCard } from './challenge.js';
 
 // any .glb files in assets/models/ replace the built-in unit models
 await loadModels();
@@ -16,6 +17,8 @@ const canvas = document.getElementById('game');
 const stage = new Stage(canvas);
 const game = new Game(stage);
 window.game = game;
+const challenge = readChallenge();
+if (challenge) game.reset(challenge.seed);
 const ui = new UI(game);
 
 game.viewport = { w: 1, h: 1 };
@@ -120,17 +123,29 @@ function tileAt(ev) {
 /** Bugs first (they are what you are usually clicking at), then our own things. */
 function entityAt(tile) {
   if (!tile) return null;
+  // Air silhouettes project away from their ground tile: pick them at flight height.
+  const r = canvas.getBoundingClientRect();
+  const mouseX = r.left + (ndc.x + 1) * r.width / 2;
+  const mouseY = r.top + (1 - ndc.y) * r.height / 2;
+  let airPick = null, airDistance = 28;
+  for (const e of [...game.zerglings, ...game.gunners]) {
+    if (!e.flying || e.dead) continue;
+    const p = screenPos(e);
+    const distance = Math.hypot(p.x - mouseX, p.y - mouseY);
+    if (p.front && distance < airDistance) { airPick = e; airDistance = distance; }
+  }
+  if (airPick) return airPick;
   const wx = tile.world.x, wz = tile.world.z;
   let best = null, bd = 0.6;
   for (const z of game.zerglings) {
-    if (z.dead) continue;
+    if (z.dead || z.flying) continue;
     const d = Math.hypot(z.x - wx, z.z - wz) / (z.scale || 1);
     if (d < bd) { bd = d; best = z; }
   }
   if (best) return best;
   bd = 0.6;
   for (const m of game.gunners) {
-    if (m.dead || m.bunker) continue;
+    if (m.dead || m.bunker || m.flying) continue;
     const d = Math.hypot(m.x - wx, m.z - wz);
     if (d < bd) { bd = d; best = m; }
   }
@@ -165,7 +180,7 @@ function alive(e) {
 function army() { return selection.filter(isUnit); }
 
 function screenPos(e) {
-  proj.set(e.x, 0.4, e.z).project(stage.camera);
+  proj.set(e.x, (e.flying ? e.obj.position.y : 0) + 0.4, e.z).project(stage.camera);
   const r = canvas.getBoundingClientRect();
   return {
     x: r.left + ((proj.x + 1) / 2) * r.width,
@@ -344,6 +359,7 @@ const PLACE_TIP = {
   wall: 'Walls redirect the swarm, and bugs stop to chew them. Drag to lay a run. Right-click cancels.',
   marine: 'Place a Marine. Right-click the ground to move him later.',
   goliath: 'Goliath. Twin autocannons, long reach. Too big for a bunker, and it does not move.',
+  falcon: 'Falcon Gunship. Attacks ground and air. Right-click to fly over any terrain. V to deploy another.',
   tank: 'Siege Tank. Twin cannons, wide blast. Right-click the ground to drive it.',
   bunker: 'Bunker faces the bugs. Select Marines and right-click it to garrison.'
 };
@@ -714,6 +730,76 @@ const intro = document.getElementById('intro');
 const nameInput = document.getElementById('playerName');
 let player = savedName();
 let runStarted = 0;
+let completedRun = null;
+let runGeneration = 0;
+let guideDismissed = false;
+let quickDeployment = true;
+const guide = document.getElementById('fieldGuide');
+const challengeHud = document.getElementById('challengeHud');
+if (challenge) {
+  const message = `Beat ${challenge.name}'s ${challenge.kills.toLocaleString()} kills. Same maps. Your strategy.`;
+  const introChallenge = document.getElementById('challengeIntro');
+  introChallenge.textContent = message;
+  introChallenge.hidden = false;
+  challengeHud.hidden = false;
+}
+function updateChallenge() {
+  if (!challenge) return;
+  const beaten = game.kills > challenge.kills;
+  challengeHud.classList.toggle('is-beaten', beaten);
+  challengeHud.textContent = beaten
+    ? `CHALLENGE BEATEN · ${game.kills.toLocaleString()} kills. Set the next target!`
+    : `BEAT ${challenge.name} · ${(challenge.kills + 1 - game.kills).toLocaleString()} more kills to win`;
+}
+function updateGuide() {
+  guide.hidden = guideDismissed || !intro.hidden || game.state === 'defeat' || game.level > 1;
+  if (guide.hidden) return;
+  const hasSquad = game.gunners.length > 0;
+  const fighting = game.state === 'brief' || game.state === 'wave';
+  document.getElementById('guideTitle').textContent = !hasSquad ? 'Build your first line.'
+    : fighting ? 'Your squad fires automatically.' : 'Ready? Launch the swarm.';
+  document.getElementById('guideText').textContent = !hasSquad
+    ? 'Press M, then click open ground near your base to place a soldier.'
+    : fighting ? 'Drag to select · right-click to move · R, then click for an air strike.'
+    : 'Add walls with W. Press Space when your defense is ready.';
+}
+document.getElementById('guideDismiss').addEventListener('click', () => { guideDismissed = true; updateGuide(); });
+game.on('change', () => { updateGuide(); updateChallenge(); });
+
+const shareStatus = document.getElementById('shareStatus');
+async function copyChallenge() {
+  if (!completedRun) return;
+  const url = challengeUrl(completedRun);
+  try {
+    await navigator.clipboard.writeText(url);
+    shareStatus.textContent = 'Challenge link copied. Send it to your squad.';
+  } catch {
+    shareStatus.textContent = 'Copy your challenge link:';
+    const input = document.createElement('input');
+    input.className = 'intro__input'; input.readOnly = true; input.value = url;
+    shareStatus.append(document.createElement('br'), input);
+    input.focus(); input.select();
+  }
+}
+document.getElementById('btnCopyChallenge').addEventListener('click', copyChallenge);
+document.getElementById('btnChallenge').addEventListener('click', async () => {
+  if (!completedRun) return;
+  if (!navigator.share) { await copyChallenge(); return; }
+  try {
+    await navigator.share({ title: 'Beat my last stand', text: `I stopped ${completedRun.score} bugs. Can you beat me on the same maps?`, url: challengeUrl(completedRun) });
+    shareStatus.textContent = 'Challenge sent. The line is drawn.';
+  } catch (error) {
+    if (error.name !== 'AbortError') await copyChallenge();
+  }
+});
+document.getElementById('btnSaveCard').addEventListener('click', () => {
+  const card = document.getElementById('runCard');
+  if (!completedRun || card.hidden) return;
+  const link = document.createElement('a');
+  link.href = card.src; link.download = `last-stand-${completedRun.score}.png`;
+  link.click();
+  shareStatus.textContent = 'Card saved. Pair it with your challenge link.';
+});
 
 async function showIntro() {
   intro.hidden = false;
@@ -726,34 +812,59 @@ async function showIntro() {
 
 document.getElementById('introForm').addEventListener('submit', (ev) => {
   ev.preventDefault();
-  const name = cleanName(nameInput.value);
-  if (name.length < 2) { nameInput.focus(); sfx.deny(); return; }
+  const name = cleanName(nameInput.value) || 'Commander';
   player = name;
   rememberName(name);
-  document.getElementById('pilot').textContent = `Commander ${name}`;
+  document.getElementById('pilot').textContent = name === 'Commander' ? name : `Commander ${name}`;
   intro.hidden = true;
   runStarted = performance.now();
   sfx.resume();
   voice.unlock();
+  quickDeployment = ev.submitter?.value !== 'build';
+  if (quickDeployment) game.quickDeploy();
   updateTip();
+  updateGuide();
+  updateChallenge();
 });
 
 game.on('over', async () => {
-  const run = { name: player || 'Anonymous', score: game.score, level: game.level, kills: game.kills, seconds: (performance.now() - runStarted) / 1000 };
+  const generation = runGeneration;
+  const previousBest = localBest();
+  const run = { name: player || 'Commander', score: game.score, level: game.level, kills: game.kills,
+    seconds: (performance.now() - runStarted) / 1000, seed: game.mapSeed };
+  completedRun = run;
+  const card = document.getElementById('runCard');
+  try {
+    stage.render();
+    card.src = makeRunCard(canvas, run);
+    card.hidden = false;
+  } catch { card.hidden = true; }
+  document.getElementById('btnSaveCard').disabled = card.hidden;
+  shareStatus.textContent = run.score > previousBest ? 'NEW PERSONAL BEST. Make this the score to beat.' : 'Your last stand. Their next challenge.';
+  // Show the result immediately; a slow leaderboard must never hold up a rematch.
+  ui.showBanner({ ...run, scores: [], best: Math.max(previousBest, run.score) });
   const result = await submitScore(run);
   const { scores } = await topScores(10);
+  if (generation !== runGeneration) return;
   ui.showBanner({ ...run, ...result, scores, best: Math.max(localBest(), run.score) });
 });
 
 game.on('restart', () => {
+  runGeneration++;
+  completedRun = null;
   runStarted = performance.now();
-  game.reset();
+  const seed = challenge ? challenge.seed : game.mapSeed;
+  game.reset(seed);
   cancelModes();
   select(null);
   groups.forEach((g) => { g.length = 0; });
   ui.hideBanner();
   ui.hideReel();
   ui.sync();
+  btnSpeed.textContent = '1x';
+  if (intro.hidden && quickDeployment) game.quickDeploy();
+  updateGuide();
+  updateChallenge();
 });
 let alertShownAt = -99;
 game.on('alert', (e) => {
@@ -816,7 +927,7 @@ function frame(now) {
   last = now;
   const dt = raw * game.speed * (game.drama || 1);
 
-  game.update(dt);
+  if (intro.hidden && game.state !== 'defeat') game.update(dt);
 
   pruneSelection();
   syncDecals(raw);

@@ -18,7 +18,7 @@ The aim is to capture that feel with original work. Gameplay mechanics and genre
 but the names, characters, art and lines belong to their owners. That's why "Rename away from
 StarCraft" under Open decisions has to happen before the game goes public.
 
-**Status: parked (Nov 2026).** The game plays end to end locally. Not yet hosted. See
+**Status: active local development (Nov 2026).** The game plays end to end locally. Not yet hosted. See
 "Open decisions" before doing anything public.
 
 ## Running it
@@ -38,9 +38,9 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 | `index.html` | HUD, battlefield, build bar, command card, inspector, start screen, game-over banner. Import map points `three` at `vendor/`. |
 | `src/main.js` | Entry point. Loads models, then owns all input: selection, orders, control groups, hotkeys, camera, minimap wiring, start screen and game-over flow, the frame loop. |
 | `src/game.js` | Game state and rules: placing and selling, levels, waves, kills and score, group commands (`commandMove/Attack/Garrison/Stop`), alerts, terrain rebuild. |
-| `src/entities.js` | `Marine` (all player gun units: marine/goliath/tank), `Zergling` (all bug strains), `Wall`, `Bunker`, `Scv`, `Core`, projectiles. |
+| `src/entities.js` | `Marine` (all player gun units: marine/goliath/tank/falcon), `Zergling` (all bug strains), `Wall`, `Bunker`, `Scv`, `Core`, projectiles. |
 | `src/grid.js` | Tile grid, A* for player units, the shared bug route field, line-of-sight helpers. |
-| `src/levels.js` | Carves each level: lane from a path, flank spawns, boulders, rock depth, spires. Levels 1–10 come from `LEVELS` in config; 11+ are generated. |
+| `src/levels.js` | Carves each level: a full canyon between west/east bases, boulders, rock depth, spires. Levels 1–10 come from `LEVELS` in config; 11+ are generated. |
 | `src/terrain.js` | The mountain heightfield mesh built from the per-cell rock depth. |
 | `src/config.js` | **All tuning lives here**: map size, costs, unit and bug stats, wave plan, level paths, model files. |
 | `src/models.js` | Procedural low-poly models (units, bugs including the Needler, buildings, boulders, spires). |
@@ -52,9 +52,37 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 | `src/fx.js`, `audio.js`, `voice.js` | Particles and decals, synthesised sound effects, speech-synthesis voice lines. |
 | `assets/models/README.md` | How to drop in `.glb` unit models. |
 
+## Latest gameplay update (Nov 9, 2026)
+
+- Quick Deploy buys three soldiers at normal cost and starts wave one. Name is optional;
+  Build My Own keeps the original planning flow. Rematches keep the chosen mode and map seed.
+- Bases are at opposite ends as requested: the swarm hive sits at the western map entrance,
+  the command center at the eastern exit, on every authored and generated map. Mid-map flank
+  hives and shortened approaches have been removed. The first-wave approach takes about 59
+  simulation seconds in the smoke scenario; aircraft can intercept enemies further up the map.
+- Falcon Gunship (V, 220 minerals): twin tracking cannons attack both ground and air, speed 5.2,
+  two upgrade tiers. Flies directly over mountains/walls and never occupies ground grid cells.
+  Lethal damage destroys aircraft immediately; they cannot garrison or be revived as infantry.
+- Sky Hunters join enemy waves at level 5 and fly directly toward the command center. Marines,
+  Goliaths, Falcons, needlers and hunters can target air; tanks, melee bugs and ground blasts
+  cannot. Projectile aim follows flight height, and air units use flight-height click/box selection.
+  Aircraft appear as triangles on the minimap.
+- Milestone assaults every ten levels: The Breacher (10), Broodmother (20), World Eater (30+).
+  Bosses gain an enrage phase below half HP, summon reinforcements, and bombard up to 1/2/3
+  distinct troop positions with visible dodge windows. Boss kills award minerals and recharge
+  the air strike. Reinforcement spawning stops on boss death; remaining hostiles must be cleared.
+- `src/milestones.js` owns boss entities, warning rings, damage, reinforcements, and cleanup.
+  `milestonePlan()` in config owns tuning. `game.assault` exposes the live encounter state.
+- `src/challenge.js` parses bounded challenge parameters, creates same-map links, and renders
+  a 1200×900 last-stand PNG from the battlefield. Combat itself remains nondeterministic.
+- Game over offers native link sharing (where supported), copy link, and a downloadable score
+  card. Slow score requests do not block results, and stale requests cannot reopen a rematch.
+- Intro and defeat screens pause the simulation. Live HUD shows remaining hostiles and boss
+  attack/reinforcement timers. No deployment or online leaderboard has been added.
+
 ## Rules that are easy to break
 
-- **Grid occupancy.** A placed unit owns its tile (`grid.occupant(tx, ty) === unit`). Walking or
+- **Grid occupancy.** Aircraft never own ground tiles. A placed ground unit owns its tile (`grid.occupant(tx, ty) === unit`). Walking or
   garrisoned units do not, and their `tx/ty` can be stale. Only `grid.clear()` a tile when the
   entity is its occupant (`unit.isPlaced(game)`); clearing blindly erases another unit's tile.
 - **Bug routing is shared.** `grid.field()` is one Dijkstra out from the core, cached per
@@ -80,11 +108,22 @@ right-click = smart order (move, attack, garrison, repair, revive) · right-drag
 map) · ⌥ + right-drag = rotate/tilt · middle-drag = pan · wheel = zoom · arrows / screen edge =
 scroll · Ctrl+1–9 set group, Shift+1–9 add, 1–9 select, double-tap to jump · A attack-move · S stop ·
 F stim · R air strike · U promote · X salvage · F1 SCV · F2 all army · Space launch wave / jump to
-last alert · Esc cancel. Build hotkeys: W wall, M marine, B bunker, G goliath, T tank.
+last alert · Esc cancel. Build hotkeys: W wall, M marine, B bunker, G goliath, T tank, V Falcon Gunship.
 
 ## Testing
 
-No test suite is checked in yet. What worked during development:
+A browser smoke suite is checked in at `tests/browser-smoke.cjs`. Serve the repo on port 8765,
+then run `node tests/browser-smoke.cjs` with `playwright-core` installed, or pass its absolute
+module directory as the first argument. Override Chrome's path with `CHROME_PATH` if needed.
+It verifies full-map first contact, opposing-base positions, seeded map reachability/reproducibility, score card download,
+challenge clipboard links, rematches, build mode, all three boss tiers, enrage, bombardment
+hits, live movement dodges, rewards, and cleanup. It writes visual captures to the OS temp dir.
+
+`tests/browser-air.cjs` uses the same invocation and checks air/ground damage, anti-air rules,
+terrain flight, grid occupancy, aircraft selection, promotion, destruction, level recovery,
+and the level-5 enemy air unlock.
+
+Other useful checks from development:
 
 - Headless Chrome via `playwright-core` pointed at the installed Chrome
   (`executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'`).
@@ -109,9 +148,9 @@ times; if files are changing, stop and coordinate rather than overwrite.
    public site, game portals or app stores. Replace with original names and lines (gameplay
    unchanged) before deploying. Names live in `config.js` (`BUILD`, `*_INFO`, `BREEDS`,
    `LEVELS`), `index.html`, `ui.js` and `voice.js`.
-2. **The march is too long.** At 128×128 the level-1 route is about 270 tiles, roughly two
-   minutes before bugs arrive. Pick one: faster marching until bugs near troops, hives closer to
-   the base, or shorter routes inside the big map.
+2. **Map flow confirmed by user.** Enemy hives start at the beginning of the map and the
+   command center is always at the other end. Keep this full-map layout. Continue playtesting
+   pacing and boss balance; do not move hives toward the player base to shorten the march.
 3. **Hosting plan (proposed, not started).** Static site on Vercel, plus one function at
    `/api/scores` backed by Upstash Redis (a sorted set).
    - `GET /api/scores?limit=10` → `{ scores: [{ name, score, level, kills }] }`

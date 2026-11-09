@@ -24,6 +24,7 @@ export const BUILD = {
   marine: { id: 'marine', name: 'Marine', cost: 50, icon: 'M', key: 'M', desc: 'Terran Marine. Right-click the canyon to move him. Promote, stim, or garrison a bunker.' },
   bunker: { id: 'bunker', name: 'Bunker', cost: 80, hp: 300, icon: 'B', key: 'B', desc: 'Holds two Marines. Extra armour, a firing slit, and a facing you set by where you build it.' },
   goliath: { id: 'goliath', name: 'Goliath', cost: 175, icon: 'G', key: 'G', desc: 'Walker with twin autocannons. Long reach. Too big for a bunker.' },
+  falcon: { id: 'falcon', name: 'Falcon Gunship', cost: 220, icon: 'V', key: 'V', desc: 'Flying gunship. Twin cannons attack ground and air. Flies over terrain; vulnerable to spines and flying hunters.' },
   tank: { id: 'tank', name: 'Siege Tank', cost: 260, icon: 'H', key: 'T', desc: 'Silver heavy tank. Twin shock cannons. Right-click the canyon to drive it.' }
 };
 
@@ -77,6 +78,17 @@ export const TANK_INFO = {
   quote: '"Shock cannon armed."'
 };
 
+export const FALCON_TIERS = [
+  { rank: 'Flight I', hp: 150, damage: 12, attackSpeed: 0.65, range: 6.5, upgradeCost: 200 },
+  { rank: 'Flight II', hp: 215, damage: 19, attackSpeed: 0.52, range: 7.2, upgradeCost: null }
+];
+export const FALCON_INFO = {
+  id: 'falcon', name: 'Falcon Gunship', faction: 'Terran Air Wing', role: 'Air / Ground Assault',
+  armor: 1, accent: '#71e7e0',
+  bio: 'Twin-engine attack craft with tracking cannons for ground and air targets. Flies over mountains and walls without blocking ground troops. Enemy spines and flying hunters can shoot it down.',
+  quote: '"Sky clear. Guns ready."'
+};
+
 export const UNITS = {
   marine: {
     id: 'marine', tiers: MARINE_TIERS, info: MARINE_INFO,
@@ -88,7 +100,13 @@ export const UNITS = {
     shell: false, splash: 0, canBunker: false, canStim: false, armory: false, turret: false,
     mobile: false, speed: 0, accent: 0xc6e07a
   },
+  falcon: {
+    id: 'falcon', tiers: FALCON_TIERS, info: FALCON_INFO,
+    flying: true, targetsAir: true, shell: false, splash: 0, canBunker: false, canStim: false, armory: false, turret: true,
+    mobile: true, speed: 5.2, accent: 0x71e7e0
+  },
   tank: {
+    targetsAir: false,
     id: 'tank', tiers: TANK_TIERS, info: TANK_INFO,
     shell: true, splash: 1.45, canBunker: false, canStim: false, armory: false, turret: true,
     mobile: true, speed: 1.25, accent: 0xd21f28
@@ -132,7 +150,8 @@ export const BREEDS = {
   zergling: { id: 'zergling', name: 'Zergling', role: 'Melee Swarm', hp: 32, armor: 0, damage: 5, attackSpeed: 0.55, range: 0.95, speed: 2.4, scale: 1, bounty: 1, melee: true, aggro: 2.6 },
   warrior:  { id: 'warrior', name: 'Warrior', role: 'Armored Strain', hp: 130, armor: 3, damage: 10, attackSpeed: 0.8, range: 1.05, speed: 1.35, scale: 1.32, bounty: 3, melee: true, aggro: 2.2 },
   hopper:   { id: 'hopper', name: 'Hopper', role: 'Wall Vaulter', hp: 48, armor: 0, damage: 7, attackSpeed: 0.5, range: 0.9, speed: 2.7, scale: 0.82, bounty: 2, melee: true, jump: true, aggro: 3 },
-  needler:  { id: 'needler', name: 'Needler', role: 'Spine Launcher', hp: 70, armor: 1, damage: 9, attackSpeed: 1.05, range: 4.3, speed: 1.85, scale: 1, bounty: 3, ranged: true, projectile: 'spine', muzzle: [0.42, 0.62] },
+  skyhunter: { id: 'skyhunter', name: 'Sky Hunter', role: 'Flying Assault', flying: true, targetsAir: true, hp: 80, armor: 1, damage: 8, attackSpeed: 1.1, range: 4.5, speed: 3.1, scale: 1.1, bounty: 4, ranged: true, projectile: 'spine', muzzle: [0.5, 0.3] },
+  needler:  { targetsAir: true, id: 'needler', name: 'Needler', role: 'Spine Launcher', hp: 70, armor: 1, damage: 9, attackSpeed: 1.05, range: 4.3, speed: 1.85, scale: 1, bounty: 3, ranged: true, projectile: 'spine', muzzle: [0.42, 0.62] },
   tanker:   { id: 'tanker', name: 'Tanker', role: 'Acid Siege', hp: 240, armor: 1, damage: 16, attackSpeed: 1.7, range: 3.6, speed: 1.05, scale: 1.7, bounty: 5, ranged: true }
 };
 
@@ -208,10 +227,32 @@ export function wavePlan(n) {
     add(size, t, 0.1, 'zergling');
     t += 1.05 + size * 0.1;
   }
+  if (n >= 5) add(Math.min(12, 2 + Math.floor((n - 5) / 2)), 3.5, 1.15, 'skyhunter');
   if (n >= 3) add(Math.min(14, 1 + Math.floor((n - 3) / 1.5)), 1.8, 1.3, 'needler');    // ranged spine launchers
   if (n >= 4) add(Math.min(14, 1 + Math.floor((n - 4) / 1.5)), 1, 1.5, 'warrior');      // armoured
   if (n >= 6) add(Math.min(14, 2 + Math.floor((n - 6) / 1.5)), 1.4, 0.85, 'hopper');    // wall vaulters
   if (n >= 8) add(Math.min(10, Math.floor((n - 6) / 2.5)), 2.4, 1.7, 'tanker');         // acid siege
   out.sort((a, b) => a.at - b.at);
   return out;
+}
+
+/* Every tenth canyon is a real-time boss assault. Later decades keep escalating. */
+export function milestonePlan(level) {
+  if (level < 10 || level % 10 !== 0) return null;
+  const tier = Math.floor(level / 10);
+  const names = ['THE BREACHER', 'BROODMOTHER', 'THE WORLD EATER'];
+  return {
+    tier, name: names[Math.min(tier - 1, 2)],
+    hp: 1800 + (tier - 1) * 2800,
+    armor: 3 + tier, damage: 22 + tier * 8,
+    scale: 2.1 + Math.min(tier, 5) * 0.25,
+    speed: 1.15 + Math.min(tier, 5) * 0.1,
+    strikeInterval: Math.max(5, 11 - tier),
+    strikeDamage: 30 + tier * 15,
+    strikeRadius: 2.3 + Math.min(tier, 5) * 0.3,
+    telegraph: Math.max(1.8, 3.2 - tier * 0.25),
+    reinforcementInterval: Math.max(7, 15 - tier * 2),
+    reinforcements: Math.min(12, 2 + tier * 2),
+    reward: 300 + tier * 250
+  };
 }

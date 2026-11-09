@@ -44,6 +44,10 @@ class Portrait {
       this.current = model('goliath');
       this.camera.position.set(1.5, 1.2, 3.3);
       this.camera.lookAt(0.05, 0.7, 0);
+    } else if (kind === 'falcon') {
+      this.current = model('falcon');
+      this.camera.position.set(2.0, 1.4, 3.2);
+      this.camera.lookAt(0.1, 0.15, 0);
     } else if (kind === 'tank') {
       this.current = model('tank');
       this.camera.position.set(1.7, 1.05, 3.15);
@@ -120,7 +124,7 @@ const COMMANDS = [
   { id: 'wave', label: 'Launch', key: 'Space' }
 ];
 
-const CHIP = { marine: 'M', goliath: 'G', tank: 'H', scv: 'S' };
+const CHIP = { marine: 'M', goliath: 'G', tank: 'H', falcon: 'V', scv: 'S' };
 
 function unitLike(e) {
   if (!e || e.dead) return false;
@@ -166,6 +170,13 @@ export class UI {
       game.emit(e.shiftKey ? 'deselect' : 'selectOnly', unit);
     });
 
+    $('btnLocateBoss').addEventListener('click', () => {
+      const boss = game.assault.boss;
+      if (!boss || boss.dead) return;
+      game.focus = boss;
+      game.stage.focus.set(boss.x, 0, boss.z);
+      game.fx.ring({ x: boss.x, z: boss.z }, 2.5, 0xff684b);
+    });
     $('btnWave').addEventListener('click', () => game.startWave());
     $('btnAir').addEventListener('click', () => game.emit('airstrike'));
     $('btnUpgrade').addEventListener('click', () => {
@@ -230,7 +241,7 @@ export class UI {
       const s = { hp: base.hp, damage: base.damage, attackSpeed: base.attackSpeed, range: base.range, armor: spec.info.armor };
       if (entity) Object.assign(s, entity.stats);
       else if (spec.armory) for (const u of g.armory) u.apply(s);
-      const shots = kind === 'goliath' ? 2 : 1;
+      const shots = kind === 'goliath' || kind === 'falcon' ? 2 : 1;
 
       $('pName').textContent = spec.info.name;
       $('pRole').textContent = spec.tiers.length > 1
@@ -247,6 +258,7 @@ export class UI {
         statRow('Fire Rate', (1 / s.attackSpeed).toFixed(2) + '/s', (1 / s.attackSpeed) / 3.5, '#f0b23c') +
         statRow('Range', s.range.toFixed(1) + ' tiles', s.range / 8, accent) +
         (spec.splash ? statRow('Blast', spec.splash.toFixed(1) + ' tiles', spec.splash / 2, accent) : '') +
+        statRow('Targets', spec.targetsAir === false ? 'Ground' : 'Ground + Air', 1, accent) +
         statRow('Move Speed', spec.mobile ? spec.speed.toFixed(1) + ' t/s' : 'Emplaced', spec.speed / 3, accent);
     } else {
       const b = entity?.breed || BREEDS.zergling;
@@ -451,8 +463,38 @@ export class UI {
     else btn.textContent = `Air Strike (${AIR_STRIKE.key})`;
   }
 
+  updateAssault() {
+    const g = this.game, a = g.assault;
+    const playing = $('intro').hidden && g.state !== 'defeat';
+    $('assaultHud').hidden = !playing || !a.plan;
+    $('waveTelemetry').hidden = !playing;
+    const alive = g.zerglings.filter(z => !z.dead).length;
+    const next = (Math.floor(g.level / 10) + 1) * 10;
+    $('waveTelemetry').textContent = g.state === 'wave'
+      ? `${alive} HOSTILES · ${g.queue.length} INBOUND${a.plan ? ' · BOSS ASSAULT' : ` · NEXT BOSS / ${next}`}`
+      : a.plan ? 'MILESTONE ASSAULT · SPREAD OUT · KEEP AIR STRIKE READY' : `FORTIFY YOUR LINE · NEXT BOSS / ${next}`;
+    if (!a.plan || !playing) return;
+    const ratio = a.boss ? Math.max(0, a.boss.hp / a.boss.maxHp) : 1;
+    $('bossKicker').textContent = `MILESTONE / ${g.level} · ${a.cleared ? 'DEFEATED' : a.enraged ? 'ENRAGED' : 'BOSS ASSAULT'}`;
+    $('bossName').textContent = a.plan.name;
+    $('bossHealth').textContent = a.boss ? `${Math.ceil(a.boss.hp).toLocaleString()} / ${a.boss.maxHp.toLocaleString()}` : 'INBOUND';
+    $('bossFill').style.width = (ratio * 100) + '%';
+    $('bossMeter').setAttribute('aria-valuenow', Math.round(ratio * 100));
+    $('assaultHud').classList.toggle('is-enraged', a.enraged && !a.cleared);
+    $('assaultHud').classList.toggle('is-cleared', a.cleared);
+    $('bossStatus').textContent = a.status;
+    $('btnLocateBoss').disabled = !a.boss || a.boss.dead;
+    const mark = a.marks[0];
+    $('bossAttack').textContent = a.cleared ? 'AIR STRIKE RECHARGED'
+      : mark ? `IMPACT / ${Math.max(0, mark.t).toFixed(1)}s · MOVE!`
+      : !a.boss ? (a.pending && g.state === 'wave' ? `CONTACT / ${Math.max(0, 6 - a.elapsed).toFixed(1)}s` : 'PREPARE YOUR DEFENSE')
+      : `BOMBARDMENT / ${Math.ceil(a.strikeT)}s`;
+    $('bossAdds').textContent = a.boss && !a.cleared ? `REINFORCEMENTS / ${Math.ceil(a.reinforceT)}s` : `BOUNTY / +${a.plan.reward}`;
+  }
+
   update(dt) {
     this.portrait.update(dt);
+    this.updateAssault();
     const g = this.game;
     const pct = Math.max(0, g.core.hp / g.core.maxHp);
     $('rCore').textContent = Math.ceil(pct * 100) + '%';

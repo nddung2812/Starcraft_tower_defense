@@ -126,13 +126,22 @@ export class Minimap {
       ctx.fill();
     };
 
+    const airDot = (x, z, color) => {
+      ctx.fillStyle = color; ctx.beginPath();
+      ctx.moveTo(x * s, z * s - 4 * this.dpr);
+      ctx.lineTo(x * s + 3.5 * this.dpr, z * s + 3 * this.dpr);
+      ctx.lineTo(x * s - 3.5 * this.dpr, z * s + 3 * this.dpr);
+      ctx.closePath(); ctx.fill();
+    };
     const sel = new Set(g.selection || []);
     for (const m of g.gunners) {
       if (m.dead || m.bunker) continue;
+      if (m.flying) { airDot(m.x, m.z, sel.has(m) ? '#ffffff' : '#71e7e0'); continue; }
       dot(m.x, m.z, m.kind === 'tank' ? 3 : 2.4, sel.has(m) ? '#ffffff' : m.downed ? '#ff5a4a' : '#5ad7ff');
     }
     if (g.scv && !g.scv.dead) dot(g.scv.x, g.scv.z, 2.2, sel.has(g.scv) ? '#ffffff' : '#e2b13c');
     for (const z of g.zerglings) {
+      if (!z.dead && z.flying) { airDot(z.x, z.z, '#ec89ff'); continue; }
       if (!z.dead) dot(z.x, z.z, z.breed?.scale > 1.2 ? 2.8 : 1.8, '#d05aff');
     }
 

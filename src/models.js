@@ -863,3 +863,62 @@ export function buildRock(seed) {
   const list = mountainProtos();
   return list[Math.abs(seed) % list.length].clone(true);
 }
+
+/** Twin nacelles, swept wings and articulated twin tracking cannons. Faces +X. */
+export function buildFalcon(tier = 0) {
+  const root = new THREE.Group();
+  const torso = new THREE.Group();
+  root.add(torso);
+  torso.add(mesh(box(1.35, 0.25, 0.4, 0.08), MAT.armor, 0, 0.15, 0));
+  const nose = mesh(new THREE.ConeGeometry(0.22, 0.6, 4).rotateZ(-Math.PI / 2), MAT.armorLit, 0.85, 0.15, 0);
+  torso.add(nose);
+  torso.add(mesh(box(0.5, 0.18, 0.29, 0.07), MAT.visor, 0.18, 0.35, 0));
+  for (const side of [-1, 1]) {
+    const wing = mesh(box(0.7, 0.08, 0.75, 0.02), MAT.tankSteel, -0.15, 0.12, side * 0.48);
+    wing.rotation.y = side * 0.35;
+    torso.add(wing);
+    torso.add(mesh(box(0.95, 0.25, 0.24, 0.06), MAT.armor, -0.28, 0.12, side * 0.8));
+    torso.add(mesh(new THREE.CylinderGeometry(0.1, 0.14, 0.15, 10).rotateZ(Math.PI / 2), MAT.tankBlue, -0.81, 0.12, side * 0.8));
+    torso.add(mesh(box(0.3, 0.24, 0.05, 0.02), tier ? MAT.hazard : MAT.armorLit, -0.5, 0.33, side * 0.8));
+  }
+  const weapon = new THREE.Group();
+  weapon.position.set(0.32, -0.08, 0);
+  for (const side of [-1, 1]) {
+    weapon.add(mesh(box(0.5, 0.09, 0.09, 0.02), MAT.gunmetal, 0.1, 0, side * 0.3));
+    weapon.add(mesh(box(0.04, 0.06, 0.06), MAT.tankBlue, 0.37, 0, side * 0.3));
+  }
+  weapon.userData.muzzles = [-1, 1].map(side => new THREE.Vector3(0.4, 0, side * 0.3));
+  weapon.userData.muzzle = weapon.userData.muzzles[0];
+  torso.add(weapon);
+  root.userData.torso = torso;
+  root.userData.weapon = weapon;
+  return root;
+}
+
+export function buildSkyhunter() {
+  const root = new THREE.Group();
+  const body = new THREE.Group();
+  root.add(body);
+  body.add(mesh(new THREE.SphereGeometry(0.3, 12, 8), MAT.flesh, 0, 0.2, 0));
+  body.add(mesh(new THREE.ConeGeometry(0.15, 0.6, 5).rotateZ(-Math.PI / 2), MAT.bone, 0.4, 0.2, 0));
+  body.add(mesh(new THREE.SphereGeometry(0.065, 8, 6), MAT.eye, 0.23, 0.35, 0.16));
+  body.add(mesh(new THREE.SphereGeometry(0.065, 8, 6), MAT.eye, 0.23, 0.35, -0.16));
+  const wings = [];
+  for (const side of [-1, 1]) {
+    const wing = new THREE.Group();
+    wing.position.set(-0.1, 0.25, side * 0.2);
+    const shape = new THREE.Shape();
+    shape.moveTo(0, 0); shape.lineTo(-0.55, side * 1.1); shape.lineTo(0.35, side * 0.8); shape.lineTo(0.25, 0); shape.closePath();
+    const membrane = mesh(new THREE.ShapeGeometry(shape).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x994fa0, side: THREE.DoubleSide, roughness: 0.6 }));
+    wing.add(membrane); body.add(wing); wings.push({ wing, side });
+  }
+  const weapon = new THREE.Group(); weapon.userData.muzzle = new THREE.Vector3(0.55, 0.2, 0); body.add(weapon);
+  root.userData.torso = body; root.userData.weapon = weapon;
+  let time = 0;
+  root.userData.anim = (state, dt) => {
+    time += dt;
+    for (const {wing, side} of wings) wing.rotation.x = Math.sin(time * 13) * 0.55 * side;
+    body.rotation.z = state === 'death' ? Math.min(1.5, time) : Math.sin(time * 3) * 0.05;
+  };
+  return root;
+}

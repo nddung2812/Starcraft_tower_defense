@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Terran Defense — Zerg Incursion</title>
+<title>Terran Defense — Hold the Line</title>
+<meta name="description" content="Build your defense. Stop the swarm. Challenge a friend to beat your last stand in this 3D tower defense game.">
 <link rel="stylesheet" href="src/style.css">
 <script type="importmap">
 {
@@ -57,10 +58,33 @@
       <button id="camReset" class="cam__btn cam__btn--wide" title="Reset view">View</button>
     </div>
 
+    <section id="assaultHud" class="assault-hud" hidden aria-label="Milestone assault">
+      <div class="assault-hud__top"><span id="bossKicker">MILESTONE / 10</span><button id="btnLocateBoss" type="button">Locate boss ↗</button></div>
+      <div class="assault-hud__title"><strong id="bossName"></strong><span id="bossHealth"></span></div>
+      <div id="bossMeter" class="boss-meter" role="progressbar" aria-label="Boss health" aria-valuemin="0" aria-valuemax="100"><i id="bossFill"></i></div>
+      <p id="bossStatus"></p>
+      <div class="assault-hud__timers"><span id="bossAttack"></span><span id="bossAdds"></span></div>
+    </section>
+    <div id="waveTelemetry" class="wave-telemetry" hidden></div>
+    <div id="fieldGuide" class="field-guide" hidden>
+      <span class="field-guide__tag">FIELD MANUAL / 01</span>
+      <strong id="guideTitle">Your squad fires automatically.</strong>
+      <span id="guideText">Drag to select them. Right-click the ground to reposition.</span>
+      <button id="guideDismiss" type="button" aria-label="Dismiss field manual">×</button>
+    </div>
+    <div id="challengeHud" class="challenge-hud" hidden aria-live="polite"></div>
+
     <div id="banner" class="banner" hidden>
       <div class="banner__inner">
         <h2 id="bannerTitle">Outpost Overrun</h2>
         <p id="bannerText"></p>
+        <img id="runCard" class="run-card" alt="Your last stand score card" hidden>
+        <div class="share-actions">
+          <button id="btnChallenge" class="btn btn--gold" type="button">Challenge a friend</button>
+          <button id="btnCopyChallenge" class="btn" type="button">Copy link</button>
+          <button id="btnSaveCard" class="btn" type="button">Save card</button>
+        </div>
+        <p id="shareStatus" class="share-status" role="status"></p>
         <ol id="bannerBoard" class="board"></ol>
         <button id="bannerBtn" class="btn btn--primary">Play Again</button>
       </div>
@@ -68,11 +92,18 @@
 
     <div id="intro" class="banner">
       <form id="introForm" class="banner__inner intro" autocomplete="off">
+        <span class="intro__eyebrow">BUILD. SURVIVE. CHALLENGE.</span>
         <h2 class="is-win">Hold the Line</h2>
         <p>The swarm never stops. Every canyon is harder than the last. How far can you hold?</p>
+        <div class="milestone-track" aria-label="Boss milestones">
+          <span><b>10</b>BREACHER</span><span><b>20</b>BROODMOTHER</span><span><b>30</b>WORLD EATER</span>
+        </div>
+        <p id="challengeIntro" class="challenge-intro" hidden></p>
         <label class="intro__label" for="playerName">Your name</label>
-        <input id="playerName" class="intro__input" maxlength="16" minlength="2" required placeholder="e.g. Rico" spellcheck="false">
-        <button id="introBtn" class="btn btn--primary" type="submit">Deploy</button>
+        <input id="playerName" class="intro__input" maxlength="16" placeholder="Commander" spellcheck="false">
+        <button id="introBtn" class="btn btn--primary" type="submit" name="deploy" value="quick">Quick deploy →</button>
+        <span class="intro__hint">3 soldiers ready · normal mineral cost · straight into combat</span>
+        <button class="btn btn--ghost" type="submit" name="deploy" value="build">Build my own defense</button>
         <p class="intro__sub" id="boardTitle">Top commanders</p>
         <ol id="introBoard" class="board"></ol>
       </form>
@@ -91,6 +122,7 @@
       <button class="tab tab--active" data-unit="marine">Marine</button>
       <button class="tab" data-unit="goliath">Goliath</button>
       <button class="tab" data-unit="tank">Tank</button>
+      <button class="tab" data-unit="falcon">Falcon</button>
       <button class="tab" data-unit="zergling">Zergling</button>
     </div>
 
