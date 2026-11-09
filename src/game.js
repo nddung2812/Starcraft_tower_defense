@@ -94,7 +94,6 @@ export class Game {
     this.airStrikeCd = 0;
     this.pings = [];
     this.lastAlert = null;
-    this.alertMsgT = -99;
     this.loadLevel();
     this.emit('change');
   }
@@ -139,7 +138,7 @@ export class Game {
       this.hatchGroup.add(h);
     }
     this.stage.focus.set(layout.focus.x, 0, layout.focus.z);
-    if (!this.stage.userZoomed) this.stage.dist = 16.5;
+    if (!this.stage.userZoomed) this.stage.dist = 14.5;
     this.selected = null;
   }
 
@@ -190,7 +189,9 @@ export class Game {
         const s = kind === 'boulder' ? 0.72 + (n % 6) / 30
           : rim ? 1.45 + (n % 10) / 18
           : 1.95 + (n % 8) / 14;
-        rock.scale.set(s * (0.9 + (n % 5) / 40), s * (1.15 + (n % 6) / 20), s * (0.88 + ((n >> 3) % 5) / 30));
+        // peaks on the lane's edge stay low so they frame the fight instead of hiding it
+        const tall = kind === 'boulder' ? 1 : rim ? 0.62 : 0.85;
+        rock.scale.set(s * (0.9 + (n % 5) / 40), s * (1.15 + (n % 6) / 20) * tall, s * (0.88 + ((n >> 3) % 5) / 30));
         rock.rotation.y = (n % 628) / 100;
         rock.position.set(
           x + 0.5 + ((n % 24) - 12) / 48,
@@ -583,10 +584,7 @@ export class Game {
     e._pingT = this.time;
     this.pings.push({ x: e.x, z: e.z, t: 0 });
     this.lastAlert = { x: e.x, z: e.z };
-    if (this.time - this.alertMsgT > 7) {
-      this.alertMsgT = this.time;
-      this.emit('alert', e);
-    }
+    this.emit('alert', e);
   }
 
   /* ---------------- tick ---------------- */

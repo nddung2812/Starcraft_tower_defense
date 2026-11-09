@@ -3,6 +3,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { COLS, ROWS } from './config.js';
 
 const CX = COLS / 2, CZ = ROWS / 2;
@@ -123,8 +124,29 @@ export class Stage {
     this.buildLights();
     this.buildGround();
 
-    this.composer = new EffectComposer(this.renderer);
+    // multisampled targets: the renderer's own antialias does not reach post-processing
+    const target = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 });
+    this.composer = new EffectComposer(this.renderer, target);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
+
+    // ambient occlusion: dark contact shadows in creases and where things meet the ground
+    this.gtao = new GTAOPass(this.scene, this.camera, 1, 1,
+      undefined,
+      { radius: 0.55, distanceExponent: 1.6, thickness: 1.2, scale: 1.15, samples: 16, distanceFallOff: 1, screenSpaceRadius: false },
+      { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 });
+    this.gtao.blendIntensity = 0.85;
+    // health bars, rings, decals and particles are see-through: keep them out of the occlusion buffers
+    this.gtao.overrideVisibility = function () {
+      const cache = this._visibilityCache;
+      this.scene.traverse((o) => {
+        cache.set(o, o.visible);
+        const m = o.material;
+        if (o.isPoints || o.isLine || o.isSprite || (o.isMesh && m && (m.transparent || m.depthWrite === false))) o.visible = false;
+      });
+    };
+    this.composer.addPass(this.gtao);
+    this.quality = 'high';
+
     this.bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.48, 0.55, 0.92);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
@@ -255,6 +277,19 @@ export class Stage {
     this.renderer.setSize(w, h, false);
     this.composer.setSize(w, h);
     this.dist = Math.max(this.minDist, Math.min(this.maxDist, this.dist));
+  }
+
+  /** 'high': ambient occlusion on, full pixel ratio. 'low': off, 1x pixels, for slower machines. */
+  setQuality(q) {
+    this.quality = q;
+    this.gtao.enabled = q === 'high';
+    this.renderer.setPixelRatio(q === 'high' ? Math.min(2, window.devicePixelRatio) : 1);
+    const size = this.renderer.getSize(new THREE.Vector2());
+    if (size.x && size.y) {
+      this.renderer.setSize(size.x, size.y, false);
+      this.composer.setPixelRatio(this.renderer.getPixelRatio());
+      this.composer.setSize(size.x, size.y);
+    }
   }
 
   render() { this.composer.render(); }

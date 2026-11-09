@@ -135,6 +135,32 @@ export const BREEDS = {
   tanker:   { id: 'tanker', name: 'Tanker', role: 'Acid Siege', hp: 240, armor: 1, damage: 16, attackSpeed: 1.7, range: 3.6, speed: 1.05, scale: 1.7, bounty: 5, ranged: true }
 };
 
+/*
+ * Drop-in 3D models. Put a .glb file at `file` and that unit uses it instead of its
+ * built-in shape (see assets/models/README.md).
+ *   fit / size  scale the model so its height (or length) is this many tiles
+ *   yaw         turn so the model faces +X; glTF files usually face +Z, hence π/2
+ *   muzzle      optional [x, y, z] where shots leave, in tiles, model facing +X
+ *   clips       optional { idle, walk, shoot, attack, death } animation clip names;
+ *               otherwise clips are matched by name (Idle, Walk/Run, Shoot/Fire, Death...)
+ *   fallback    use another kind's file if this one is missing
+ */
+export const MODEL_FILES = {
+  marine:   { file: 'assets/models/marine.glb',   fit: 'height', size: 1.2 },
+  goliath:  { file: 'assets/models/goliath.glb',  fit: 'height', size: 1.45 },
+  tank:     { file: 'assets/models/tank.glb',     fit: 'length', size: 1.45 },
+  scv:      { file: 'assets/models/scv.glb',      fit: 'length', size: 0.7 },
+  bunker:   { file: 'assets/models/bunker.glb',   fit: 'length', size: 1.0 },
+  zergling: { file: 'assets/models/zergling.glb', fit: 'length', size: 1.0 },
+  warrior:  { file: 'assets/models/warrior.glb',  fit: 'length', size: 1.0, fallback: 'zergling' },
+  hopper:   { file: 'assets/models/hopper.glb',   fit: 'length', size: 1.0, fallback: 'zergling' },
+  tanker:   { file: 'assets/models/tanker.glb',   fit: 'length', size: 1.0, fallback: 'zergling' }
+};
+
+/* Units and bugs are drawn a bit larger than one tile so they read against the rock. */
+export const UNIT_SCALE = 1.2;
+export const BUG_SCALE = 1.12;
+
 export const CORE_HP = 500;
 export const LEVEL_COUNT = 10;
 

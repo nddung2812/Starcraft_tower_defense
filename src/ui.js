@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { BUILD, ZERG_INFO, BREEDS, ECON, UNITS, LEVEL_COUNT, AIR_STRIKE } from './config.js';
-import { buildMarine, buildGoliath, buildTank, buildZergling } from './models.js';
+import { buildZergling } from './models.js';
+import { makeModel, loadedModels } from './assets.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -34,32 +35,46 @@ class Portrait {
     if (this.key === key) return;
     this.key = key;
     if (this.current) this.pivot.remove(this.current);
+    const model = (k) => makeModel(k, tier, { rim: false });
     if (kind === 'marine') {
-      this.current = buildMarine(tier);
+      this.current = model('marine');
       this.camera.position.set(0, 0.72, 2.0);
       this.camera.lookAt(0, 0.5, 0);
     } else if (kind === 'goliath') {
-      this.current = buildGoliath(tier);
+      this.current = model('goliath');
       this.camera.position.set(1.5, 1.2, 3.3);
       this.camera.lookAt(0.05, 0.7, 0);
     } else if (kind === 'tank') {
-      this.current = buildTank();
+      this.current = model('tank');
       this.camera.position.set(1.7, 1.05, 3.15);
       this.camera.lookAt(0.05, 0.32, 0);
     } else {
-      this.current = buildZergling();
+      this.current = loadedModels().includes('zergling') ? model('zergling') : buildZergling();
       this.camera.position.set(0, 0.62, 1.7);
       this.camera.lookAt(0, 0.22, 0);
     }
     this.current.traverse((o) => { o.castShadow = false; o.receiveShadow = false; });
     this.pivot.add(this.current);
+    if (this.current.userData.fromFile) this.frame(this.current);
+  }
+
+  /** Fit the camera to a model file, whatever its proportions. */
+  frame(obj) {
+    obj.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(obj, true);
+    const size = box.getSize(new THREE.Vector3());
+    const c = box.getCenter(new THREE.Vector3());
+    const d = Math.max(size.y * 1.45, Math.max(size.x, size.z) * 1.15) / Math.tan((this.camera.fov * Math.PI) / 360) * 0.62;
+    this.camera.position.set(c.x + d * 0.35, c.y + size.y * 0.12, c.z + d);
+    this.camera.lookAt(c.x, c.y, c.z);
   }
 
   update(dt) {
     this.t += dt;
     this.pivot.rotation.y = Math.sin(this.t * 0.45) * 0.85 - 0.5;
-    if (this.key?.startsWith('zergling') && this.current) {
-      const ud = this.current.userData;
+    const ud = this.current?.userData;
+    if (ud?.anim) ud.anim('idle', dt);
+    else if (this.key?.startsWith('zergling') && ud?.legs) {
       const gait = this.t * 7;
       for (const hip of ud.legs) {
         const ph = gait + hip.userData.phase;

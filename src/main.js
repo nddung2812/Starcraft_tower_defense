@@ -4,8 +4,12 @@ import { Stage } from './scene.js';
 import { Game } from './game.js';
 import { UI } from './ui.js';
 import { Minimap } from './minimap.js';
+import { loadModels } from './assets.js';
 import { sfx } from './audio.js';
 import { voice } from './voice.js';
+
+// any .glb files in assets/models/ replace the built-in unit models
+await loadModels();
 
 const canvas = document.getElementById('game');
 const stage = new Stage(canvas);
@@ -683,7 +687,12 @@ game.on('restart', () => {
   ui.hideReel();
   ui.sync();
 });
+let alertShownAt = -99;
 game.on('alert', (e) => {
+  // don't spam: while a warning is still on the status line, give it a few seconds before replacing it
+  const showing = /under attack/.test(ui.line || '');
+  if (showing && game.time - alertShownAt < 7) return;
+  alertShownAt = game.time;
   const what = e.kind === 'core' ? 'Command Center' : e.kind === 'scv' ? 'SCV'
     : e.kind === 'wall' ? 'Wall' : e.kind === 'bunker' ? 'Bunker' : UNITS[e.kind]?.info.name || 'Outpost';
   ui.say(`<b>${what} under attack.</b> Space to look.`);
@@ -703,6 +712,18 @@ btnSound.addEventListener('click', () => {
   btnSound.textContent = on ? 'ON' : 'OFF';
   btnSound.classList.toggle('btn--off', !on);
 });
+
+const btnFx = document.getElementById('btnFx');
+function setFx(high) {
+  stage.setQuality(high ? 'high' : 'low');
+  btnFx.textContent = high ? 'FX HI' : 'FX LO';
+  btnFx.classList.toggle('btn--off', !high);
+  try { localStorage.setItem('td.fx', high ? 'high' : 'low'); } catch { /* storage unavailable */ }
+}
+btnFx.addEventListener('click', () => { setFx(stage.quality !== 'high'); sfx.ui(); });
+let savedFx = 'high';
+try { savedFx = localStorage.getItem('td.fx') || 'high'; } catch { /* storage unavailable */ }
+setFx(savedFx !== 'low');
 
 const btnSpeed = document.getElementById('btnSpeed');
 btnSpeed.addEventListener('click', () => {

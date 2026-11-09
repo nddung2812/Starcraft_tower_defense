@@ -1,8 +1,7 @@
 import * as THREE from 'three';
-import { CELL, UNITS, BREEDS } from './config.js';
-import { buildMarine, buildGoliath, buildTank, buildBug, buildWall, buildBunker, buildScv, buildCore } from './models.js';
-
-const MODEL = { marine: buildMarine, goliath: buildGoliath, tank: buildTank };
+import { CELL, UNITS, BREEDS, UNIT_SCALE, BUG_SCALE } from './config.js';
+import { buildWall, buildCore } from './models.js';
+import { makeModel } from './assets.js';
 
 const TAU = Math.PI * 2;
 const _v = new THREE.Vector3();
@@ -93,7 +92,7 @@ export class Marine {
 
     this.obj.position.set(this.x, 0, this.z);
     this.obj.add(this.stimLight);
-    this.model = MODEL[kind](0);
+    this.model = makeModel(kind, 0);
     this.obj.add(this.model);
 
     this.ring = new THREE.Mesh(
@@ -104,7 +103,7 @@ export class Marine {
     this.ring.visible = false;
     this.obj.add(this.ring);
 
-    const barY = kind === 'goliath' ? 1.62 : kind === 'tank' ? 0.98 : 1.28;
+    const barY = (kind === 'goliath' ? 1.62 : kind === 'tank' ? 0.98 : 1.28) * UNIT_SCALE;
     this.bar = new HealthBar(this.obj, kind === 'tank' ? 0.78 : 0.62, 0.08, barY);
     this.applyStats(armory);
     this.hp = this.stats.hp;
@@ -130,7 +129,7 @@ export class Marine {
     if (this.tier >= this.tiers.length - 1) return false;
     this.tier++;
     const old = this.model;
-    this.model = MODEL[this.kind](this.tier);
+    this.model = makeModel(this.kind, this.tier);
     this.model.rotation.y = old.rotation.y;
     this.obj.remove(old);
     this.obj.add(this.model);
@@ -260,10 +259,14 @@ export class Marine {
     this.stimLight.intensity = this.stimT > 0 ? 3.5 + Math.sin(game.time * 28) * 1.6 : 0;
     const t = game.time;
 
+    const anim = this.model.userData.anim;
     if (this.dead) {
       this.deathT += dt;
-      this.model.rotation.z = Math.min(Math.PI / 2, this.deathT * 3.4);
-      this.model.position.y = -Math.min(0.35, this.deathT * 0.4);
+      if (anim) anim('death', dt);
+      else {
+        this.model.rotation.z = Math.min(Math.PI / 2, this.deathT * 3.4);
+        this.model.position.y = -Math.min(0.35, this.deathT * 0.4);
+      }
       this.bar.group.visible = false;
       this.ring.visible = false;
       return;
@@ -271,8 +274,11 @@ export class Marine {
 
     if (this.downed) {
       this.downT -= dt;
-      this.model.rotation.z = 1.15;
-      this.model.position.y = -0.18;
+      if (anim) anim('death', dt);
+      else {
+        this.model.rotation.z = 1.15;
+        this.model.position.y = -0.18;
+      }
       this.bar.set(0.02, game.camera, true);
       if (this.downT <= 0) this.finishDeath(game);
       return;
@@ -301,7 +307,7 @@ export class Marine {
     }
 
     const grow = this.spawnT * this.spawnT * (3 - 2 * this.spawnT);
-    this.model.scale.setScalar(grow);
+    this.model.scale.setScalar(grow * UNIT_SCALE);
 
     const ordered = this.order?.type === 'attack' && this.target !== this.order.target;
     if (ordered || !this.target || this.target.dead || this.distTo(this.target) > this.stats.range || !this.inArc(this.target)) {
@@ -309,8 +315,9 @@ export class Marine {
     }
 
     const ud = this.model.userData;
+    const turret = this.spec.turret && !ud.solid;   // a one-piece model file turns its whole body to aim
     const rest = this.bunker ? this.bunker.facing : (this.restYaw ?? -Math.PI / 2);
-    const holdFire = driving && !this.spec.turret;
+    const holdFire = driving && !turret;
     if (holdFire) {
       this.target = null;
       this.yaw = angleLerp(this.yaw, rest, Math.min(1, dt * 8));
@@ -329,7 +336,7 @@ export class Marine {
       this.cooldown = Math.min(this.cooldown, 0.1);
     }
 
-    if (this.spec.turret) {
+    if (turret) {
       this.model.rotation.y = -rest;
       ud.torso.rotation.y = -normAngle(this.yaw - rest);
       const baseX = ud.weapon.userData.baseX ?? (ud.weapon.userData.baseX = ud.weapon.position.x);
@@ -341,7 +348,8 @@ export class Marine {
     }
     if (ud.torso.userData.baseY == null) ud.torso.userData.baseY = ud.torso.position.y;
     const bob = driving ? Math.abs(Math.sin(t * (this.spec.turret ? 8 : 12))) * 0.035 : Math.sin(t * 2.2) * 0.008;
-    ud.torso.position.y = ud.torso.userData.baseY + bob;
+    ud.torso.position.y = ud.torso.userData.baseY + (anim ? 0 : bob);
+    if (anim) anim(driving ? 'walk' : this.target ? 'shoot' : 'idle', dt);
 
     this.bar.set(this.hp / this.maxHp, game.camera);
   }
@@ -580,7 +588,7 @@ export class Zergling {
     this.speed = this.breed.speed * speedScale;
     this.damage = this.breed.damage;
     this.armor = this.breed.armor;
-    this.scale = this.breed.scale;
+    this.scale = this.breed.scale * BUG_SCALE;
     this.dead = false;
     this.deathT = 0;
     this.spawnT = 0;
@@ -598,7 +606,7 @@ export class Zergling {
 
     this.obj = new THREE.Group();
     this.obj.position.set(x, 0, z);
-    this.model = buildBug(breedId);
+    this.model = makeModel(breedId);
     this.obj.add(this.model);
     this.bar = new HealthBar(this.obj, 0.5 * this.scale, 0.07, 0.55 + 0.35 * this.scale);
   }
@@ -610,9 +618,12 @@ export class Zergling {
     if (this.dead) {
       this.deathT += dt;
       const k = Math.min(1, this.deathT / 0.8);
-      this.model.rotation.z = k * 1.5;
-      this.model.position.y = -k * 0.3;
-      this.model.scale.setScalar(this.scale * (1 - k * 0.25));
+      if (this.model.userData.anim) this.model.userData.anim('death', dt);
+      else {
+        this.model.rotation.z = k * 1.5;
+        this.model.position.y = -k * 0.3;
+        this.model.scale.setScalar(this.scale * (1 - k * 0.25));
+      }
       this.bar.group.visible = false;
       return;
     }
@@ -809,6 +820,12 @@ export class Zergling {
     this.obj.position.set(this.x, hop, this.z);
     this.model.rotation.y = -this.yaw;
 
+    if (ud.anim) {
+      const state = this.swing > 0 || (this.target && !this.moving) ? 'attack' : this.moving > 0.05 ? 'walk' : 'idle';
+      ud.anim(state, dt);
+      return;
+    }
+
     const run = this.moving ?? 0;
     const lift = this.air ? 0.15 : 1;
     for (const hip of ud.legs) {
@@ -872,7 +889,7 @@ export class Bunker {
     this.obj = new THREE.Group();
     this.obj.position.set(this.x, 0, this.z);
     this.obj.rotation.y = -facing;
-    this.model = buildBunker();
+    this.model = makeModel('bunker');
     this.obj.add(this.model);
     this.bar = new HealthBar(this.obj, 0.7, 0.08, 0.85);
   }
@@ -922,7 +939,7 @@ export class Scv {
     this.order = null;
     this.channel = 0;
     this.obj = new THREE.Group();
-    this.model = buildScv();
+    this.model = makeModel('scv');
     this.obj.add(this.model);
     this.bar = new HealthBar(this.obj, 0.5, 0.06, 0.55);
   }
@@ -930,10 +947,12 @@ export class Scv {
   update(dt, game) {
     if (this.dead) {
       this.deathT += dt;
-      this.model.rotation.z = Math.min(1.2, this.deathT * 3);
+      if (this.model.userData.anim) this.model.userData.anim('death', dt);
+      else this.model.rotation.z = Math.min(1.2, this.deathT * 3);
       this.bar.group.visible = false;
       return;
     }
+    const px = this.x, pz = this.z;
     const o = this.order;
     if (o?.target && (o.target.dead || (o.type === 'revive' && !o.target.downed) || (o.type === 'repair' && o.target.hp >= o.target.maxHp))) {
       this.order = null;
@@ -959,6 +978,12 @@ export class Scv {
     }
     this.obj.position.set(this.x, 0, this.z);
     this.model.rotation.y = -this.yaw;
+    this.model.scale.setScalar(UNIT_SCALE);
+    const anim = this.model.userData.anim;
+    if (anim) {
+      const working = this.order && this.order.type !== 'move' && Math.hypot(px - this.x, pz - this.z) < 1e-4;
+      anim(Math.hypot(px - this.x, pz - this.z) > 1e-4 ? 'walk' : working ? 'attack' : 'idle', dt);
+    }
     this.bar.set(this.hp / this.maxHp, game.camera);
   }
 
