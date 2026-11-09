@@ -40,7 +40,7 @@ export function makeRunCard(canvas, run) {
   fade.addColorStop(0, 'rgba(7,14,24,0)'); fade.addColorStop(1, '#070e18');
   ctx.fillStyle = fade; ctx.fillRect(0, 280, 1200, 280);
   ctx.fillStyle = '#5ad7ff'; ctx.font = 'bold 24px monospace';
-  ctx.fillText('LAST STAND / TERRAN DEFENSE', 64, 76);
+  ctx.fillText('LAST STAND / RIDGEWATCH', 64, 76);
   ctx.fillStyle = '#f0b23c'; ctx.font = 'bold 126px monospace';
   ctx.fillText(run.score.toLocaleString(), 64, 605);
   ctx.fillStyle = '#d9e7f2'; ctx.font = 'bold 30px monospace';

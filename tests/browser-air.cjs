@@ -68,7 +68,7 @@ const os = require('node:os');
     });
     await page.mouse.click(point.x,point.y);
     assert.equal(await page.evaluate(()=>game.selected?.kind),'falcon');
-    assert.match(await page.locator('#pName').textContent(),/Falcon/);
+    assert.match(await page.locator('#pName').textContent(),/Kestrel/);
     await page.keyboard.press('F2');
     assert.equal(await page.evaluate(()=>game.selection.some(u=>u.kind==='falcon')),true);
     await page.screenshot({path:path.join(os.tmpdir(),'td-air.png')});

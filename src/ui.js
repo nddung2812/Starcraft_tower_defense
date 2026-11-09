@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BUILD, ZERG_INFO, BREEDS, ECON, UNITS, AIR_STRIKE } from './config.js';
+import { BUILD, ZERG_INFO, BREEDS, ECON, UNITS, AIR_STRIKE, OVERDRIVE } from './config.js';
 import { buildZergling, buildWall } from './models.js';
 import { makeModel, loadedModels } from './assets.js';
 
@@ -124,11 +124,11 @@ const COMMANDS = [
   { id: 'attack', label: 'Attack', key: 'A' },
   { id: 'stop', label: 'Stop', key: 'S' },
   { id: 'air', label: 'Air Strike', key: 'R' },
-  { id: 'stim', label: 'Stim', key: 'F' },
+  { id: 'stim', label: 'Overdrive', key: 'F' },
   { id: 'promote', label: 'Promote', key: 'U' },
   { id: 'salvage', label: 'Salvage', key: 'X' },
   { id: 'army', label: 'All Army', key: 'F2' },
-  { id: 'scv', label: 'SCV', key: 'F1' },
+  { id: 'scv', label: 'Patch Rig', key: 'F1' },
   { id: 'wave', label: 'Last Alert', key: '' }
 ];
 
@@ -281,7 +281,7 @@ export class UI {
     game.on('bossDown', ({ rewards }) => {
       const silver = rewards.filter(r => r.boxType === 'silver').length;
       const gold = rewards.length - silver;
-      this.toast('Upgrades automatically applied', `${silver} silver (next 3 rounds) · ${gold} gold (permanent this run) · all Marines`);
+      this.toast('Upgrades automatically applied', `${silver} silver (next 3 rounds) · ${gold} gold (permanent this run) · all Lineguards`);
     });
     game.on('change', () => this.sync());
     game.on('unlock', (u) => this.toast(`Armory unlocked — ${u.name}`, u.effect, 'unlock'));
@@ -310,13 +310,13 @@ export class UI {
 
     if (entity?.kind === 'scv' || entity?.kind === 'bunker') {
       const bunker = entity.kind === 'bunker';
-      $('pName').textContent = bunker ? 'Bunker' : 'T-280 SCV';
+      $('pName').textContent = bunker ? 'Bunker' : 'Patch Rig';
       $('pRole').textContent = bunker ? `${entity.garrison.length} / 2 garrisoned` : (entity.dead ? 'Destroyed' : 'Field Repair');
-      $('pFaction').textContent = 'Terran Dominion';
+      $('pFaction').textContent = 'Ridgewatch Compact';
       $('pBio').textContent = bunker
-        ? 'Select Marines, then right-click the bunker. They walk in and fire through the slit, with extra armour, along its facing.'
-        : 'Right-click a damaged wall or a downed Marine to fix it, or the ground to move. Keep it out of the breach.';
-      $('pQuote').textContent = bunker ? '"Hold this corridor."' : '"Job\'s done."';
+        ? 'Select Lineguards, then right-click the bunker. They walk in and fire through the slit, with extra armour, along its facing.'
+        : 'Right-click a damaged wall or a downed Lineguard to fix it, or the ground to move. Keep it out of the breach.';
+      $('pQuote').textContent = bunker ? '"Hold this corridor."' : '"Tools ready. Keep me covered."';
       $('stats').innerHTML = statRow('Hit Points', Math.ceil(entity.hp) + ' / ' + entity.maxHp, entity.hp / entity.maxHp, '#5ef08a');
     } else if (UNITS[kind]) {
       const spec = UNITS[kind];
@@ -324,7 +324,7 @@ export class UI {
       const s = { hp: base.hp, damage: base.damage, attackSpeed: base.attackSpeed, range: base.range, armor: spec.info.armor, moveSpeed: spec.speed };
       if (entity) Object.assign(s, entity.stats);
       else if (spec.armory) for (const u of g.marineUpgrades) u.apply(s);
-      const shots = kind === 'goliath' || kind === 'falcon' ? 2 : 1;
+      const shots = spec.shots;
 
       $('pName').textContent = spec.info.name;
       $('pRole').textContent = spec.tiers.length > 1
@@ -375,8 +375,8 @@ export class UI {
     stim.hidden = !(e && e.spec?.canStim);
     eject.hidden = !(e && e.bunker);
     if (e?.spec?.canStim) {
-      stim.disabled = !g.stimUnlocked || e.dead || e.downed || e.stimT > 0;
-      stim.textContent = g.stimUnlocked ? (e.stimT > 0 ? 'Stimming' : 'Stim (F)') : 'Stim locked · 20 kills';
+      stim.disabled = !g.stimUnlocked || e.dead || e.downed || e.silenceT > 0 || e.stimT > 0 || e.hp <= OVERDRIVE.hpCost;
+      stim.textContent = g.stimUnlocked ? (e.stimT > 0 ? 'Overdriving' : 'Overdrive (F)') : 'Overdrive locked · 20 kills';
     }
 
     if (isGun && e.tiers.length > 1) {
@@ -439,7 +439,7 @@ export class UI {
     this.syncAir();
     $('btnScv').hidden = !g.scv?.dead;
     $('btnScv').disabled = g.minerals < ECON.scvCost;
-    $('btnScv').textContent = `Rebuild SCV · ${ECON.scvCost}`;
+    $('btnScv').textContent = `Rebuild Patch Rig · ${ECON.scvCost}`;
 
     document.querySelectorAll('[data-build]').forEach((b) => {
       b.classList.toggle('card--poor', g.minerals < BUILD[b.dataset.build].cost);
@@ -456,7 +456,7 @@ export class UI {
     grid.hidden = list.length < 2;
     $('selCount').textContent = list.length > 1 ? `${list.length} selected` : '';
     grid.innerHTML = list.length < 2 ? '' : this.selList.map((e, i) => `
-      <button class="chip chip--${e.kind}" data-i="${i}" title="${e.kind === 'scv' ? 'SCV' : UNITS[e.kind]?.info.name || e.kind}">
+      <button class="chip chip--${e.kind}" data-i="${i}" title="${e.kind === 'scv' ? 'Patch Rig' : UNITS[e.kind]?.info.name || e.kind}">
         <span class="chip__icon">${CHIP[e.kind] || '?'}</span>
         <span class="chip__hp"><i></i></span>
       </button>`).join('');
@@ -496,7 +496,7 @@ export class UI {
     set('attack', guns.length > 0);
     set('stop', units.length > 0);
     set('air', fighting && g.airStrikeReady, fighting && !g.airStrikeReady ? `Air ${Math.ceil(g.airStrikeCd)}s` : 'Air Strike');
-    set('stim', g.stimUnlocked && units.some((u) => u.kind === 'marine' && u.stimT <= 0));
+    set('stim', g.stimUnlocked && units.some((u) => u.kind === 'marine' && u.stimT <= 0 && u.silenceT <= 0 && u.hp > OVERDRIVE.hpCost));
     const cost = primary && UNITS[primary.kind] && !primary.downed ? primary.upgradeCost : null;
     set('promote', cost != null && g.minerals >= cost);
     const mine = primary && (UNITS[primary.kind] || primary.kind === 'wall' || primary.kind === 'bunker');

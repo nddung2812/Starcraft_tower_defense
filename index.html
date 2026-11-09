@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Terran Defense — Hold the Line</title>
+<title>Ridgewatch — Hold the Line</title>
 <meta name="description" content="Build your defense. Stop the swarm. Challenge a friend to beat your last stand in this 3D tower defense game.">
 <link rel="stylesheet" href="src/style.css">
 <script type="importmap">
@@ -20,10 +20,10 @@
 
   <header class="hud">
     <div class="hud__brand">
-      <div class="hud__sigil">T</div>
+      <div class="hud__sigil">R</div>
       <div>
-        <h1>Terran Defense</h1>
-        <p id="pilot">Mar Sara · Outpost Delta</p>
+        <h1>Ridgewatch</h1>
+        <p id="pilot">Ember Reach · Outpost Delta</p>
         <span id="commanderBadge" class="commander-badge">Commander</span>
       </div>
     </div>
@@ -122,7 +122,7 @@
         <div class="milestone-track" aria-label="Boss milestones">
           <span><b>5 · 15 · 25</b>MEDIUM BOSSES</span><span><b>10 · 20 · 30</b>HARD BOSSES</span>
         </div>
-        <p class="intro__hint">Boss every 5 levels · automatic Marine upgrades · silver boosts / gold permanent</p>
+        <p class="intro__hint">Boss every 5 levels · automatic Lineguard upgrades · silver boosts / gold permanent</p>
         <p id="challengeIntro" class="challenge-intro" hidden></p>
         <section id="savedRun" class="saved-run" aria-label="Saved run" hidden>
           <span class="intro__eyebrow">YOUR LINE IS STILL HOLDING</span>
@@ -155,29 +155,29 @@
       <div class="assault-hud__timers"><span id="bossAttack"></span><span id="bossAdds"></span></div>
     </section>
     <details id="treasure" class="treasure" hidden>
-      <summary id="treasureSummary">Marine upgrades · automatically applied</summary>
-      <p class="treasure__help">All current and future Marines. Silver: next 3 rounds. Gold: permanent this run.</p>
+      <summary id="treasureSummary">Lineguard upgrades · automatically applied</summary>
+      <p class="treasure__help">All current and future Lineguards. Silver: next 3 rounds. Gold: permanent this run.</p>
       <div id="treasureNote" class="treasure__list"></div>
     </details>
   </section>
 
     <div class="panel__tabs">
-      <button class="tab tab--active" data-unit="marine">Marine</button>
-      <button class="tab" data-unit="goliath">Goliath</button>
-      <button class="tab" data-unit="tank">Tank</button>
-      <button class="tab" data-unit="falcon">Falcon</button>
-      <button class="tab" data-unit="zergling">Zergling</button>
+      <button class="tab tab--active" data-unit="marine">Lineguard</button>
+      <button class="tab" data-unit="goliath">Anchor Walker</button>
+      <button class="tab" data-unit="tank">Crawler</button>
+      <button class="tab" data-unit="falcon">Kestrel</button>
+      <button class="tab" data-unit="zergling">Rift Skitter</button>
     </div>
 
     <div class="portrait">
       <canvas id="portrait"></canvas>
       <div class="portrait__scan"></div>
-      <div class="portrait__tag" id="pFaction">Terran Dominion</div>
+      <div class="portrait__tag" id="pFaction">Ridgewatch Compact</div>
     </div>
 
     <div class="panel__head">
-      <h2 id="pName">Terran Marine</h2>
-      <p id="pRole">Private · Tier 1 of 4</p>
+      <h2 id="pName">Lineguard</h2>
+      <p id="pRole">Recruit · Tier 1 of 4</p>
       <p class="selcount" id="selCount"></p>
     </div>
 
@@ -187,16 +187,16 @@
 
     <div class="actions">
       <button id="btnUpgrade" class="btn btn--gold" hidden>Promote</button>
-      <button id="btnStim" class="btn btn--stim" hidden>Stim (F)</button>
+      <button id="btnStim" class="btn btn--stim" hidden>Overdrive (F)</button>
       <button id="btnEject" class="btn" hidden>Leave Bunker</button>
       <button id="btnSell" class="btn btn--ghost" hidden>Salvage</button>
-      <button id="btnScv" class="btn" hidden>Rebuild SCV</button>
+      <button id="btnScv" class="btn" hidden>Rebuild Patch Rig</button>
     </div>
 
     <div class="armory">
       <div class="armory__row">
         <span class="armory__k">Armory</span>
-        <span class="armory__v" id="armoryLabel">U-238 Shells</span>
+        <span class="armory__v" id="armoryLabel">Dense-Core Slugs</span>
       </div>
       <div class="armory__bar"><i id="armoryFill"></i></div>
       <p class="armory__note" id="armoryNote"></p>

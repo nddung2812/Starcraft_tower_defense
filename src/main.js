@@ -358,11 +358,11 @@ let modeTip = false;   // is the status line showing a mode hint we should clear
 
 const PLACE_TIP = {
   wall: 'Walls redirect the swarm, and bugs stop to chew them. Drag to lay a run. Right-click cancels.',
-  marine: 'Place a Marine. Right-click the ground to move him later.',
-  goliath: 'Goliath. Twin autocannons, long reach. Too big for a bunker, and it does not move.',
-  falcon: 'Falcon Gunship. Attacks ground and air. Right-click to fly over any terrain. V to deploy another.',
-  tank: 'Siege Tank. Twin cannons, wide blast. Right-click the ground to drive it.',
-  bunker: 'Bunker faces the bugs. Select Marines and right-click it to garrison.'
+  marine: 'Place a Lineguard. Right-click the ground to move him later.',
+  goliath: 'Anchor Walker. Twin autocannons, long reach. Too big for a bunker, and it does not move.',
+  falcon: 'Kestrel. Attacks ground and air. Right-click to fly over any terrain. V to deploy another.',
+  tank: 'Cinder Crawler. Twin cannons, wide blast. Right-click the ground to drive it.',
+  bunker: 'Bunker faces the bugs. Select Lineguards and right-click it to garrison.'
 };
 
 function updateTip() {
@@ -892,7 +892,7 @@ game.on('alert', (e) => {
   const showing = /under attack/.test(ui.line || '');
   if (showing && game.time - alertShownAt < 7) return;
   alertShownAt = game.time;
-  const what = e.kind === 'core' ? 'Command Center' : e.kind === 'scv' ? 'SCV'
+  const what = e.kind === 'core' ? 'Command Center' : e.kind === 'scv' ? 'Patch Rig'
     : e.kind === 'wall' ? 'Wall' : e.kind === 'bunker' ? 'Bunker' : UNITS[e.kind]?.info.name || 'Outpost';
   ui.say(`<b>${what} under attack.</b> Use the minimap to look.`);
 });
