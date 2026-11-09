@@ -892,7 +892,7 @@ game.on('alert', (e) => {
   const showing = /under attack/.test(ui.line || '');
   if (showing && game.time - alertShownAt < 7) return;
   alertShownAt = game.time;
-  const what = e.kind === 'core' ? 'Command Center' : e.kind === 'scv' ? 'Patch Rig'
+  const what = e.kind === 'core' ? 'Ridge Relay' : e.kind === 'scv' ? 'Patch Rig'
     : e.kind === 'wall' ? 'Wall' : e.kind === 'bunker' ? 'Bunker' : UNITS[e.kind]?.info.name || 'Outpost';
   ui.say(`<b>${what} under attack.</b> Use the minimap to look.`);
 });

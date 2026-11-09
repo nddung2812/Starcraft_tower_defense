@@ -1,4 +1,4 @@
-# Terran Defense (working title)
+# Ridgewatch
 
 A browser 3D tower defense / RTS hybrid in plain JavaScript and three.js (r169, vendored). You
 hold a canyon against an endless bug swarm: build walls, bunkers and units, then command them
@@ -15,11 +15,9 @@ with StarCraft-style mouse controls while waves keep coming. Score is the number
   base fell.
 
 The aim is to capture that feel with original work. Gameplay mechanics and genre are fair game,
-but the names, characters, art and lines belong to their owners. That's why "Rename away from
-StarCraft" under Open decisions has to happen before the game goes public.
+but the names, characters, art and lines belong to their owners. Player-facing names and lines were replaced in the Ridgewatch naming pass.
 
-**Status: active local development (Nov 2026).** The game plays end to end locally. Not yet hosted. See
-"Open decisions" before doing anything public.
+**Status: active local development (Nov 2026).** The game is hosted on Vercel and GitHub Pages. See `BALANCE.md` for the current roster and tuning; the older gameplay notes below describe earlier revisions.
 
 ## Running it
 
@@ -240,11 +238,10 @@ times; if files are changing, stop and coordinate rather than overwrite.
 
 ## Open decisions (before going public)
 
-1. **Rename away from StarCraft.** Terran/Zerg, Zergling, Marine, SCV, Goliath, Siege Tank,
-   Command Center, Hatchery, Mar Sara and the quoted lines are Blizzard's. Fine locally; not on a
-   public site, game portals or app stores. Replace with original names and lines (gameplay
-   unchanged) before deploying. Names live in `config.js` (`BUILD`, `*_INFO`, `BREEDS`,
-   `LEVELS`), `index.html`, `ui.js` and `voice.js`.
+1. **Player-facing rebrand completed (Nov 9, 2026).** Ridgewatch uses original roster,
+   faction, location, ability and voice text. See `BALANCE.md` for the current specs.
+   Legacy code/save IDs stay stable to preserve checkpoints and model integrations.
+   This naming pass is not an artwork review or legal clearance.
 2. **Map flow confirmed by user.** Enemy hives start at the beginning of the map and the
    command center is always at the other end. Keep this full-map layout. Continue playtesting
    pacing and boss balance; do not move hives toward the player base to shorten the march.

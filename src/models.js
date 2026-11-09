@@ -360,7 +360,7 @@ export function buildTank() {
     weapon.add(brake);
   }
   weapon.userData.muzzle = new THREE.Vector3(0.78, 0.02, 0);
-  weapon.userData.muzzles = [weapon.userData.muzzle];
+  weapon.userData.muzzles = [-1, 1].map(side => new THREE.Vector3(0.78, 0.02, side * 0.09));
 
   root.userData = { body, torso, weapon, treads };
   return root;

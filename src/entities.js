@@ -419,7 +419,9 @@ export class Marine {
       const pts = ud.weapon.userData.muzzles || [ud.weapon.userData.muzzle];
       for (const p of pts) locals.push(p.clone().applyMatrix4(ud.weapon.matrixWorld));
     }
-    for (const muzzle of locals) {
+    // Combat stats own volley size, even when a custom model has only one muzzle.
+    for (let shot = 0; shot < this.spec.shots; shot++) {
+      const muzzle = locals[shot % locals.length];
       game.fx.muzzleFlash(muzzle, -this.yaw);
       if (this.spec.shell) game.spawnShell(muzzle, this.target.x, this.target.z, this.stats.damage, this.spec.splash);
       else game.spawnTracer(muzzle, this.target, this.stats.damage, this);
