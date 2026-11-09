@@ -78,16 +78,23 @@ function carveSpur(open, origin, dir, mouth) {
   }
 }
 
+/* The level paths in config.js were drawn on a 26 x 16 grid; they stretch to whatever COLS x ROWS is. */
+const AUTHORED_COLS = 26, AUTHORED_ROWS = 16;
+const LANE_WIDEN = 1.12;
+const PEAK_RIM = 0.26, PEAK_INNER = 0.066;   // chance a rock cell gets a peak, beside the lane / deeper in (≈20% fewer rocks than the old 26x16 map in total)
+
 /** Carve one level: a dirt lane, locked rock everywhere else, random boulders and peaks. */
 export function carveLevel(level, seed) {
   const spec = LEVELS[(level - 1) % LEVELS.length];
   const rng = mulberry32((seed ^ (level * 0x9e3779b1)) >>> 0);
-  const path = spec.path;
+  const sx0 = COLS / AUTHORED_COLS, sy0 = ROWS / AUTHORED_ROWS;
+  const path = spec.path.map(([x, y]) => [x * sx0, y * sy0]);
+  const radius = spec.radius * LANE_WIDEN;
   const open = new Set();
 
   for (let y = 0; y < ROWS; y++) {
     for (let x = 0; x < COLS; x++) {
-      if (distToPath(x + 0.5, y + 0.5, path) <= spec.radius) open.add(key(x, y));
+      if (distToPath(x + 0.5, y + 0.5, path) <= radius) open.add(key(x, y));
     }
   }
 
@@ -150,32 +157,41 @@ export function carveLevel(level, seed) {
   reserved.add(key(spawn.x, spawn.y));
   reserved.add(key(spawn.x, spawn.y + 1));
 
-  const candidates = [];
+  // boulders: about half sit right in the lane so the swarm (and your troops) have to go around
+  const onLane = [], offLane = [];
   for (const k of open) {
     if (reserved.has(k)) continue;
     const x = k % COLS, y = (k / COLS) | 0;
-    if (Math.abs(x - spawn.x) + Math.abs(y - spawn.y) < 4) continue;
+    if (spawns.some((s) => Math.abs(x - s.x) + Math.abs(y - s.y) < 4)) continue;
     if (Math.abs(x - core.x) + Math.abs(y - core.y) < 4) continue;
-    if (distToPath(x + 0.5, y + 0.5, path) < 0.72) continue;
-    candidates.push([x, y]);
+    (distToPath(x + 0.5, y + 0.5, path) < 0.72 ? onLane : offLane).push([x, y]);
   }
-  for (let i = candidates.length - 1; i > 0; i--) {
-    const j = (rng() * (i + 1)) | 0;
-    const tmp = candidates[i]; candidates[i] = candidates[j]; candidates[j] = tmp;
-  }
+  const shuffle = (list) => {
+    for (let i = list.length - 1; i > 0; i--) {
+      const j = (rng() * (i + 1)) | 0;
+      const tmp = list[i]; list[i] = list[j]; list[j] = tmp;
+    }
+  };
+  shuffle(onLane);
+  shuffle(offLane);
 
   const boulders = [];
   const want = 3 + Math.floor(level * 0.55);
-  for (const [x, y] of candidates) {
-    if (boulders.length >= want) break;
-    if (boulders.some(([bx, by]) => Math.abs(bx - x) + Math.abs(by - y) < 3)) continue;
-    const i = grid.idx(x, y);
-    grid.cells[i] = CELL.ROCK;
-    const route = spawns.every((s) => grid.findPath(s.x, s.y, core.x, core.y));
-    if (!route) { grid.cells[i] = CELL.OPEN; continue; }
-    boulders.push([x, y]);
-    open.delete(key(x, y));
-  }
+  const tryPlace = (list, quota) => {
+    for (const [x, y] of list) {
+      if (boulders.length >= quota) return;
+      if (boulders.some(([bx, by]) => Math.abs(bx - x) + Math.abs(by - y) < 3)) continue;
+      const i = grid.idx(x, y);
+      grid.cells[i] = CELL.ROCK;
+      // every breach must still reach the base
+      const route = spawns.every((s) => grid.findPath(s.x, s.y, core.x, core.y));
+      if (!route) { grid.cells[i] = CELL.OPEN; continue; }
+      boulders.push([x, y]);
+      open.delete(key(x, y));
+    }
+  };
+  tryPlace(onLane, Math.ceil(want / 2));
+  tryPlace(offLane, want);
 
   const isOpen = (x, y) => x >= 0 && y >= 0 && x < COLS && y < ROWS && open.has(key(x, y));
   const peaks = [];
@@ -184,7 +200,7 @@ export function carveLevel(level, seed) {
     for (let x = 0; x < COLS; x++) {
       if (open.has(key(x, y)) || boulderSet.has(key(x, y))) continue;
       const rim = isOpen(x + 1, y) || isOpen(x - 1, y) || isOpen(x, y + 1) || isOpen(x, y - 1);
-      if (rng() < (rim ? 0.55 : 0.14)) peaks.push([x, y, rim ? 1 : 0]);
+      if (rng() < (rim ? PEAK_RIM : PEAK_INNER)) peaks.push([x, y, rim ? 1 : 0]);
     }
   }
 

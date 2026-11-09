@@ -163,11 +163,12 @@ export class Stage {
     sun.position.set(CX + 7, 20, CZ + 13);
     sun.target.position.set(CX, 0, CZ);
     sun.castShadow = true;
+    // shadow box covers the whole battlefield, whatever COLS x ROWS is
     sun.shadow.mapSize.set(2048, 2048);
-    sun.shadow.camera.left = -19;
-    sun.shadow.camera.right = 19;
-    sun.shadow.camera.top = 15;
-    sun.shadow.camera.bottom = -15;
+    sun.shadow.camera.left = -(COLS / 2 + 6);
+    sun.shadow.camera.right = COLS / 2 + 6;
+    sun.shadow.camera.top = ROWS / 2 + 7;
+    sun.shadow.camera.bottom = -(ROWS / 2 + 7);
     sun.shadow.camera.near = 1;
     sun.shadow.camera.far = 50;
     sun.shadow.bias = -0.0012;

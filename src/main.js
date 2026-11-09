@@ -339,12 +339,21 @@ function cancelModes() {
 
 let modeTip = false;   // is the status line showing a mode hint we should clear afterwards?
 
+const PLACE_TIP = {
+  wall: 'Walls redirect the swarm, and bugs stop to chew them. Drag to lay a run. Right-click cancels.',
+  marine: 'Place a Marine. Right-click the ground to move him later.',
+  goliath: 'Goliath. Twin autocannons, long reach. Too big for a bunker, and it does not move.',
+  tank: 'Siege Tank. Twin cannons, wide blast. Right-click the ground to drive it.',
+  bunker: 'Bunker faces the bugs. Select Marines and right-click it to garrison.'
+};
+
 function updateTip() {
-  if (airAim || targeting) {
+  if (airAim || targeting || placing) {
     modeTip = true;
     ui.tip(airAim
       ? `<b>Air Strike armed.</b> Click the lane — ${AIR_STRIKE.damage} damage, ${AIR_STRIKE.radius.toFixed(1)} tile blast. Right-click cancels.`
-      : '<b>Attack.</b> Click a bug to focus it, or ground to attack-move. Right-click cancels.');
+      : targeting ? '<b>Attack.</b> Click a bug to focus it, or ground to attack-move. Right-click cancels.'
+      : PLACE_TIP[placing]);
     return;
   }
   if (game.state !== 'build') {
@@ -354,12 +363,7 @@ function updateTip() {
     return;
   }
   modeTip = false;
-  if (placing === 'wall') ui.tip('Walls redirect the swarm. Drag to lay a run. They cannot leave the canyon.');
-  else if (placing === 'marine') ui.tip('Place a Marine. Right-click the ground to move him later.');
-  else if (placing === 'goliath') ui.tip('Goliath. Twin autocannons, long reach. Too big for a bunker, and it does not move.');
-  else if (placing === 'tank') ui.tip('Siege Tank. Twin cannons, wide blast. Right-click the ground to drive it.');
-  else if (placing === 'bunker') ui.tip('Bunker faces the bugs. Select Marines and right-click it to garrison.');
-  else ui.tip(`<b>${game.layout?.name || 'Canyon'}.</b> Drag to select · right-click to move or attack · Ctrl+1–9 to group · A attack-move.`);
+  ui.tip(`<b>${game.layout?.name || 'Canyon'}.</b> Drag to select · right-click to move or attack · Ctrl+1–9 to group · A attack-move.`);
 }
 
 /* ---------------- orders ---------------- */
@@ -512,7 +516,7 @@ canvas.addEventListener('pointermove', (ev) => {
     paint(0xff5a4a);
     rangeRing.visible = false;
   } else if (placing) {
-    const ok = game.grid.buildable(hoverTile.x, hoverTile.y) && game.canAfford(BUILD[placing].cost);
+    const ok = game.canBuildAt(hoverTile.x, hoverTile.y) && game.canAfford(BUILD[placing].cost);
     paint(ok ? 0x5ef08a : 0xff5a4a);
     const spec = UNITS[placing];
     rangeRing.visible = !!(spec && ok);

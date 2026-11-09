@@ -66,6 +66,7 @@ export const sfx = {
     noise(0.4, 'bandpass', 900, 0.7, 0.35, 2);
   },
   airstrikeDrop() { tone('triangle', 420, 90, 0.22, 0.08); noise(0.18, 'highpass', 1200, 0.5, 0.18, 2); },
+  spine() { noise(0.08, 'highpass', 2400, 0.9, 0.22, 4); tone('triangle', 900, 280, 0.07, 0.05); },
   impact() { noise(0.09, 'lowpass', 1400, 0.7, 0.3, 3); },
   hitFlesh() { noise(0.14, 'lowpass', 700, 0.9, 0.42, 2.5); tone('triangle', 180, 70, 0.1, 0.09); },
   screech() {

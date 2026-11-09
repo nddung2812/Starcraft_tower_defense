@@ -21,13 +21,15 @@ const PROCEDURAL = {
   zergling: () => buildBug('zergling'),
   warrior: () => buildBug('warrior'),
   hopper: () => buildBug('hopper'),
-  tanker: () => buildBug('tanker')
+  tanker: () => buildBug('tanker'),
+  needler: () => buildBug('needler')
 };
 
 /* Team-colour rim light: blue edges on our side, violet on the swarm. Bunkers mutate their own paint, so they are left alone. */
 const RIM = {
-  marine: [0x5ad7ff, 0.55], goliath: [0x5ad7ff, 0.55], tank: [0x5ad7ff, 0.5], scv: [0x5ad7ff, 0.45],
-  zergling: [0xc06bff, 0.4], warrior: [0xc06bff, 0.4], hopper: [0xc06bff, 0.4], tanker: [0xc06bff, 0.4]
+  marine: [0x5ad7ff, 0.32], goliath: [0x5ad7ff, 0.32], tank: [0x5ad7ff, 0.3], scv: [0x5ad7ff, 0.28],
+  zergling: [0xc06bff, 0.3], warrior: [0xc06bff, 0.3], hopper: [0xc06bff, 0.3], tanker: [0xc06bff, 0.3],
+  needler: [0xc06bff, 0.3]
 };
 
 const loaded = {};

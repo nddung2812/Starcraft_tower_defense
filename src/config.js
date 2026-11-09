@@ -1,6 +1,6 @@
 export const TILE = 40;
-export const COLS = 26;
-export const ROWS = 16;
+export const COLS = 34;
+export const ROWS = 21;
 export const W = TILE * COLS;
 export const H = TILE * ROWS;
 
@@ -21,8 +21,8 @@ export const BREAK_COST = 9;
 
 export const BUILD = {
   wall: { id: 'wall', name: 'Bunker Wall', cost: 25, hp: 320, icon: 'W', key: 'W', desc: 'Plasteel barricade. The swarm chews through it or goes around.' },
-  marine: { id: 'marine', name: 'Marine', cost: 100, icon: 'M', key: 'M', desc: 'Terran Marine. Right-click the canyon to move him. Promote, stim, or garrison a bunker.' },
-  bunker: { id: 'bunker', name: 'Bunker', cost: 80, hp: 560, icon: 'B', key: 'B', desc: 'Holds two Marines. Extra armour, a firing slit, and a facing you set by where you build it.' },
+  marine: { id: 'marine', name: 'Marine', cost: 50, icon: 'M', key: 'M', desc: 'Terran Marine. Right-click the canyon to move him. Promote, stim, or garrison a bunker.' },
+  bunker: { id: 'bunker', name: 'Bunker', cost: 80, hp: 300, icon: 'B', key: 'B', desc: 'Holds two Marines. Extra armour, a firing slit, and a facing you set by where you build it.' },
   goliath: { id: 'goliath', name: 'Goliath', cost: 175, icon: 'G', key: 'G', desc: 'Walker with twin autocannons. Long reach. Too big for a bunker.' },
   tank: { id: 'tank', name: 'Siege Tank', cost: 260, icon: 'H', key: 'T', desc: 'Silver heavy tank. Twin shock cannons. Right-click the canyon to drive it.' }
 };
@@ -129,9 +129,10 @@ export const ECON = {
 };
 
 export const BREEDS = {
-  zergling: { id: 'zergling', name: 'Zergling', role: 'Melee Swarm', hp: 32, armor: 0, damage: 5, attackSpeed: 0.55, range: 0.95, speed: 2.4, scale: 1, bounty: 1, melee: true },
-  warrior:  { id: 'warrior', name: 'Warrior', role: 'Armored Strain', hp: 130, armor: 3, damage: 10, attackSpeed: 0.8, range: 1.05, speed: 1.35, scale: 1.32, bounty: 3, melee: true },
-  hopper:   { id: 'hopper', name: 'Hopper', role: 'Wall Vaulter', hp: 48, armor: 0, damage: 7, attackSpeed: 0.5, range: 0.9, speed: 2.7, scale: 0.82, bounty: 2, melee: true, jump: true },
+  zergling: { id: 'zergling', name: 'Zergling', role: 'Melee Swarm', hp: 32, armor: 0, damage: 5, attackSpeed: 0.55, range: 0.95, speed: 2.4, scale: 1, bounty: 1, melee: true, aggro: 2.6 },
+  warrior:  { id: 'warrior', name: 'Warrior', role: 'Armored Strain', hp: 130, armor: 3, damage: 10, attackSpeed: 0.8, range: 1.05, speed: 1.35, scale: 1.32, bounty: 3, melee: true, aggro: 2.2 },
+  hopper:   { id: 'hopper', name: 'Hopper', role: 'Wall Vaulter', hp: 48, armor: 0, damage: 7, attackSpeed: 0.5, range: 0.9, speed: 2.7, scale: 0.82, bounty: 2, melee: true, jump: true, aggro: 3 },
+  needler:  { id: 'needler', name: 'Needler', role: 'Spine Launcher', hp: 70, armor: 1, damage: 9, attackSpeed: 1.05, range: 4.3, speed: 1.85, scale: 1, bounty: 3, ranged: true, projectile: 'spine', muzzle: [0.42, 0.62] },
   tanker:   { id: 'tanker', name: 'Tanker', role: 'Acid Siege', hp: 240, armor: 1, damage: 16, attackSpeed: 1.7, range: 3.6, speed: 1.05, scale: 1.7, bounty: 5, ranged: true }
 };
 
@@ -154,7 +155,8 @@ export const MODEL_FILES = {
   zergling: { file: 'assets/models/zergling.glb', fit: 'length', size: 1.0 },
   warrior:  { file: 'assets/models/warrior.glb',  fit: 'length', size: 1.0, fallback: 'zergling' },
   hopper:   { file: 'assets/models/hopper.glb',   fit: 'length', size: 1.0, fallback: 'zergling' },
-  tanker:   { file: 'assets/models/tanker.glb',   fit: 'length', size: 1.0, fallback: 'zergling' }
+  tanker:   { file: 'assets/models/tanker.glb',   fit: 'length', size: 1.0, fallback: 'zergling' },
+  needler:  { file: 'assets/models/needler.glb',  fit: 'height', size: 0.85 }
 };
 
 /* Units and bugs are drawn a bit larger than one tile so they read against the rock. */
@@ -205,6 +207,11 @@ export function wavePlan(n) {
   if (n >= 6) {
     const nh = Math.min(5, 2 + Math.floor((n - 6) / 2));
     for (let i = 0; i < nh; i++) out.push({ at: 1.4 + i * 0.85, breed: 'hopper', hpScale, speedScale });
+  }
+  if (n >= 3) {
+    // ranged spine launchers hang back in the column and pick at troops from range
+    const nn = Math.min(6, 1 + Math.floor((n - 3) / 1.5));
+    for (let i = 0; i < nn; i++) out.push({ at: 1.8 + i * 1.3, breed: 'needler', hpScale, speedScale });
   }
   if (n >= 8 && n % 2 === 0) out.push({ at: 2.4, breed: 'tanker', hpScale, speedScale });
   if (n >= 9) out.push({ at: 4.1, breed: 'tanker', hpScale, speedScale });

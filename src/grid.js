@@ -193,6 +193,26 @@ export class Grid {
     return cells.map((c) => ({ x: c.x + 0.5, y: c.y + 0.5, cx: c.x, cy: c.y }));
   }
 
+  /**
+   * Can something walk straight from cell A to cell B? Rock, walls and bunkers in
+   * between block it; troops standing in the way do not. The end cells themselves are not checked.
+   */
+  lineOpen(ax, ay, bx, by) {
+    let x = ax, y = ay;
+    const dx = Math.abs(bx - ax), dy = Math.abs(by - ay);
+    const sx = ax < bx ? 1 : -1, sy = ay < by ? 1 : -1;
+    let err = dx - dy;
+    while (x !== bx || y !== by) {
+      const e2 = 2 * err;
+      if (e2 > -dy) { err -= dy; x += sx; }
+      if (e2 < dx) { err += dx; y += sy; }
+      if (x === bx && y === by) break;
+      const c = this.get(x, y);
+      if (c === CELL.ROCK || c === CELL.WALL || c === CELL.BUNKER) return false;
+    }
+    return true;
+  }
+
   /** Closest open (walkable, unoccupied) cell to (tx, ty), searching rings out to maxR. */
   nearestOpen(tx, ty, maxR = 3, skip = null) {
     for (let r = 0; r <= maxR; r++) {

@@ -291,7 +291,7 @@ export class UI {
         up.disabled = true;
         up.textContent = 'Max Rank';
       } else {
-        up.disabled = g.minerals < cost || g.state !== 'build';
+        up.disabled = g.minerals < cost;
         up.textContent = `Promote to ${e.tiers[e.tier + 1].rank} · ${cost}`;
       }
     }
@@ -387,7 +387,7 @@ export class UI {
     set('air', fighting && g.airStrikeReady, fighting && !g.airStrikeReady ? `Air ${Math.ceil(g.airStrikeCd)}s` : 'Air Strike');
     set('stim', g.stimUnlocked && units.some((u) => u.kind === 'marine' && u.stimT <= 0));
     const cost = primary && UNITS[primary.kind] && !primary.downed ? primary.upgradeCost : null;
-    set('promote', g.state === 'build' && cost != null && g.minerals >= cost);
+    set('promote', cost != null && g.minerals >= cost);
     const mine = primary && (UNITS[primary.kind] || primary.kind === 'wall' || primary.kind === 'bunker');
     set('salvage', g.state === 'build' && !!mine);
     set('army', g.gunners.some(unitLike));

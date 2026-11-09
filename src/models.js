@@ -506,7 +506,140 @@ export function buildZergling(tint = null) {
   return root;
 }
 
+/**
+ * Needler: the swarm's ranged strain. A segmented serpent that rears up off a coiled tail,
+ * with a fan of quills down its back that it launches as spines from a glowing throat sac.
+ * Faces +X; rig: body (rears / recoils), head, crest (flares on a shot), tail[] (undulates).
+ */
+export function buildNeedler() {
+  const root = new THREE.Group();
+  const body = new THREE.Group();
+  root.add(body);
+
+  // tail: a chain of shrinking segments trailing back along the ground
+  const tail = [];
+  let parent = body;
+  const radii = [0.12, 0.1, 0.08, 0.06, 0.045];
+  radii.forEach((r, i) => {
+    const seg = new THREE.Group();
+    seg.position.set(i === 0 ? -0.16 : -r * 1.75, i === 0 ? 0.0 : -0.005, 0);
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 9), i % 2 ? MAT.fleshDark : MAT.flesh);
+    ball.scale.set(1.35, 0.85, 1);
+    ball.castShadow = true;
+    seg.add(ball);
+    if (i < radii.length - 1) {
+      const ridge = new THREE.Mesh(new THREE.SphereGeometry(r * 0.8, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2), MAT.bone);
+      ridge.scale.set(1.1, 0.5, 0.75);
+      ridge.position.y = r * 0.55;
+      seg.add(ridge);
+    } else {
+      const stinger = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.12, 6), MAT.boneLit);
+      stinger.rotation.z = Math.PI / 2;
+      stinger.position.x = -0.08;
+      seg.add(stinger);
+    }
+    seg.userData.phase = i * 0.9;
+    parent.add(seg);
+    parent = seg;
+    tail.push(seg);
+  });
+
+  // trunk: base segment on the ground, then three rising segments
+  const base = new THREE.Mesh(new THREE.SphereGeometry(0.15, 14, 10), MAT.flesh);
+  base.scale.set(1.3, 0.9, 1);
+  base.castShadow = true;
+  body.add(base);
+
+  const torso = new THREE.Group();
+  torso.position.set(0.06, 0.08, 0);
+  body.add(torso);
+  const rise = [[0.03, 0.12, 0.13], [0.08, 0.26, 0.115], [0.12, 0.39, 0.1]];
+  for (const [x, y, r] of rise) {
+    const s = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 9), MAT.flesh);
+    s.scale.set(0.95, 1.15, 0.9);
+    s.position.set(x, y, 0);
+    s.castShadow = true;
+    torso.add(s);
+    // belly plates on the front, armour ridge on the back
+    const belly = new THREE.Mesh(new THREE.SphereGeometry(r * 0.85, 10, 6, 0, Math.PI), MAT.bone);
+    belly.rotation.y = -Math.PI / 2;
+    belly.scale.set(0.6, 0.9, 0.55);
+    belly.position.set(x + r * 0.45, y, 0);
+    torso.add(belly);
+  }
+
+  // quill crest: the ammunition, fanned down the spine, longest at the shoulders
+  const crest = new THREE.Group();
+  crest.position.set(0.02, 0.3, 0);
+  torso.add(crest);
+  const quillGeo = new THREE.ConeGeometry(0.018, 1, 5).translate(0, 0.5, 0);
+  for (let i = 0; i < 9; i++) {
+    const k = i / 8;
+    for (const s of [-1, 1]) {
+      if (i === 0 && s > 0) continue;
+      const q = new THREE.Mesh(quillGeo, i % 2 ? MAT.boneLit : MAT.bone);
+      const len = 0.16 + Math.sin(k * Math.PI) * 0.17;
+      q.scale.set(1, len, 1);
+      q.position.set(-0.05 - k * 0.2, 0.12 - k * 0.32, s * (i === 0 ? 0 : 0.03 + k * 0.04));
+      q.rotation.set(s * (0.25 + k * 0.5), 0, 0.55 + k * 0.5);
+      q.castShadow = true;
+      crest.add(q);
+    }
+  }
+
+  // head: long, low skull angled down at the target, with splayed mandibles
+  const head = new THREE.Group();
+  head.position.set(0.2, 0.5, 0);
+  head.rotation.z = -0.35;
+  torso.add(head);
+  const skull = new THREE.Mesh(new THREE.SphereGeometry(0.09, 14, 10), MAT.flesh);
+  skull.scale.set(1.75, 0.8, 0.95);
+  skull.castShadow = true;
+  head.add(skull);
+  const brow = new THREE.Mesh(new THREE.SphereGeometry(0.085, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), MAT.bone);
+  brow.scale.set(1.8, 0.55, 1.05);
+  brow.position.set(0.0, 0.025, 0);
+  head.add(brow);
+  for (const s of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 6), MAT.eye);
+    eye.position.set(0.1, 0.02, s * 0.055);
+    head.add(eye);
+    const jaw = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.13, 6), MAT.boneLit);
+    jaw.rotation.set(s * 0.35, 0, -Math.PI / 2 - 0.25);
+    jaw.position.set(0.17, -0.04, s * 0.04);
+    head.add(jaw);
+  }
+  // throat sac glows where the spines are spat from
+  const sac = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 9), MAT.acid);
+  sac.scale.set(1.2, 0.8, 1);
+  sac.position.set(0.06, -0.06, 0);
+  head.add(sac);
+
+  // short hooked forelimbs tucked against the chest
+  const arms = [];
+  for (const s of [-1, 1]) {
+    const arm = new THREE.Group();
+    arm.position.set(0.14, 0.3, s * 0.09);
+    const upper = new THREE.Mesh(new THREE.CapsuleGeometry(0.022, 0.12, 3, 6), MAT.fleshDark);
+    upper.rotation.z = -0.9;
+    upper.position.set(0.04, -0.03, 0);
+    arm.add(upper);
+    const hook = new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.1, 5), MAT.bone);
+    hook.rotation.z = -2.4;
+    hook.position.set(0.1, -0.09, 0);
+    arm.add(hook);
+    arm.userData.side = s;
+    torso.add(arm);
+    arms.push(arm);
+  }
+
+  body.position.y = 0.12;
+  root.userData = { serpent: true, body, torso, head, crest, tail, arms, sac };
+  return root;
+}
+
 export function buildBug(breed) {
+  if (breed === 'needler') return buildNeedler();
   const tint = { warrior: 0x3d2038, hopper: 0x8a5a32, tanker: 0x2c4a28 }[breed] || null;
   const root = buildZergling(tint);
   if (breed === 'tanker') {

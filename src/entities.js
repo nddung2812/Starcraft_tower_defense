@@ -370,7 +370,7 @@ export class Marine {
     for (const z of game.zerglings) {
       if (z.dead) continue;
       if (this.distTo(z) > this.stats.range || !this.inArc(z)) continue;
-      const score = -Math.hypot(z.x - game.core.x, z.z - game.core.z) + (z.breedId === 'tanker' ? 2 : 0);
+      const score = -Math.hypot(z.x - game.core.x, z.z - game.core.z) + (z.breedId === 'tanker' ? 2 : z.breedId === 'needler' ? 1.5 : 0);
       if (score > bestScore) { bestScore = score; best = z; }
     }
     return best;
@@ -603,6 +603,8 @@ export class Zergling {
     this.repathIn = Math.random() * 0.4;
     this.air = null;
     this.jumpCd = 0;
+    this.prey = null;
+    this.huntIn = Math.random() * 0.3;
 
     this.obj = new THREE.Group();
     this.obj.position.set(x, 0, z);
@@ -652,8 +654,12 @@ export class Zergling {
       if (prey) this.spit(prey, dt, game);
       else this.advance(dt, game);
     } else {
-      const blocker = this.blockerAhead(game);
-      if (blocker && this.breed.jump && blocker.kind === 'wall' && this.tryJump(blocker, game)) {
+      const prey = this.hunt(game, dt);
+      const blocker = prey ? null : this.blockerAhead(game);
+      if (prey) {
+        if (Math.hypot(prey.x - this.x, prey.z - this.z) <= this.breed.range + 0.15) this.attack(prey, dt, game);
+        else this.steer(prey.x, prey.z, dt, game, true);
+      } else if (blocker && this.breed.jump && blocker.kind === 'wall' && this.tryJump(blocker, game)) {
         /* airborne next frame */
       } else if (blocker) this.attack(blocker, dt, game);
       else this.advance(dt, game);
@@ -685,6 +691,44 @@ export class Zergling {
     return null;
   }
 
+  /** Worth chasing: alive, standing up, and out in the open (bunkered troops are the bunker's problem). */
+  preyOk(p, game) {
+    if (!p || p.dead || p.downed || p.bunker) return false;
+    if (p.kind === 'scv') return p === game.scv;
+    if (p.kind === 'wall') return game.walls.includes(p);
+    if (p.kind === 'bunker') return game.bunkers.includes(p);
+    return game.gunners.includes(p);
+  }
+
+  /**
+   * Troops, walls or bunkers close to the swarm's route: break off, wreck it, then carry on to the base.
+   * Troops are preferred over buildings at the same distance. Hoppers vault walls instead of chewing them.
+   * Stays on a target until it is gone or well out of reach; only notices things it can walk up to.
+   */
+  hunt(game, dt) {
+    const aggro = this.breed.aggro || 0;
+    if (!aggro) return null;
+    if (this.prey && (!this.preyOk(this.prey, game)
+      || Math.hypot(this.prey.x - this.x, this.prey.z - this.z) > aggro + 1.5)) this.prey = null;
+    this.huntIn -= dt;
+    if (!this.prey && this.huntIn <= 0) {
+      this.huntIn = 0.25 + Math.random() * 0.15;
+      const cx = Math.floor(this.x), cz = Math.floor(this.z);
+      let best = null, bd = aggro;
+      const pool = [...game.gunners, ...game.bunkers];
+      if (game.scv) pool.push(game.scv);
+      if (!this.breed.jump) pool.push(...game.walls);
+      for (const p of pool) {
+        if (!this.preyOk(p, game)) continue;
+        const building = p.kind === 'wall' || p.kind === 'bunker';
+        const d = Math.hypot(p.x - this.x, p.z - this.z) + (building ? 0.4 : 0);
+        if (d < bd && game.grid.lineOpen(cx, cz, Math.floor(p.x), Math.floor(p.z))) { bd = d; best = p; }
+      }
+      this.prey = best;
+    }
+    return this.prey;
+  }
+
   /** The next thing on the route we need to chew through, if any. */
   blockerAhead(game) {
     if (!this.path || this.wp >= this.path.length) return null;
@@ -710,13 +754,21 @@ export class Zergling {
     this.moving = 0;
   }
 
+  /** Something to shoot from here: troops before buildings, and only over open ground. */
   rangedPrey(game) {
-    let best = null, bestD = this.breed.range;
-    const pile = [...game.walls, ...game.bunkers, ...game.gunners.filter((m) => !m.dead && !m.downed), game.core];
+    let best = null, bestScore = Infinity;
+    const cx = Math.floor(this.x), cz = Math.floor(this.z);
+    const troops = game.gunners.filter((m) => !m.dead && !m.downed && !m.bunker);
+    if (game.scv && !game.scv.dead) troops.push(game.scv);
+    const pile = [...troops, ...game.walls, ...game.bunkers, game.core];
     for (const s of pile) {
       if (!s || s.dead) continue;
       const d = Math.hypot(s.x - this.x, s.z - this.z);
-      if (d < bestD) { bestD = d; best = s; }
+      if (d > this.breed.range) continue;
+      const score = d + (troops.includes(s) ? 0 : 1.2);
+      if (score >= bestScore) continue;
+      if (s.kind !== 'core' && !game.grid.lineOpen(cx, cz, Math.floor(s.x), Math.floor(s.z))) continue;
+      bestScore = score; best = s;
     }
     return best;
   }
@@ -729,10 +781,17 @@ export class Zergling {
     this.moving = 0;
     if (this.attackCd <= 0) {
       this.attackCd = this.breed.attackSpeed;
-      game.acids.push(new Acid(this.x, 0.45, this.z, victim, this.damage));
-      const blob = game.acids[game.acids.length - 1];
-      game.scene.add(blob.mesh);
-      game.sfx.screech();
+      this.swing = 1;
+      const [mx, my] = this.breed.muzzle || [0, 0.45];
+      const s = this.scale;
+      const shot = new Acid(
+        this.x + Math.cos(this.yaw) * mx * s, my * s, this.z + Math.sin(this.yaw) * mx * s,
+        victim, this.damage, this.breed.projectile
+      );
+      game.acids.push(shot);
+      game.scene.add(shot.mesh);
+      if (this.breed.projectile === 'spine') game.sfx.spine();
+      else game.sfx.screech();
     }
   }
 
@@ -767,13 +826,18 @@ export class Zergling {
   advance(dt, game) {
     if (!this.path || this.wp >= this.path.length) { this.moving = 0; return; }
     const node = this.path[this.wp];
-    let dx = node.x - this.x, dz = node.y - this.z;
-    let d = Math.hypot(dx, dz);
-    if (d < 0.18) {
+    if (Math.hypot(node.x - this.x, node.y - this.z) < 0.18) {
       this.wp++;
       if (this.wp >= this.path.length) { this.moving = 0; return; }
       return;
     }
+    this.steer(node.x, node.y, dt, game, false);
+  }
+
+  /** Run toward a point with the swarm's spacing. `solid` also keeps out of walls and bunkers (off-route chases). */
+  steer(px, pz, dt, game, solid) {
+    const dx = px - this.x, dz = pz - this.z;
+    const d = Math.hypot(dx, dz) || 1;
 
     // separation keeps the swarm from collapsing into one point
     let sx = 0, sz = 0;
@@ -801,8 +865,12 @@ export class Zergling {
     const spd = this.speed * Math.max(0.35, align);
     const nx = this.x + Math.cos(this.yaw) * spd * dt;
     const nz = this.z + Math.sin(this.yaw) * spd * dt;
-    if (game.grid.get(Math.floor(nx), Math.floor(this.z)) !== CELL.ROCK) this.x = nx;
-    if (game.grid.get(Math.floor(this.x), Math.floor(nz)) !== CELL.ROCK) this.z = nz;
+    const free = (x, z) => {
+      const c = game.grid.get(Math.floor(x), Math.floor(z));
+      return c !== CELL.ROCK && !(solid && (c === CELL.WALL || c === CELL.BUNKER));
+    };
+    if (free(nx, this.z)) this.x = nx;
+    if (free(this.x, nz)) this.z = nz;
     this.moving = spd / this.speed;
     this.gait += dt * spd * 6.5;
 
@@ -825,6 +893,7 @@ export class Zergling {
       ud.anim(state, dt);
       return;
     }
+    if (ud.serpent) { this.animateSerpent(dt, game); return; }
 
     const run = this.moving ?? 0;
     const lift = this.air ? 0.15 : 1;
@@ -849,6 +918,23 @@ export class Zergling {
     ud.tail.rotation.y = sway;
     ud.tail2.rotation.y = sway * 0.8;
     ud.tail.rotation.z = -0.25;
+  }
+
+  /** Needler: slither, sway while it waits, rear back and flare the quills on every shot. */
+  animateSerpent(dt, game) {
+    const ud = this.model.userData;
+    const run = this.moving ?? 0;
+    this.gait += dt * (2 + run * 9);
+    ud.tail.forEach((seg, i) => {
+      seg.rotation.y = Math.sin(this.gait - seg.userData.phase) * (0.18 + run * 0.32) * (i ? 1 : 0.5);
+    });
+    const sw = this.swing;
+    ud.torso.rotation.z = Math.sin(game.time * 1.7 + this.gait * 0.1) * 0.05 + sw * 0.32 - run * 0.12;
+    ud.torso.rotation.x = Math.sin(this.gait * 0.5) * 0.06 * (0.3 + run);
+    ud.head.rotation.z = -0.35 - sw * 0.25;
+    ud.crest.scale.set(1, 1 + sw * 0.25, 1 + sw * 0.6);
+    ud.sac.scale.setScalar(1 + sw * 0.5 + Math.sin(game.time * 6) * 0.05);
+    for (const a of ud.arms) a.rotation.z = Math.sin(game.time * 3 + a.userData.side) * 0.12 + sw * 0.4;
   }
 
   takeDamage(amount, game, fromAngle) {
@@ -1030,15 +1116,20 @@ export class Scv {
 
 const ACID_GEO = new THREE.SphereGeometry(0.12, 8, 6);
 const ACID_MAT = new THREE.MeshBasicMaterial({ color: 0xb6ff3a });
+const SPINE_GEO = new THREE.ConeGeometry(0.035, 0.34, 6).rotateZ(-Math.PI / 2);
+const SPINE_MAT = new THREE.MeshBasicMaterial({ color: 0xf4ead0 });
 
+/** A bug's ranged shot: a slow acid glob (tanker) or a fast bone spine (needler). */
 export class Acid {
-  constructor(x, y, z, target, damage) {
+  constructor(x, y, z, target, damage, style = 'acid') {
     this.x = x; this.y = y; this.z = z;
     this.target = target;
     this.damage = damage;
-    this.speed = 7.5;
+    this.style = style;
+    this.speed = style === 'spine' ? 15 : 7.5;
     this.dead = false;
-    this.mesh = new THREE.Mesh(ACID_GEO, ACID_MAT);
+    this.mesh = new THREE.Mesh(style === 'spine' ? SPINE_GEO : ACID_GEO, style === 'spine' ? SPINE_MAT : ACID_MAT);
+    this.mesh.position.set(x, y, z);
   }
 
   update(dt, game) {
@@ -1049,12 +1140,20 @@ export class Acid {
     if (d <= step) {
       this.dead = true;
       this.target.takeDamage(this.damage, game, Math.atan2(dz, dx));
-      game.fx.explosion({ x: this.target.x, y: 0.4, z: this.target.z }, 0.35);
-      game.fx.decal(this.target.x, this.target.z, 0.4, 0x6a9a20, 0.55);
+      if (this.style === 'spine') {
+        game.fx.sparks({ x: this.target.x, y: 0.5, z: this.target.z }, Math.atan2(dz, dx) + Math.PI, 6, [0.95, 0.9, 0.75], 3);
+      } else {
+        game.fx.explosion({ x: this.target.x, y: 0.4, z: this.target.z }, 0.35);
+        game.fx.decal(this.target.x, this.target.z, 0.4, 0x6a9a20, 0.55);
+      }
       return;
     }
     this.x += dx / d * step; this.y += dy / d * step; this.z += dz / d * step;
     this.mesh.position.set(this.x, this.y, this.z);
+    if (this.style === 'spine') {
+      this.mesh.rotation.y = -Math.atan2(dz, dx);
+      this.mesh.rotation.z = Math.asin(Math.max(-1, Math.min(1, dy / d)));
+    }
   }
 }
 

@@ -24,7 +24,7 @@ export class Minimap {
     this.game = game;
     this.stage = stage;
     this.onCommand = onCommand;
-    this.scale = 7;
+    this.scale = 130 / COLS;   // always 130 px wide, whatever the map size
     this.ndc = new THREE.Vector2();
     this.dragging = false;
     this.terrain = document.createElement('canvas');
@@ -54,10 +54,12 @@ export class Minimap {
 
   resize() {
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-    this.canvas.width = COLS * this.scale * dpr;
-    this.canvas.height = ROWS * this.scale * dpr;
-    this.canvas.style.width = COLS * this.scale + 'px';
-    this.canvas.style.height = ROWS * this.scale + 'px';
+    const w = Math.round(COLS * this.scale), h = Math.round(ROWS * this.scale);
+    this.scale = w / COLS;
+    this.canvas.width = Math.round(w * dpr);
+    this.canvas.height = Math.round(h * dpr);
+    this.canvas.style.width = w + 'px';
+    this.canvas.style.height = h + 'px';
     this.dpr = dpr;
     this.terrain.width = this.canvas.width;
     this.terrain.height = this.canvas.height;

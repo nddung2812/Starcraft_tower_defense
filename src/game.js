@@ -211,8 +211,18 @@ export class Game {
 
   canAfford(cost) { return this.minerals >= cost; }
 
+  /** Before or during a fight, on open ground, and not on top of a bug (it would be sealed inside). */
+  canBuildAt(tx, ty) {
+    if (this.state !== 'build' && this.state !== 'brief' && this.state !== 'wave') return false;
+    if (!this.grid.buildable(tx, ty)) return false;
+    for (const z of this.zerglings) {
+      if (!z.dead && z.x > tx - 0.2 && z.x < tx + 1.2 && z.z > ty - 0.2 && z.z < ty + 1.2) return false;
+    }
+    return true;
+  }
+
   placeWall(tx, ty) {
-    if (this.state !== 'build' || !this.grid.buildable(tx, ty) || !this.canAfford(BUILD.wall.cost)) return false;
+    if (!this.canBuildAt(tx, ty) || !this.canAfford(BUILD.wall.cost)) return false;
     const w = new Wall(tx, ty, BUILD.wall.hp);
     this.grid.set(tx, ty, CELL.WALL, w);
     this.walls.push(w);
@@ -226,7 +236,7 @@ export class Game {
 
   placeGunner(kind, tx, ty) {
     const spec = BUILD[kind];
-    if (!spec || this.state !== 'build' || !this.grid.buildable(tx, ty) || !this.canAfford(spec.cost)) return false;
+    if (!spec || !this.canBuildAt(tx, ty) || !this.canAfford(spec.cost)) return false;
     const m = new Marine(kind, tx, ty, this.armory);
     const sp = this.grid.spawn;
     m.restYaw = Math.atan2((sp.y + 1) - m.z, (sp.x + 0.5) - m.x);
@@ -243,7 +253,7 @@ export class Game {
   }
 
   placeBunker(tx, ty) {
-    if (this.state !== 'build' || !this.grid.buildable(tx, ty) || !this.canAfford(BUILD.bunker.cost)) return false;
+    if (!this.canBuildAt(tx, ty) || !this.canAfford(BUILD.bunker.cost)) return false;
     const sp = this.grid.spawn;
     const facing = Math.atan2((sp.y + 1) - (ty + 0.5), (sp.x + 0.5) - (tx + 0.5));
     const b = new Bunker(tx, ty, BUILD.bunker.hp, facing);
