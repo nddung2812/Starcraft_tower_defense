@@ -22,14 +22,14 @@
       <div class="hud__sigil">T</div>
       <div>
         <h1>Terran Defense</h1>
-        <p>Mar Sara · Outpost Delta</p>
+        <p id="pilot">Mar Sara · Outpost Delta</p>
       </div>
     </div>
 
     <div class="hud__readouts">
       <div class="readout readout--mineral"><span class="readout__k">Minerals</span><span class="readout__v" id="rMinerals">0</span></div>
       <div class="readout"><span class="readout__k">Level</span><span class="readout__v" id="rWave">1</span></div>
-      <div class="readout readout--zerg"><span class="readout__k">Kills</span><span class="readout__v" id="rKills">0</span></div>
+      <div class="readout readout--score"><span class="readout__k">Score · Kills</span><span class="readout__v" id="rKills">0</span></div>
       <div class="readout"><span class="readout__k">Command Center</span><span class="readout__v" id="rCore">100%</span></div>
     </div>
 
@@ -61,8 +61,21 @@
       <div class="banner__inner">
         <h2 id="bannerTitle">Outpost Overrun</h2>
         <p id="bannerText"></p>
-        <button id="bannerBtn" class="btn btn--primary">Rebuild Outpost</button>
+        <ol id="bannerBoard" class="board"></ol>
+        <button id="bannerBtn" class="btn btn--primary">Play Again</button>
       </div>
+    </div>
+
+    <div id="intro" class="banner">
+      <form id="introForm" class="banner__inner intro" autocomplete="off">
+        <h2 class="is-win">Hold the Line</h2>
+        <p>The swarm never stops. Every canyon is harder than the last. How far can you hold?</p>
+        <label class="intro__label" for="playerName">Your name</label>
+        <input id="playerName" class="intro__input" maxlength="16" minlength="2" required placeholder="e.g. Rico" spellcheck="false">
+        <button id="introBtn" class="btn btn--primary" type="submit">Deploy</button>
+        <p class="intro__sub" id="boardTitle">Top commanders</p>
+        <ol id="introBoard" class="board"></ol>
+      </form>
     </div>
   </main>
 

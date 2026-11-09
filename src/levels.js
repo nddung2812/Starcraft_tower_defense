@@ -1,4 +1,4 @@
-import { COLS, ROWS, CELL, CORE_HP, LEVELS } from './config.js';
+import { COLS, ROWS, CELL, CORE_HP, LEVELS, AUTHORED_LEVELS } from './config.js';
 import { Grid } from './grid.js';
 
 export function mulberry32(seed) {
@@ -80,15 +80,58 @@ function carveSpur(open, origin, dir, mouth) {
 
 /* The level paths in config.js were drawn on a 26 x 16 grid; they stretch to whatever COLS x ROWS is. */
 const AUTHORED_COLS = 26, AUTHORED_ROWS = 16;
-const LANE_WIDEN = 1.12;
-const PEAK_RIM = 0.26, PEAK_INNER = 0.066;   // chance a rock cell gets a peak, beside the lane / deeper in (≈20% fewer rocks than the old 26x16 map in total)
+const SX = COLS / AUTHORED_COLS, SY = ROWS / AUTHORED_ROWS;
+const STRETCH = Math.sqrt(SX * SY);
+// lanes widen with the map so a big battlefield has room to manoeuvre
+const LANE_WIDEN = Math.max(1.12, STRETCH * 0.42);
+
+const SECTOR_NAMES = ['Ash Flats', 'Red Gully', 'Shale Run', 'Dust Basin', 'Scar Ridge', 'Cinder Pass', 'Hollow Reach', 'Iron Wash', 'Broken Mesa', 'Last Light'];
+
+/** Levels past the hand-drawn ones: a random canyon snaking from the west edge to the east. */
+function generatedSpec(level, rng) {
+  const path = [[1.5, 2.5 + rng() * 11]];
+  const legs = 4 + Math.floor(rng() * 3) + Math.min(3, Math.floor((level - AUTHORED_LEVELS) / 6));
+  for (let i = 1; i <= legs; i++) {
+    const x = 1.5 + (23 * i) / legs;
+    const prev = path[path.length - 1][1];
+    let y = 2.5 + rng() * 11;
+    if (Math.abs(y - prev) < 3) y = prev < 8 ? Math.min(13.5, prev + 4 + rng() * 4) : Math.max(2.5, prev - 4 - rng() * 4);
+    // every other leg doubles back in x a little, so canyons wind instead of running straight
+    path.push([i < legs && i % 2 === 0 ? x - 1.5 : x, y]);
+  }
+  const name = `${SECTOR_NAMES[(level - AUTHORED_LEVELS - 1) % SECTOR_NAMES.length]} · Sector ${level}`;
+  const blurb = level % 5 === 0
+    ? 'A long column with every strain in it. Dig in deep and keep the SCV alive.'
+    : 'Uncharted ground. The swarm is bigger and tougher than the last cut.';
+  return { name, blurb, radius: Math.max(1.3, 1.48 - (level - AUTHORED_LEVELS) * 0.005), path };
+}
+
+/** How far each rock cell is from walkable ground (chamfer distance); 0 for open ground. */
+function rockDepth(isWalkable) {
+  const n = COLS * ROWS;
+  const d = new Float32Array(n).fill(1e9);
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if (isWalkable(x, y)) d[y * COLS + x] = 0;
+  const D = Math.SQRT2;
+  const pass = (y, x, ox, oy, w) => {
+    const nx = x + ox, ny = y + oy;
+    if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS) return;
+    const i = y * COLS + x, j = ny * COLS + nx;
+    if (d[j] + w < d[i]) d[i] = d[j] + w;
+  };
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    pass(y, x, -1, 0, 1); pass(y, x, 0, -1, 1); pass(y, x, -1, -1, D); pass(y, x, 1, -1, D);
+  }
+  for (let y = ROWS - 1; y >= 0; y--) for (let x = COLS - 1; x >= 0; x--) {
+    pass(y, x, 1, 0, 1); pass(y, x, 0, 1, 1); pass(y, x, 1, 1, D); pass(y, x, -1, 1, D);
+  }
+  return d;
+}
 
 /** Carve one level: a dirt lane, locked rock everywhere else, random boulders and peaks. */
 export function carveLevel(level, seed) {
-  const spec = LEVELS[(level - 1) % LEVELS.length];
   const rng = mulberry32((seed ^ (level * 0x9e3779b1)) >>> 0);
-  const sx0 = COLS / AUTHORED_COLS, sy0 = ROWS / AUTHORED_ROWS;
-  const path = spec.path.map(([x, y]) => [x * sx0, y * sy0]);
+  const spec = level <= AUTHORED_LEVELS ? LEVELS[level - 1] : generatedSpec(level, rng);
+  const path = spec.path.map(([x, y]) => [x * SX, y * SY]);
   const radius = spec.radius * LANE_WIDEN;
   const open = new Set();
 
@@ -123,7 +166,7 @@ export function carveLevel(level, seed) {
   }
 
   const spawns = [spawn];
-  const flanks = level >= 8 ? 2 : level >= 4 ? 1 : 0;
+  const flanks = level >= 4 ? Math.min(4, 1 + Math.floor((level - 4) / 4)) : 0;
   const taken = (mouth) => !mouth
     || spawns.some((s) => Math.abs(s.x - mouth.x) + Math.abs(s.y - mouth.y) < 5)
     || Math.abs(mouth.x - core.x) + Math.abs(mouth.y - core.y) < 5;
@@ -133,10 +176,10 @@ export function carveLevel(level, seed) {
     for (const shift of [0, 1, -1]) {
       const idx = Math.max(1, Math.min(path.length - 2, base + shift));
       const dir = sideDir(path, idx);
-      if (f === 1) { dir[0] *= -1; dir[1] *= -1; }
+      if (f % 2 === 1) { dir[0] *= -1; dir[1] *= -1; }
       const options = [dir, [-dir[0], -dir[1]]];
       for (const d of options) {
-        const mouth = mouthAt(path[idx], d);
+        const mouth = mouthAt(path[idx], d, Math.round(5 * Math.min(2, STRETCH)));
         if (taken(mouth)) continue;
         carveSpur(open, path[idx], d, mouth);
         spawns.push(mouth);
@@ -176,7 +219,7 @@ export function carveLevel(level, seed) {
   shuffle(offLane);
 
   const boulders = [];
-  const want = 3 + Math.floor(level * 0.55);
+  const want = Math.min(48, Math.round((3 + Math.min(12, level) * 0.55) * STRETCH));
   const tryPlace = (list, quota) => {
     for (const [x, y] of list) {
       if (boulders.length >= quota) return;
@@ -193,15 +236,25 @@ export function carveLevel(level, seed) {
   tryPlace(onLane, Math.ceil(want / 2));
   tryPlace(offLane, want);
 
-  const isOpen = (x, y) => x >= 0 && y >= 0 && x < COLS && y < ROWS && open.has(key(x, y));
-  const peaks = [];
+  // mountains: how deep into the rock each cell sits (boulders count as lane, so the floor stays flat around them)
   const boulderSet = new Set(boulders.map(([x, y]) => key(x, y)));
-  for (let y = 0; y < ROWS; y++) {
-    for (let x = 0; x < COLS; x++) {
-      if (open.has(key(x, y)) || boulderSet.has(key(x, y))) continue;
-      const rim = isOpen(x + 1, y) || isOpen(x - 1, y) || isOpen(x, y + 1) || isOpen(x, y - 1);
-      if (rng() < (rim ? PEAK_RIM : PEAK_INNER)) peaks.push([x, y, rim ? 1 : 0]);
+  const depth = rockDepth((x, y) => open.has(key(x, y)) || boulderSet.has(key(x, y)));
+
+  // only a few sharp spires, up on the high ground well back from the lane
+  const peaks = [];
+  const spireWant = Math.max(2, Math.round((COLS * ROWS) / 1100));
+  const highGround = [];
+  for (let y = 2; y < ROWS - 2; y++) {
+    for (let x = 2; x < COLS - 2; x++) {
+      const dd = depth[y * COLS + x];
+      if (dd >= 4 && dd <= 14) highGround.push([x, y]);
     }
+  }
+  shuffle(highGround);
+  for (const [x, y] of highGround) {
+    if (peaks.length >= spireWant) break;
+    if (peaks.some(([px, py]) => Math.abs(px - x) + Math.abs(py - y) < 9)) continue;
+    peaks.push([x, y, 0]);
   }
 
   let sx = 0, sz = 0, n = 0;
@@ -216,6 +269,8 @@ export function carveLevel(level, seed) {
     core,
     peaks,
     boulders,
-    focus: n ? { x: sx / n, z: sz / n } : { x: COLS / 2, z: ROWS / 2 }
+    depth,
+    // the camera opens on your base
+    focus: n ? { x: core.x + 1 - Math.min(8, COLS * 0.06), z: core.y + 1 } : { x: COLS / 2, z: ROWS / 2 }
   };
 }

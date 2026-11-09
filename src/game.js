@@ -1,9 +1,10 @@
 import * as THREE from 'three';
-import { CELL, BUILD, ECON, ARMORY, UNITS, LEVEL_COUNT, AIR_STRIKE, wavePlan } from './config.js';
+import { CELL, BUILD, ECON, ARMORY, UNITS, AIR_STRIKE, wavePlan } from './config.js';
 import { Grid } from './grid.js';
 import { carveLevel } from './levels.js';
 import { Marine, Zergling, Wall, Bunker, Scv, Core, Tracer, Shell, AirBomb } from './entities.js';
-import { buildHatchery, buildRock, MAT } from './models.js';
+import { buildHatchery, buildRock, buildBoulder } from './models.js';
+import { buildTerrain } from './terrain.js';
 import { Fx } from './fx.js';
 import { sfx } from './audio.js';
 import { voice } from './voice.js';
@@ -78,6 +79,7 @@ export class Game {
     this.mapSeed = (Math.random() * 0x7fffffff) | 0;
     this.minerals = ECON.startMinerals;
     this.kills = 0;
+    this.score = 0;
     this.time = 0;
     this.state = 'build';
     this.queue = [];
@@ -138,7 +140,7 @@ export class Game {
       this.hatchGroup.add(h);
     }
     this.stage.focus.set(layout.focus.x, 0, layout.focus.z);
-    if (!this.stage.userZoomed) this.stage.dist = 14.5;
+    if (!this.stage.userZoomed) this.stage.dist = 18;
     this.selected = null;
   }
 
@@ -156,53 +158,40 @@ export class Game {
     if (this.zoneMesh) {
       this.scene.remove(this.zoneMesh);
       this.zoneMesh.geometry.dispose();
+      this.zoneMesh.material.dispose();
       this.zoneMesh = null;
     }
 
-    const blocked = [];
-    for (let y = 0; y < this.grid.ROWS; y++) {
-      for (let x = 0; x < this.grid.COLS; x++) {
-        if (this.grid.get(x, y) === CELL.ROCK) blocked.push([x, y]);
-      }
-    }
-    if (blocked.length) {
-      const geo = new THREE.BoxGeometry(1, 0.2, 1);
-      this.zoneMesh = new THREE.InstancedMesh(geo, MAT.stone, blocked.length);
-      this.zoneMesh.receiveShadow = true;
-      const dummy = new THREE.Object3D();
-      blocked.forEach(([x, y], i) => {
-        dummy.position.set(x + 0.5, 0.1, y + 0.5);
-        dummy.scale.set(1, 1, 1);
-        dummy.rotation.set(0, 0, 0);
-        dummy.updateMatrix();
-        this.zoneMesh.setMatrixAt(i, dummy.matrix);
-      });
-      this.zoneMesh.instanceMatrix.needsUpdate = true;
-      this.scene.add(this.zoneMesh);
-    }
+    // mountains: one heightfield around the lanes
+    const terrain = buildTerrain(layout.depth, (this.mapSeed ^ (this.level * 2654435761)) >>> 0);
+    this.zoneMesh = terrain.mesh;
+    this.heightAt = terrain.heightAt;
+    this.scene.add(this.zoneMesh);
 
-    const place = (cells, kind) => {
-      cells.forEach(([x, y], i) => {
-        const n = (x * 92821 + y * 68917 + this.mapSeed + i * 17) >>> 0;
-        const rock = buildRock(n + kind.length);
-        const rim = cells[i][2] === 1;
-        const s = kind === 'boulder' ? 0.72 + (n % 6) / 30
-          : rim ? 1.45 + (n % 10) / 18
-          : 1.95 + (n % 8) / 14;
-        // peaks on the lane's edge stay low so they frame the fight instead of hiding it
-        const tall = kind === 'boulder' ? 1 : rim ? 0.62 : 0.85;
-        rock.scale.set(s * (0.9 + (n % 5) / 40), s * (1.15 + (n % 6) / 20) * tall, s * (0.88 + ((n >> 3) % 5) / 30));
-        rock.rotation.y = (n % 628) / 100;
-        rock.position.set(
-          x + 0.5 + ((n % 24) - 12) / 48,
-          0,
-          y + 0.5 + (((n >> 6) % 24) - 12) / 48
-        );
-        this.rockGroup.add(rock);
-      });
-    };
-    place(layout.peaks, 'peak');
-    place(layout.boulders, 'boulder');
+    const noise = (x, y, i) => (x * 92821 + y * 68917 + this.mapSeed + i * 17) >>> 0;
+
+    // rounded boulders: the ones dropped in the lane, and rock ribs too thin for a mountain to rise on
+    const lumps = [...layout.boulders.map(([x, y]) => [x, y, 1]), ...terrain.flatRock.map(([x, y]) => [x, y, 0])];
+    lumps.forEach(([x, y, inLane], i) => {
+      const n = noise(x, y, i);
+      const rock = buildBoulder(n);
+      const s = (inLane ? 1.05 : 1.15) + (n % 7) / 30;
+      rock.scale.set(s * (0.92 + (n % 5) / 25), s * (0.85 + (n % 6) / 20), s * (0.9 + ((n >> 3) % 5) / 25));
+      rock.rotation.y = (n % 628) / 100;
+      rock.position.set(x + 0.5 + ((n % 12) - 6) / 60, 0, y + 0.5 + (((n >> 6) % 12) - 6) / 60);
+      this.rockGroup.add(rock);
+    });
+
+    // a few sharp spires standing on the high ground
+    layout.peaks.forEach(([x, y], i) => {
+      const n = noise(x, y, i + 101);
+      const rock = buildRock(n);
+      const s = 2.2 + (n % 9) / 8;
+      rock.scale.set(s, s * (1.3 + (n % 5) / 10), s);
+      rock.rotation.y = (n % 628) / 100;
+      rock.position.set(x + 0.5, this.heightAt(x + 0.5, y + 0.5) - 0.6, y + 0.5);
+      this.rockGroup.add(rock);
+    });
   }
 
   /* ---------------- economy + building ---------------- */
@@ -398,7 +387,7 @@ export class Game {
     sfx.alarm();
     voice.say('contact');
     this.emit('brief', {
-      kicker: `Level ${this.level} of ${LEVEL_COUNT}`,
+      kicker: `Level ${this.level}`,
       title: this.layout.name,
       body: this.layout.blurb + (this.grid.spawns.length > 1
         ? ` Breaches open from ${this.grid.spawns.length} directions.`
@@ -409,6 +398,7 @@ export class Game {
 
   onKill(bug) {
     this.kills++;
+    this.score = this.kills;   // your score is simply how many bugs you killed
     this.minerals += ECON.perKill * (bug?.breed?.bounty || 1);
     if (this.kills % 6 === 0) voice.say('kill');
     const next = this.nextArmory;
@@ -436,15 +426,7 @@ export class Game {
     const bonus = ECON.waveClearBase + this.level * ECON.waveClearPerWave;
     const prev = this.level;
     const prevName = this.layout.name;
-    if (this.level >= LEVEL_COUNT) {
-      this.state = 'victory';
-      this.minerals += bonus;
-      this.fx.label({ x: this.core.x, y: 2.6, z: this.core.z }, '+' + bonus + ' minerals', 'cash');
-      sfx.victory();
-      this.emit('change');
-      this.emit('over', true);
-      return;
-    }
+    // levels never run out: clear one and the next canyon is waiting
     const refund = this.recoverHardware();
     this.minerals += refund + bonus;
     this.level++;
@@ -456,7 +438,7 @@ export class Game {
     this.emit('hold', {
       kicker: 'Canyon cleared',
       title: prevName,
-      body: `Level ${prev} holds. +${bonus} minerals, hardware returned. Next cut: ${this.layout.name}.`
+      body: `Level ${prev} holds. ${this.kills} bugs killed so far. +${bonus} minerals, hardware returned. Next: ${this.layout.name}.`
     });
   }
 

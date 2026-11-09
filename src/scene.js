@@ -116,7 +116,7 @@ export class Stage {
     this.pitch = 0.62;
     this.dist = 15;
     this.minDist = 3.2;
-    this.maxDist = 46;
+    this.maxDist = 120;
     this.focus = new THREE.Vector3(CX, 0, CZ);
     this.shake = 0;
     this.updateCamera();
@@ -163,12 +163,10 @@ export class Stage {
     sun.position.set(CX + 7, 20, CZ + 13);
     sun.target.position.set(CX, 0, CZ);
     sun.castShadow = true;
-    // shadow box covers the whole battlefield, whatever COLS x ROWS is
+    // the shadow box follows the camera (see updateCamera): a big map can't be shadowed all at once
     sun.shadow.mapSize.set(2048, 2048);
-    sun.shadow.camera.left = -(COLS / 2 + 6);
-    sun.shadow.camera.right = COLS / 2 + 6;
-    sun.shadow.camera.top = ROWS / 2 + 7;
-    sun.shadow.camera.bottom = -(ROWS / 2 + 7);
+    this.sunOffset = new THREE.Vector3(7, 20, 13);
+    this.shadowSpan = 0;
     sun.shadow.camera.near = 1;
     sun.shadow.camera.far = 50;
     sun.shadow.bias = -0.0012;
@@ -184,7 +182,7 @@ export class Stage {
 
   buildGround() {
     const g = new THREE.Mesh(
-      new THREE.PlaneGeometry(110, 110),
+      new THREE.PlaneGeometry(Math.max(COLS, ROWS) + 90, Math.max(COLS, ROWS) + 90),
       new THREE.MeshStandardMaterial({ map: groundTexture(), roughness: 0.97, metalness: 0 })
     );
     g.rotation.x = -Math.PI / 2;
@@ -218,6 +216,25 @@ export class Stage {
       this.focus.z + Math.sin(this.yaw) * cp * this.dist
     );
     this.camera.lookAt(this.focus);
+
+    // keep sun shadows centred on what you are looking at, sized to the zoom
+    if (this.sun && this.sunOffset) {
+      this.sun.position.copy(this.focus).add(this.sunOffset);
+      this.sun.target.position.copy(this.focus);
+      const span = Math.round(Math.min(70, Math.max(16, this.dist * 1.15)));
+      if (span !== this.shadowSpan) {
+        this.shadowSpan = span;
+        const cam = this.sun.shadow.camera;
+        cam.left = -span; cam.right = span; cam.top = span; cam.bottom = -span;
+        cam.far = 60 + span;
+        cam.updateProjectionMatrix();
+      }
+    }
+    // see further when zoomed out
+    if (this.scene.fog) {
+      this.scene.fog.near = 22 + this.dist * 1.1;
+      this.scene.fog.far = 48 + this.dist * 2.2;
+    }
   }
 
   applyShake(dt) {

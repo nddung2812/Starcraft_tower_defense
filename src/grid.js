@@ -2,6 +2,44 @@ import { COLS, ROWS, CELL, BREAK_COST, CORE_HP } from './config.js';
 
 const SQRT2 = Math.SQRT2;
 
+/** Binary min-heap of cell indices keyed by priority (stale entries are skipped by the callers). */
+class MinHeap {
+  constructor() { this.ids = []; this.keys = []; }
+  get size() { return this.ids.length; }
+  push(id, key) {
+    const ids = this.ids, keys = this.keys;
+    let i = ids.length;
+    ids.push(id); keys.push(key);
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (keys[p] <= key) break;
+      ids[i] = ids[p]; keys[i] = keys[p];
+      i = p;
+    }
+    ids[i] = id; keys[i] = key;
+  }
+  pop() {
+    const ids = this.ids, keys = this.keys;
+    const top = ids[0];
+    const lastId = ids.pop(), lastKey = keys.pop();
+    const n = ids.length;
+    if (n) {
+      let i = 0;
+      for (;;) {
+        const l = 2 * i + 1, r = l + 1;
+        let m = i, mk = lastKey;
+        if (l < n && keys[l] < mk) { m = l; mk = keys[l]; }
+        if (r < n && keys[r] < mk) { m = r; mk = keys[r]; }
+        if (m === i) break;
+        ids[i] = ids[m]; keys[i] = keys[m];
+        i = m;
+      }
+      ids[i] = lastId; keys[i] = lastKey;
+    }
+    return top;
+  }
+}
+
 export class Grid {
   constructor() {
     this.COLS = COLS;
@@ -72,28 +110,34 @@ export class Grid {
 
   blocked(x, y) { return this.cost(x, y) > 0; }
 
-  /** A* . walk=true stays on open ground and will not chew through buildings. */
+  /** A*. walk=true stays on open ground and will not chew through buildings. */
   findPath(sx, sy, tx, ty, walk = false) {
     const n = COLS * ROWS;
     const g = new Float64Array(n).fill(Infinity);
-    const f = new Float64Array(n).fill(Infinity);
     const from = new Int32Array(n).fill(-1);
     const closed = new Uint8Array(n);
-    const open = [];
+    const open = new MinHeap();
 
     const h = (x, y) => {
       const dx = Math.abs(x - tx), dy = Math.abs(y - ty);
       return (dx + dy) + (SQRT2 - 2) * Math.min(dx, dy);
     };
+    const price = (x, y) => {
+      if (!walk) return this.cost(x, y);
+      if (x === sx && y === sy) return 0;
+      // squadmates step aside: walk through a friendly unit's tile, never through walls or bunkers
+      const c = this.get(x, y);
+      if (c === CELL.OPEN) return 0;
+      if (c === CELL.TOWER && !(x === tx && y === ty)) return 0.4;
+      return Infinity;
+    };
 
     const start = this.idx(sx, sy);
-    g[start] = 0; f[start] = h(sx, sy);
-    open.push(start);
+    g[start] = 0;
+    open.push(start, h(sx, sy));
 
-    while (open.length) {
-      let bi = 0;
-      for (let i = 1; i < open.length; i++) if (f[open[i]] < f[open[bi]]) bi = i;
-      const cur = open.splice(bi, 1)[0];
+    while (open.size) {
+      const cur = open.pop();
       if (closed[cur]) continue;
       closed[cur] = 1;
 
@@ -107,30 +151,67 @@ export class Grid {
           if (!this.inside(nx, ny)) continue;
           const ni = this.idx(nx, ny);
           if (closed[ni]) continue;
-          const price = (x, y) => {
-            if (!walk) return this.cost(x, y);
-            if (x === sx && y === sy) return 0;
-            // squadmates step aside: walk through a friendly unit's tile, never through walls or bunkers
-            const c = this.get(x, y);
-            if (c === CELL.OPEN) return 0;
-            if (c === CELL.TOWER && !(x === tx && y === ty)) return 0.4;
-            return Infinity;
-          };
           const step = price(nx, ny);
           if (step === Infinity) continue;
+          // no squeezing diagonally between two solid corners
           if (dx && dy && (price(cx + dx, cy) === Infinity || price(cx, cy + dy) === Infinity)) continue;
-          const move = (dx && dy ? SQRT2 : 1) + step;
-          const tentative = g[cur] + move;
+          const tentative = g[cur] + (dx && dy ? SQRT2 : 1) + step;
           if (tentative < g[ni]) {
             g[ni] = tentative;
-            f[ni] = tentative + h(nx, ny);
             from[ni] = cur;
-            open.push(ni);
+            open.push(ni, tentative + h(nx, ny));
           }
         }
       }
     }
     return null;
+  }
+
+  /**
+   * The swarm's route map: for every cell, the cheapest next step toward the base
+   * (chewing through buildings when that is cheaper than walking around). Built once per
+   * grid change with a single Dijkstra out from the base, and shared by every bug.
+   */
+  field() {
+    if (this._field && this._field.version === this.version) return this._field;
+    const n = COLS * ROWS;
+    const dist = new Float64Array(n).fill(Infinity);
+    const next = new Int32Array(n).fill(-1);
+    const heap = new MinHeap();
+    const c = this.core;
+    for (let dy = 0; dy < c.h; dy++) {
+      for (let dx = 0; dx < c.w; dx++) {
+        const i = this.idx(c.x + dx, c.y + dy);
+        dist[i] = 0;
+        heap.push(i, 0);
+      }
+    }
+    while (heap.size) {
+      const cur = heap.pop();
+      const cx = cur % COLS, cy = (cur / COLS) | 0;
+      // stepping onto `cur` from a neighbour costs whatever `cur` costs to get through
+      const enter = this.cost(cx, cy);
+      if (enter === Infinity) continue;
+      const base = dist[cur] + enter;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue;
+          const nx = cx + dx, ny = cy + dy;
+          if (!this.inside(nx, ny)) continue;
+          if (this.cost(nx, ny) === Infinity) continue;
+          if (dx && dy && (this.cost(cx - dx, cy) === Infinity || this.cost(cx, cy - dy) === Infinity)) continue;
+          const ni = this.idx(nx, ny);
+          const d = base + (dx && dy ? SQRT2 : 1);
+          if (d < dist[ni]) {
+            dist[ni] = d;
+            next[ni] = cur;
+            heap.push(ni, d);
+          }
+        }
+      }
+    }
+    this._field = { version: this.version, dist, next };
+    return this._field;
   }
 
   rebuild(from, end) {
@@ -181,8 +262,32 @@ export class Grid {
     return pts.map((c) => ({ x: c.x + 0.5, y: c.y + 0.5, cx: c.x, cy: c.y }));
   }
 
-  route(fromX, fromY) {
-    const cells = this.findPath(fromX, fromY, this.core.x, this.core.y);
+  /**
+   * The next stretch of a bug's march, read off the shared route map: up to `ahead`
+   * cells toward the base, smoothed. Bugs re-read it as they go, so it never needs the whole way.
+   */
+  route(fromX, fromY, ahead = 24) {
+    const f = this.field();
+    let cur = this.idx(fromX, fromY);
+    if (f.dist[cur] === Infinity) {
+      // standing somewhere odd (spawn edge, a cell that just closed): start from the best neighbour
+      let best = -1, bd = Infinity;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const x = fromX + dx, y = fromY + dy;
+          if (!this.inside(x, y)) continue;
+          const i = this.idx(x, y);
+          if (f.dist[i] < bd) { bd = f.dist[i]; best = i; }
+        }
+      }
+      if (best < 0) return [];
+      cur = best;
+    }
+    const cells = [{ x: cur % COLS, y: (cur / COLS) | 0 }];
+    while (cells.length < ahead && f.next[cur] !== -1) {
+      cur = f.next[cur];
+      cells.push({ x: cur % COLS, y: (cur / COLS) | 0 });
+    }
     return this.smooth(cells);
   }
 

@@ -1,14 +1,13 @@
 import * as THREE from 'three';
 import { CELL, COLS, ROWS } from './config.js';
 
-const CELL_COLOR = {
-  [CELL.OPEN]: '#6b5a44',
-  [CELL.SPAWN]: '#5a2f6e',
-  [CELL.CORE]: '#6b5a44',
-  [CELL.ROCK]: '#1a1f26',
-  [CELL.WALL]: '#9aa3a8',
-  [CELL.BUNKER]: '#e8b44a',
-  [CELL.TOWER]: '#6b5a44'
+const CELL_RGB = {
+  [CELL.OPEN]: [138, 112, 82],
+  [CELL.SPAWN]: [110, 50, 130],
+  [CELL.CORE]: [255, 197, 106],
+  [CELL.WALL]: [170, 180, 186],
+  [CELL.BUNKER]: [232, 180, 74],
+  [CELL.TOWER]: [138, 112, 82]
 };
 
 const CORNERS = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
@@ -24,7 +23,7 @@ export class Minimap {
     this.game = game;
     this.stage = stage;
     this.onCommand = onCommand;
-    this.scale = 130 / COLS;   // always 130 px wide, whatever the map size
+    this.scale = 130 / Math.max(COLS, ROWS);   // longest side is always 130 px, whatever the map size
     this.ndc = new THREE.Vector2();
     this.dragging = false;
     this.terrain = document.createElement('canvas');
@@ -78,22 +77,37 @@ export class Minimap {
     this.stage.focus.set(p.x, 0, p.z);
   }
 
-  /** Terrain and buildings only change when the grid does, so cache them. */
+  /** Terrain and buildings only change when the grid does: paint one pixel per tile, cache, scale up. */
   paintTerrain() {
     const grid = this.game.grid;
     if (this.terrainVersion === grid.version) return;
     this.terrainVersion = grid.version;
-    const c = this.terrain.getContext('2d');
-    const s = this.scale * this.dpr;
+    if (!this.pixels) {
+      this.tiles = document.createElement('canvas');
+      this.tiles.width = COLS;
+      this.tiles.height = ROWS;
+      this.pixels = this.tiles.getContext('2d').createImageData(COLS, ROWS);
+    }
+    const data = this.pixels.data;
+    const depth = this.game.layout?.depth;
     for (let y = 0; y < ROWS; y++) {
       for (let x = 0; x < COLS; x++) {
-        c.fillStyle = CELL_COLOR[grid.get(x, y)] || '#1a1f26';
-        c.fillRect(x * s, y * s, s, s);
+        const i = y * COLS + x;
+        const kind = grid.get(x, y);
+        let rgb = CELL_RGB[kind];
+        if (!rgb) {
+          // mountains: darker the deeper into the rock
+          const d = depth ? Math.min(1, depth[i] / 10) : 0.6;
+          rgb = [62 - d * 34, 56 - d * 30, 48 - d * 24];
+        }
+        data[i * 4] = rgb[0]; data[i * 4 + 1] = rgb[1]; data[i * 4 + 2] = rgb[2]; data[i * 4 + 3] = 255;
       }
     }
-    const core = grid.core;
-    c.fillStyle = '#ffc56a';
-    c.fillRect(core.x * s + 1, core.y * s + 1, core.w * s - 2, core.h * s - 2);
+    this.tiles.getContext('2d').putImageData(this.pixels, 0, 0);
+    const c = this.terrain.getContext('2d');
+    c.imageSmoothingEnabled = false;
+    c.clearRect(0, 0, this.terrain.width, this.terrain.height);
+    c.drawImage(this.tiles, 0, 0, this.terrain.width, this.terrain.height);
   }
 
   draw() {

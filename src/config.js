@@ -1,6 +1,6 @@
 export const TILE = 40;
-export const COLS = 34;
-export const ROWS = 21;
+export const COLS = 128;
+export const ROWS = 128;
 export const W = TILE * COLS;
 export const H = TILE * ROWS;
 
@@ -164,7 +164,8 @@ export const UNIT_SCALE = 1.2;
 export const BUG_SCALE = 1.12;
 
 export const CORE_HP = 500;
-export const LEVEL_COUNT = 10;
+/* The hand-drawn canyons below come first; after them every level is generated. */
+export const AUTHORED_LEVELS = 10;
 
 /* Orbital calldown. Click a tile, bombs fall. One every 30 seconds. */
 export const AIR_STRIKE = {
@@ -189,32 +190,28 @@ export const LEVELS = [
   { name: 'Final Gauntlet', radius: 1.4, path: [[1.5, 8.5], [6.5, 4.5], [6.5, 12.5], [12.5, 12.5], [12.5, 3.5], [18.5, 3.5], [18.5, 12.5], [24.5, 9.5]], blurb: 'Last canyon. Every strain is in the column. The command center is at the end of the weave.' }
 ];
 
+/**
+ * The column for level n. Levels never end: every strain keeps growing in number and
+ * toughness, new strains join as you go, and the column gets longer.
+ */
 export function wavePlan(n) {
-  const hpScale = 1 + (n - 1) * 0.1;
-  const speedScale = 1 + Math.min(0.35, (n - 1) * 0.025);
+  const hpScale = 1 + (n - 1) * 0.12;
+  const speedScale = 1 + Math.min(0.4, (n - 1) * 0.02);
   const out = [];
+  const add = (count, start, gap, breed) => {
+    for (let i = 0; i < count; i++) out.push({ at: start + i * gap, breed, hpScale, speedScale });
+  };
   let t = 0.2;
-  const clumps = Math.min(6, 1 + Math.floor(n * 0.55));
+  const clumps = Math.min(16, 1 + Math.floor(n * 0.6));
   for (let c = 0; c < clumps; c++) {
-    const size = Math.min(8, 4 + Math.floor(n / 3));
-    for (let i = 0; i < size; i++) out.push({ at: t + i * 0.1, breed: 'zergling', hpScale, speedScale });
+    const size = Math.min(12, 4 + Math.floor(n / 3));
+    add(size, t, 0.1, 'zergling');
     t += 1.05 + size * 0.1;
   }
-  if (n >= 4) {
-    const nw = Math.min(4, 1 + Math.floor((n - 4) / 2));
-    for (let i = 0; i < nw; i++) out.push({ at: 1 + i * 1.5, breed: 'warrior', hpScale, speedScale });
-  }
-  if (n >= 6) {
-    const nh = Math.min(5, 2 + Math.floor((n - 6) / 2));
-    for (let i = 0; i < nh; i++) out.push({ at: 1.4 + i * 0.85, breed: 'hopper', hpScale, speedScale });
-  }
-  if (n >= 3) {
-    // ranged spine launchers hang back in the column and pick at troops from range
-    const nn = Math.min(6, 1 + Math.floor((n - 3) / 1.5));
-    for (let i = 0; i < nn; i++) out.push({ at: 1.8 + i * 1.3, breed: 'needler', hpScale, speedScale });
-  }
-  if (n >= 8 && n % 2 === 0) out.push({ at: 2.4, breed: 'tanker', hpScale, speedScale });
-  if (n >= 9) out.push({ at: 4.1, breed: 'tanker', hpScale, speedScale });
+  if (n >= 3) add(Math.min(14, 1 + Math.floor((n - 3) / 1.5)), 1.8, 1.3, 'needler');    // ranged spine launchers
+  if (n >= 4) add(Math.min(14, 1 + Math.floor((n - 4) / 1.5)), 1, 1.5, 'warrior');      // armoured
+  if (n >= 6) add(Math.min(14, 2 + Math.floor((n - 6) / 1.5)), 1.4, 0.85, 'hopper');    // wall vaulters
+  if (n >= 8) add(Math.min(10, Math.floor((n - 6) / 2.5)), 2.4, 1.7, 'tanker');         // acid siege
   out.sort((a, b) => a.at - b.at);
   return out;
 }

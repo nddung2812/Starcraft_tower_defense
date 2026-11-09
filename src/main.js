@@ -5,6 +5,7 @@ import { Game } from './game.js';
 import { UI } from './ui.js';
 import { Minimap } from './minimap.js';
 import { loadModels } from './assets.js';
+import { topScores, submitScore, savedName, rememberName, cleanName, localBest } from './scores.js';
 import { sfx } from './audio.js';
 import { voice } from './voice.js';
 
@@ -87,7 +88,7 @@ let hoverTile = null;
 let placing = null;
 let airAim = false;
 let targeting = null;          // 'attack' while waiting for the A-click
-const drag = { on: false, mode: null, x: 0, y: 0, sx: 0, sy: 0, moved: 0 };
+const drag = { on: false, mode: null, x: 0, y: 0, sx: 0, sy: 0, moved: 0, anchor: null, alt: false };
 const pointer = { x: 0, y: 0, inside: false };
 const keys = new Set();
 const EDGE = 36;
@@ -363,7 +364,7 @@ function updateTip() {
     return;
   }
   modeTip = false;
-  ui.tip(`<b>${game.layout?.name || 'Canyon'}.</b> Drag to select · right-click to move or attack · Ctrl+1–9 to group · A attack-move.`);
+  ui.tip(`<b>${game.layout?.name || 'Canyon'}.</b> Drag to select · right-click to order · right-drag to pan, ⌥ right-drag to rotate · Ctrl+1–9 groups.`);
 }
 
 /* ---------------- orders ---------------- */
@@ -463,6 +464,26 @@ function trackPointer(ev) {
     && ev.clientY >= r.top && ev.clientY <= r.bottom;
 }
 
+/** Ground point under the cursor (unclamped: the map can be grabbed anywhere, even past its edge). */
+function groundAt(ev) {
+  updateNdc(ev);
+  const p = stage.pick(ndc);
+  return p ? p.clone() : null;
+}
+
+/** Drag the map: keep the ground point you grabbed under the cursor. */
+function grabPan(ev) {
+  if (!drag.anchor) { drag.anchor = groundAt(ev); return; }
+  stage.updateCamera();
+  const p = groundAt(ev);
+  if (!p) return;
+  stage.focus.x += drag.anchor.x - p.x;
+  stage.focus.z += drag.anchor.z - p.z;
+  stage.focus.x = Math.max(-4, Math.min(COLS + 4, stage.focus.x));
+  stage.focus.z = Math.max(-4, Math.min(ROWS + 4, stage.focus.z));
+  stage.updateCamera();
+}
+
 function drawBox(ev) {
   const r = canvas.getBoundingClientRect();
   const x0 = Math.max(r.left, Math.min(drag.sx, ev.clientX)), x1 = Math.min(r.right, Math.max(drag.sx, ev.clientX));
@@ -480,13 +501,13 @@ canvas.addEventListener('pointermove', (ev) => {
   if (drag.on) {
     const dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
     drag.moved += Math.abs(dx) + Math.abs(dy);
-    if (drag.mode === 'right' && drag.moved > 6) drag.mode = 'orbit';
+    // right-drag grabs the map; with Option (Alt) held it turns and tilts the camera instead
+    if (drag.mode === 'right' && drag.moved > 6) drag.mode = drag.alt || ev.altKey ? 'orbit' : 'pan';
     if (drag.mode === 'orbit') {
       stage.spin(dx * 0.012);
       stage.pitch = Math.max(0.28, Math.min(1.25, stage.pitch + dy * 0.006));
     } else if (drag.mode === 'pan') {
-      const k = stage.dist * 0.0016;
-      stage.pan(dx * k, dy * k);
+      grabPan(ev);
     } else if (drag.mode === 'box' && drag.moved > 6) {
       drawBox(ev);
     } else if (drag.mode === 'build' && placing) {
@@ -554,8 +575,10 @@ canvas.addEventListener('pointerdown', (ev) => {
   drag.y = drag.sy = ev.clientY;
   drag.moved = 0;
 
+  drag.alt = ev.altKey;
+  drag.anchor = groundAt(ev);
   if (ev.button === 2) { drag.mode = 'right'; return; }
-  if (ev.button === 1) { drag.mode = 'pan'; return; }
+  if (ev.button === 1) { drag.mode = ev.altKey ? 'orbit' : 'pan'; return; }
   if (ev.altKey) { drag.mode = 'orbit'; return; }
 
   const t = tileAt(ev);
@@ -633,6 +656,9 @@ const minimap = new Minimap(document.getElementById('minimap'), game, stage, {
 const ARROWS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
 
 window.addEventListener('keydown', (ev) => {
+  // typing a name is not issuing orders
+  if (ev.target instanceof HTMLElement && ev.target.closest('input, textarea, [contenteditable]')) return;
+  if (!document.getElementById('intro').hidden) return;
   if (ARROWS.includes(ev.key)) { keys.add(ev.key); ev.preventDefault(); return; }
 
   // control groups: Ctrl+N sets, Shift+N adds, N selects, N twice jumps the camera
@@ -682,7 +708,45 @@ game.on('cmd', runCommand);
 game.on('selectOnly', (e) => select(e));
 game.on('deselect', (e) => setSelection(selection.filter((u) => u !== e)));
 game.on('level', () => { cancelModes(); select(null); updateTip(); });
+/* ---------------- start screen, game over, leaderboard ---------------- */
+
+const intro = document.getElementById('intro');
+const nameInput = document.getElementById('playerName');
+let player = savedName();
+let runStarted = 0;
+
+async function showIntro() {
+  intro.hidden = false;
+  nameInput.value = player;
+  setTimeout(() => nameInput.focus(), 50);
+  const { online, scores } = await topScores(10);
+  document.getElementById('boardTitle').textContent = online ? 'Top commanders worldwide' : 'Best runs on this device';
+  ui.renderBoard(document.getElementById('introBoard'), scores, player ? { name: player, score: -1 } : null);
+}
+
+document.getElementById('introForm').addEventListener('submit', (ev) => {
+  ev.preventDefault();
+  const name = cleanName(nameInput.value);
+  if (name.length < 2) { nameInput.focus(); sfx.deny(); return; }
+  player = name;
+  rememberName(name);
+  document.getElementById('pilot').textContent = `Commander ${name}`;
+  intro.hidden = true;
+  runStarted = performance.now();
+  sfx.resume();
+  voice.unlock();
+  updateTip();
+});
+
+game.on('over', async () => {
+  const run = { name: player || 'Anonymous', score: game.score, level: game.level, kills: game.kills, seconds: (performance.now() - runStarted) / 1000 };
+  const result = await submitScore(run);
+  const { scores } = await topScores(10);
+  ui.showBanner({ ...run, ...result, scores, best: Math.max(localBest(), run.score) });
+});
+
 game.on('restart', () => {
+  runStarted = performance.now();
   game.reset();
   cancelModes();
   select(null);
@@ -803,4 +867,5 @@ function frame(now) {
 resize();
 ui.sync();
 updateTip();
+showIntro();
 requestAnimationFrame(frame);

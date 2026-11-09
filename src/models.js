@@ -829,6 +829,36 @@ function mountainProtos() {
   return MOUNTAIN_PROTOS;
 }
 
+/* Rounded, weathered boulders for the lane: lumpy, not spiky. A few shapes, reused. */
+const BOULDER_PROTOS = [];
+function makeBoulder(seed) {
+  let s = seed * 9301 + 49297;
+  const rnd = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
+  const geo = new THREE.IcosahedronGeometry(0.5, 2);
+  const p = geo.attributes.position;
+  const v = new THREE.Vector3();
+  const lumps = Array.from({ length: 5 }, () => new THREE.Vector3(rnd() - 0.5, rnd() * 0.6, rnd() - 0.5).normalize());
+  for (let i = 0; i < p.count; i++) {
+    v.fromBufferAttribute(p, i);
+    const dir = v.clone().normalize();
+    let k = 0.86;
+    for (const l of lumps) k += Math.max(0, dir.dot(l)) ** 3 * 0.18;
+    v.multiplyScalar(k + (rnd() - 0.5) * 0.05);
+    if (v.y < 0) v.y *= 0.35;           // sits flat on the ground
+    p.setXYZ(i, v.x, v.y * 0.72, v.z);
+  }
+  geo.translate(0, 0.08, 0);
+  geo.computeVertexNormals();
+  const m = new THREE.Mesh(geo, seed % 2 ? MAT.rock : MAT.rockLite);
+  m.castShadow = true;
+  m.receiveShadow = true;
+  return m;
+}
+export function buildBoulder(seed) {
+  if (!BOULDER_PROTOS.length) for (let i = 0; i < 6; i++) BOULDER_PROTOS.push(makeBoulder(i + 11));
+  return BOULDER_PROTOS[Math.abs(seed) % BOULDER_PROTOS.length].clone();
+}
+
 export function buildRock(seed) {
   const list = mountainProtos();
   return list[Math.abs(seed) % list.length].clone(true);

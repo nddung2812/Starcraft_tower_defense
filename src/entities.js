@@ -287,7 +287,10 @@ export class Marine {
     let o = this.order;
     if (o?.type === 'attack' && (!o.target || o.target.dead)) this.order = o = null;
     if (o?.type === 'attack' && !this.bunker && this.spec.mobile) {
-      if (this.distTo(o.target) <= this.stats.range * 0.92) this.halt(game);
+      // close in until comfortably inside range, then hold; only give chase again once it is truly out of reach
+      const d = this.distTo(o.target);
+      const chasing = this.driving ? d > this.stats.range * 0.9 : d > this.stats.range;
+      if (!chasing) this.halt(game);
       else {
         this.chaseT -= dt;
         if (this.chaseT <= 0) { this.chaseT = 0.6; this.chase(game); }
@@ -824,11 +827,13 @@ export class Zergling {
   }
 
   advance(dt, game) {
+    // routes are short stretches of the swarm's route map; read the next one when this runs out
+    if (!this.path || this.wp >= this.path.length) this.repath(game);
     if (!this.path || this.wp >= this.path.length) { this.moving = 0; return; }
     const node = this.path[this.wp];
     if (Math.hypot(node.x - this.x, node.y - this.z) < 0.18) {
       this.wp++;
-      if (this.wp >= this.path.length) { this.moving = 0; return; }
+      if (this.wp >= this.path.length) this.repath(game);
       return;
     }
     this.steer(node.x, node.y, dt, game, false);

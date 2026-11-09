@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BUILD, ZERG_INFO, BREEDS, ECON, UNITS, LEVEL_COUNT, AIR_STRIKE } from './config.js';
+import { BUILD, ZERG_INFO, BREEDS, ECON, UNITS, AIR_STRIKE } from './config.js';
 import { buildZergling } from './models.js';
 import { makeModel, loadedModels } from './assets.js';
 
@@ -193,7 +193,6 @@ export class UI {
     game.on('brief', (card) => this.say(`<b>${card.title}.</b> ${card.body}`));
     game.on('hold', (card) => this.say(`<b>${card.title}.</b> ${card.body}`));
     game.on('count', (n) => { if (n) this.say(`<b>Contact in ${n}.</b>`); });
-    game.on('over', (win) => this.showBanner(win));
 
     this.showUnit('marine', 0, null);
   }
@@ -324,7 +323,7 @@ export class UI {
       : g.state === 'brief' ? 'Contact'
       : g.state === 'victory' ? 'Sector secure'
       : g.state === 'defeat' ? 'Outpost lost'
-      : `Level ${g.level} of ${LEVEL_COUNT}`;
+      : `Level ${g.level}`;
     this.syncAir();
     $('btnScv').hidden = !g.scv?.dead;
     $('btnScv').disabled = g.minerals < ECON.scvCost;
@@ -397,13 +396,29 @@ export class UI {
 
   hideReel() { this.say(''); }
 
-  showBanner(win) {
-    $('bannerTitle').textContent = win ? 'Sector Secure' : 'Outpost Overrun';
-    $('bannerTitle').classList.toggle('is-win', !!win);
-    $('bannerText').textContent = win
-      ? `Ten canyons held. ${this.game.kills} bugs down.`
-      : `The swarm broke through on level ${this.game.level} after ${this.game.kills} kills.`;
+  /** Game over: your run, and the leaderboard with your row highlighted. */
+  showBanner({ name, score, level, kills, rank, online, scores, best }) {
+    $('bannerTitle').textContent = 'Outpost Overrun';
+    $('bannerTitle').classList.remove('is-win');
+    const place = rank ? ` · #${rank} ${online ? 'worldwide' : 'on this device'}` : '';
+    $('bannerText').textContent = `${name}, you killed ${score.toLocaleString()} bugs and held to level ${level}${place}. Your best: ${best.toLocaleString()} kills.`;
+    this.renderBoard($('bannerBoard'), scores, { name, score });
     $('banner').hidden = false;
+  }
+
+  /** Fill a leaderboard list. `you` highlights the matching row. */
+  renderBoard(el, scores, you = null) {
+    el.innerHTML = '';
+    let marked = false;
+    for (const s of scores) {
+      const li = document.createElement('li');
+      if (you && !marked && s.name === you.name && s.score === you.score) { li.className = 'is-you'; marked = true; }
+      const n = document.createElement('span'); n.className = 'board__name'; n.textContent = s.name;
+      const l = document.createElement('span'); l.className = 'board__lvl'; l.textContent = `L${s.level}`;
+      const v = document.createElement('span'); v.className = 'board__score'; v.textContent = `${Number(s.score).toLocaleString()} kills`;
+      li.append(n, l, v);
+      el.append(li);
+    }
   }
 
   hideBanner() { $('banner').hidden = true; }
