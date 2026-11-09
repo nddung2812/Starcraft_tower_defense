@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CELL, UNITS, BREEDS, UNIT_SCALE, BUG_SCALE } from './config.js';
+import { CELL, UNITS, BREEDS, UNIT_SCALE, BUG_SCALE, OVERDRIVE } from './config.js';
 import { buildWall, buildCore } from './models.js';
 import { makeModel } from './assets.js';
 
@@ -184,7 +184,7 @@ export class Marine {
     }
     const want = Math.atan2(dz, dx);
     this.restYaw = want;
-    const step = Math.min(dist, this.stats.moveSpeed * (this.stimT > 0 ? 1.5 : 1) * dt);
+    const step = Math.min(dist, this.stats.moveSpeed * (this.stimT > 0 ? OVERDRIVE.moveSpeed : 1) * dt);
     const nx = this.x + (dx / dist) * step;
     const nz = this.z + (dz / dist) * step;
     if (this.flying || game.grid.get(Math.floor(nx), Math.floor(this.z)) !== CELL.ROCK) this.x = nx;
@@ -359,7 +359,7 @@ export class Marine {
       const aligned = Math.abs(normAngle(want - this.yaw)) < 0.3;
       if (this.cooldown <= 0 && aligned && this.silenceT <= 0) {
         this.fire(game);
-        this.cooldown = this.stats.attackSpeed * (this.stimT > 0 ? 0.45 : 1);
+        this.cooldown = this.stats.attackSpeed * (this.stimT > 0 ? 1 / OVERDRIVE.fireRate : 1);
       }
     } else {
       this.yaw = angleLerp(this.yaw, rest, Math.min(1, dt * 2));
@@ -431,9 +431,9 @@ export class Marine {
   }
 
   stim(game) {
-    if (this.silenceT > 0 || !this.spec.canStim || !game.stimUnlocked || this.dead || this.downed || this.stimT > 0) return false;
-    this.stimT = 4.2;
-    this.hp = Math.max(1, this.hp - 12);
+    if (this.silenceT > 0 || !this.spec.canStim || !game.stimUnlocked || this.dead || this.downed || this.stimT > 0 || this.hp <= OVERDRIVE.hpCost) return false;
+    this.stimT = OVERDRIVE.duration;
+    this.hp -= OVERDRIVE.hpCost;
     game.voice.say('stim');
     game.fx.ring({ x: this.x, z: this.z }, 1.4, 0xff8844);
     return true;
