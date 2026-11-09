@@ -1,14 +1,16 @@
 /*
- * High scores. When the game is hosted with its API, scores go to SCORE_API on the same
- * site and everyone shares one leaderboard. Opened from disk or a plain static server
- * (no API), it quietly keeps a local board in this browser instead.
+ * High scores. Hosted builds talk to /api/scores with a one-time run token so the
+ * public board cannot be filled by a raw forged POST. Offline / local servers keep
+ * a per-browser board in localStorage instead.
  */
 
 const SCORE_API = '/api/scores';
+const RUN_API = '/api/run';
 const LOCAL_KEY = 'td.scores';
 const NAME_KEY = 'td.name';
 
 let online = null; // null = not tried yet, true/false once we know
+let runToken = null;
 
 function readLocal() {
   try { return JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]'); } catch { return []; }
@@ -35,11 +37,15 @@ export function rememberName(name) {
   try { localStorage.setItem(NAME_KEY, name); } catch { /* storage unavailable */ }
 }
 
-async function api(path, init) {
+async function api(url, init) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 5000);
   try {
-    const res = await fetch(SCORE_API + path, { ...init, signal: ctrl.signal, headers: { 'Content-Type': 'application/json' } });
+    const res = await fetch(url, {
+      ...init,
+      signal: ctrl.signal,
+      headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) }
+    });
     if (!res.ok) throw new Error(`${res.status}`);
     online = true;
     return await res.json();
@@ -48,11 +54,26 @@ async function api(path, init) {
   }
 }
 
+/** Ask the server for a one-time run token before combat. Safe to ignore offline. */
+export async function beginRunSession() {
+  runToken = null;
+  if (online === false) return false;
+  try {
+    const data = await api(RUN_API, { method: 'POST', body: '{}' });
+    runToken = typeof data.token === 'string' ? data.token : null;
+    return !!runToken;
+  } catch {
+    online = false;
+    runToken = null;
+    return false;
+  }
+}
+
 /** Top scores, best first: [{ name, score, level, kills }]. */
 export async function topScores(limit = 10) {
   if (online !== false) {
     try {
-      const data = await api(`?limit=${limit}`);
+      const data = await api(`${SCORE_API}?limit=${limit}`);
       return { online: true, scores: data.scores || [] };
     } catch {
       online = false;
@@ -73,9 +94,16 @@ export async function submitScore(entry) {
   // always keep a local copy so "your best" works offline too
   const local = rankLocal([...readLocal(), { ...run, at: Date.now() }]);
   writeLocal(local);
-  if (online !== false) {
+
+  const token = runToken;
+  runToken = null;
+
+  if (online !== false && token) {
     try {
-      const data = await api('', { method: 'POST', body: JSON.stringify(run) });
+      const data = await api(SCORE_API, {
+        method: 'POST',
+        body: JSON.stringify({ ...run, runToken: token })
+      });
       return { online: true, rank: data.rank ?? null };
     } catch {
       online = false;

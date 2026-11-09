@@ -5,7 +5,7 @@ import { Game } from './game.js';
 import { UI } from './ui.js';
 import { Minimap } from './minimap.js';
 import { loadModels } from './assets.js';
-import { topScores, submitScore, savedName, rememberName, cleanName, localBest } from './scores.js';
+import { topScores, submitScore, beginRunSession, savedName, rememberName, cleanName, localBest } from './scores.js';
 import { sfx } from './audio.js';
 import { voice } from './voice.js';
 import { readChallenge, challengeUrl, makeRunCard } from './challenge.js';
@@ -836,6 +836,7 @@ function launchNewRun(name, quick, seed = challenge?.seed ?? null) {
   runGeneration++; completedRun = null;
   player = name; quickDeployment = quick; guideDismissed = false;
   rememberName(player);
+  beginRunSession();
   game.reset(seed);
   cancelModes(); select(null); groups.forEach(g => { g.length = 0; });
   ui.hideBanner(); ui.hideReel();

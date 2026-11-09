@@ -1,5 +1,6 @@
 import { captureCheckpoint, readCheckpoint, restoreCheckpoint, SAVE_KEY } from './checkpoints.js';
 import { Progression, ACHIEVEMENTS } from './progression.js';
+import { beginRunSession } from './scores.js';
 
 const $ = id => document.getElementById(id);
 const count = n => n.toLocaleString();
@@ -107,6 +108,7 @@ export class Retention {
     const save = this.save;
     this.restoring = true;
     try {
+      beginRunSession();
       restoreCheckpoint(this.game, save);
       this.active = true;
       this.onContinue(save);

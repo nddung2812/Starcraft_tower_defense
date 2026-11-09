@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual, randomBytes } from 'node:crypto';
+const { createHmac, timingSafeEqual, randomBytes } = require('node:crypto');
 
 const SCORES_KEY = 'td:scores';
 const MAX_BOARD = 100;
@@ -8,7 +8,7 @@ const POST_LIMIT = 8;
 const RUN_LIMIT = 20;
 const WINDOW_SEC = 60;
 
-export function json(res, status, body, extraHeaders = {}) {
+function json(res, status, body, extraHeaders = {}) {
   res.statusCode = status;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
@@ -17,13 +17,13 @@ export function json(res, status, body, extraHeaders = {}) {
   res.end(JSON.stringify(body));
 }
 
-export function clientIp(req) {
+function clientIp(req) {
   const fwd = req.headers['x-forwarded-for'];
   if (typeof fwd === 'string' && fwd.trim()) return fwd.split(',')[0].trim().slice(0, 64);
   return String(req.socket?.remoteAddress || 'unknown').slice(0, 64);
 }
 
-export function cleanName(raw) {
+function cleanName(raw) {
   return String(raw || '').replace(/[^\p{L}\p{N} _.\-']/gu, '').replace(/\s+/g, ' ').trim().slice(0, 16);
 }
 
@@ -33,7 +33,7 @@ function secret() {
   return s;
 }
 
-export async function redis(cmd) {
+async function redis(cmd) {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) throw new Error('redis env missing');
@@ -47,20 +47,20 @@ export async function redis(cmd) {
   return data.result;
 }
 
-export async function rateLimit(bucket, ip, limit) {
+async function rateLimit(bucket, ip, limit) {
   const key = `td:rl:${bucket}:${ip}`;
   const count = Number(await redis(['INCR', key]));
   if (count === 1) await redis(['EXPIRE', key, String(WINDOW_SEC)]);
   return count <= limit;
 }
 
-export function signRun(payload) {
+function signRun(payload) {
   const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
   const sig = createHmac('sha256', secret()).update(body).digest('base64url');
   return `${body}.${sig}`;
 }
 
-export function verifyRun(token) {
+function verifyRun(token) {
   if (typeof token !== 'string' || token.length > 512) return null;
   const i = token.lastIndexOf('.');
   if (i <= 0) return null;
@@ -80,12 +80,11 @@ export function verifyRun(token) {
   }
 }
 
-export function mintRunToken() {
+function mintRunToken() {
   return signRun({ v: 1, n: randomBytes(16).toString('hex'), iat: Date.now() });
 }
 
-/** Generous but rejects absurd forged kills/level/time combos. */
-export function validateRun(entry) {
+function validateRun(entry) {
   const score = Math.round(Number(entry.score));
   const kills = Math.round(Number(entry.kills));
   const level = Math.round(Number(entry.level));
@@ -96,19 +95,15 @@ export function validateRun(entry) {
   if (score !== kills) return { ok: false, error: 'score mismatch' };
   if (score < 0 || kills < 0 || level < 1 || level > 200) return { ok: false, error: 'out of range' };
   if (seconds < 8 || seconds > 60 * 60 * 12) return { ok: false, error: 'time out of range' };
-  // Sustained kill rate above ~4/s is not reachable in normal play.
   if (kills > seconds * 4 + 20) return { ok: false, error: 'implausible kill rate' };
-  // Rough cumulative spawn budget across cleared rounds, plus boss/reinforcement slack.
   const maxForLevel = Math.min(25000, 40 + level * 140 + Math.floor(level * level * 1.2));
   if (kills > maxForLevel) return { ok: false, error: 'implausible kills for level' };
-  // Reaching high levels requires some playtime.
   if (level >= 5 && seconds < level * 12) return { ok: false, error: 'implausible time for level' };
   const name = cleanName(entry.name) || 'Anonymous';
-  if (name.length < 1) return { ok: false, error: 'bad name' };
   return { ok: true, run: { name, score, level, kills, seconds } };
 }
 
-export async function consumeRunToken(token, payload) {
+async function consumeRunToken(payload) {
   const ageMs = Date.now() - payload.iat;
   if (ageMs < 8_000) return { ok: false, error: 'run too short' };
   if (ageMs > RUN_TTL_SEC * 1000) return { ok: false, error: 'run expired' };
@@ -118,7 +113,7 @@ export async function consumeRunToken(token, payload) {
   return { ok: true };
 }
 
-export async function saveScore(run) {
+async function saveScore(run) {
   const at = Date.now();
   const member = JSON.stringify({ ...run, at });
   await redis(['ZADD', SCORES_KEY, String(run.score), member]);
@@ -127,7 +122,7 @@ export async function saveScore(run) {
   return { rank: better + 1, at };
 }
 
-export async function topScores(limit = 10) {
+async function listTopScores(limit = 10) {
   const n = Math.max(1, Math.min(50, limit | 0));
   const rows = await redis(['ZREVRANGE', SCORES_KEY, '0', String(n - 1)]);
   const scores = [];
@@ -146,4 +141,7 @@ export async function topScores(limit = 10) {
   return scores;
 }
 
-export { POST_LIMIT, RUN_LIMIT, SCORES_KEY };
+module.exports = {
+  json, clientIp, cleanName, redis, rateLimit, mintRunToken, verifyRun,
+  validateRun, consumeRunToken, saveScore, listTopScores, POST_LIMIT, RUN_LIMIT
+};
