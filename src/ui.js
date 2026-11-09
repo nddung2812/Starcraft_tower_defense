@@ -582,9 +582,9 @@ export class UI {
     $('btnLocateBoss').disabled = !a.boss || a.boss.dead;
     const mark = a.marks[0];
     $('bossAttack').textContent = a.cleared ? 'AIR STRIKE RECHARGED'
-      : mark ? `IMPACT / ${Math.max(0, mark.t).toFixed(1)}s · MOVE!`
+      : mark ? `${mark.spell ? mark.spell.toUpperCase() : "IMPACT"} / ${Math.max(0, mark.t).toFixed(1)}s · MOVE!`
       : !a.boss ? (a.pending && g.state === 'wave' ? `CONTACT / ${Math.max(0, 6 - a.elapsed).toFixed(1)}s` : 'PREPARE YOUR DEFENSE')
-      : `BOMBARDMENT / ${Math.ceil(a.strikeT)}s`;
+      : `BOMBARDMENT / ${Math.ceil(a.strikeT)}s · MAGIC / ${Math.ceil(a.spellT)}s`;
     $('bossAdds').textContent = a.boss && !a.cleared ? `REINFORCEMENTS / ${Math.ceil(a.reinforceT)}s` : `BOUNTY / +${a.plan.reward}`;
   }
 

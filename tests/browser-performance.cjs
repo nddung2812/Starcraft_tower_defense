@@ -12,7 +12,7 @@ const assert = require('node:assert/strict');
       window.cancelAnimationFrame=id=>pending.delete(id);
       window.__pump=(steps,hz=120)=>{window.__time ??= performance.now();for(let i=0;i<steps;i++){window.__time+=1000/hz;const callbacks=[...pending.values()];pending.clear();for(const callback of callbacks)callback(window.__time);}};
     });
-    await page.goto('http://127.0.0.1:8765/'); await page.waitForFunction(()=>window.game);
+    await page.goto('http://127.0.0.1:8765/'); await page.waitForFunction(()=>window.game?.stage, null, { polling: 50 });
     const scheduling=await page.evaluate(async()=>{
       const g=game,s=g.stage;
       if(s.quality!=='low'||s.renderer.getPixelRatio()!==2||s.composer!==null||s.renderer.shadowMap.enabled)throw Error('Eco defaults are not sharp/lightweight/lazy');

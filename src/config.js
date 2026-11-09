@@ -153,12 +153,12 @@ export const ECON = {
 };
 
 export const BREEDS = {
-  zergling: { id: 'zergling', name: 'Zergling', role: 'Melee Swarm', hp: 32, armor: 0, damage: 5, attackSpeed: 0.55, range: 0.95, speed: 2.4, scale: 1, bounty: 1, melee: true, aggro: 2.6 },
-  warrior:  { id: 'warrior', name: 'Warrior', role: 'Armored Strain', hp: 130, armor: 3, damage: 10, attackSpeed: 0.8, range: 1.05, speed: 1.35, scale: 1.32, bounty: 3, melee: true, aggro: 2.2 },
-  hopper:   { id: 'hopper', name: 'Hopper', role: 'Wall Vaulter', hp: 48, armor: 0, damage: 7, attackSpeed: 0.5, range: 0.9, speed: 2.7, scale: 0.82, bounty: 2, melee: true, jump: true, aggro: 3 },
-  skyhunter: { id: 'skyhunter', name: 'Sky Hunter', role: 'Flying Assault', flying: true, targetsAir: true, hp: 80, armor: 1, damage: 8, attackSpeed: 1.1, range: 4.5, speed: 3.1, scale: 1.1, bounty: 4, ranged: true, projectile: 'spine', muzzle: [0.5, 0.3] },
-  needler:  { targetsAir: true, id: 'needler', name: 'Needler', role: 'Spine Launcher', hp: 70, armor: 1, damage: 9, attackSpeed: 1.05, range: 4.3, speed: 1.85, scale: 1, bounty: 3, ranged: true, projectile: 'spine', muzzle: [0.42, 0.62] },
-  tanker:   { id: 'tanker', name: 'Tanker', role: 'Acid Siege', hp: 240, armor: 1, damage: 16, attackSpeed: 1.7, range: 3.6, speed: 1.05, scale: 1.7, bounty: 5, ranged: true }
+  zergling: { id: 'zergling', name: 'Zergling', role: 'Melee Swarm', hp: 37, armor: 0, damage: 6, attackSpeed: 0.55, range: 0.95, speed: 2.4, scale: 1, bounty: 1, melee: true, aggro: 2.6 },
+  warrior:  { id: 'warrior', name: 'Warrior', role: 'Armored Strain', hp: 150, armor: 3, damage: 11, attackSpeed: 0.8, range: 1.05, speed: 1.35, scale: 1.32, bounty: 3, melee: true, aggro: 2.2 },
+  hopper:   { id: 'hopper', name: 'Hopper', role: 'Wall Vaulter', hp: 55, armor: 0, damage: 8, attackSpeed: 0.5, range: 0.9, speed: 2.7, scale: 0.82, bounty: 2, melee: true, jump: true, aggro: 3 },
+  skyhunter: { id: 'skyhunter', name: 'Sky Hunter', role: 'Flying Assault', flying: true, targetsAir: true, hp: 92, armor: 1, damage: 9, attackSpeed: 1.1, range: 4.5, speed: 3.1, scale: 1.1, bounty: 4, ranged: true, projectile: 'spine', muzzle: [0.5, 0.3] },
+  needler:  { targetsAir: true, id: 'needler', name: 'Needler', role: 'Spine Launcher', hp: 81, armor: 1, damage: 10, attackSpeed: 1.05, range: 4.3, speed: 1.85, scale: 1, bounty: 3, ranged: true, projectile: 'spine', muzzle: [0.42, 0.62] },
+  tanker:   { id: 'tanker', name: 'Tanker', role: 'Acid Siege', hp: 276, armor: 1, damage: 18, attackSpeed: 1.7, range: 3.6, speed: 1.05, scale: 1.7, bounty: 5, ranged: true }
 };
 
 /*
@@ -266,6 +266,9 @@ export function milestonePlan(level) {
     armor: (hard ? 3 : 1) + tier, damage: Math.round((22 + tier * 8) * (hard ? 1 : 0.65)),
     scale: 2.1 + Math.min(tier, 5) * 0.25,
     speed: 1.15 + Math.min(tier, 5) * 0.1,
+    spellInterval: hard ? 10 : 14, spellTelegraph: 2,
+    blindDuration: 5, silenceDuration: 3, spellRadius: 2.8,
+    broodCount: Math.min(10, 3 + tier * 2),
     strikeInterval: Math.max(5, 11 - tier) * (hard ? 1 : 1.4),
     strikeDamage: Math.round((30 + tier * 15) * (hard ? 1 : 0.6)),
     strikeRadius: 2.3 + Math.min(tier, 5) * 0.3,

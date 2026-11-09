@@ -78,6 +78,8 @@ export class Marine {
     this.spawnT = 0;
     this.invested = 0;
     this.stimT = 0;
+    this.blindT = 0;
+    this.silenceT = 0;
     this.bunker = null;
     this.warned = false;
     this.waypoints = null;
@@ -125,6 +127,8 @@ export class Marine {
     this.stats = s;
     this.hp = Math.min(s.hp, s.hp * ratio);
   }
+
+  get attackRange() { return this.stats.range * (this.blindT > 0 ? 0.5 : 1); }
 
   get maxHp() { return this.stats.hp; }
   get upgradeCost() { return this.tiers[this.tier].upgradeCost; }
@@ -268,6 +272,9 @@ export class Marine {
   }
 
   update(dt, game) {
+    this.blindT = Math.max(0, this.blindT - dt);
+    this.silenceT = Math.max(0, this.silenceT - dt);
+    this.ring.material.color.set(this.silenceT > 0 ? 0xc06bff : this.blindT > 0 ? 0x8296ff : (game.armyColour || this.spec.accent));
     if (this.flying && !this.dead) {
       this.altitude = (game.heightAt?.(this.x, this.z) || 0) + 2.6 + Math.sin(game.time * 2.5) * 0.1;
       this.obj.position.y = this.altitude;
@@ -309,7 +316,7 @@ export class Marine {
     if (o?.type === 'attack' && !this.bunker && this.spec.mobile) {
       // close in until comfortably inside range, then hold; only give chase again once it is truly out of reach
       const d = this.distTo(o.target);
-      const chasing = this.driving ? d > this.stats.range * 0.9 : d > this.stats.range;
+      const chasing = this.driving ? d > this.attackRange * 0.9 : d > this.attackRange;
       if (!chasing) this.halt(game);
       else {
         this.chaseT -= dt;
@@ -333,7 +340,7 @@ export class Marine {
     this.model.scale.setScalar(grow * this.visualScale);
 
     const ordered = this.order?.type === 'attack' && this.target !== this.order.target;
-    if (ordered || !this.target || this.target.dead || this.distTo(this.target) > this.stats.range || !this.inArc(this.target)) {
+    if (ordered || !this.target || this.target.dead || this.distTo(this.target) > this.attackRange || !this.inArc(this.target)) {
       this.target = this.acquire(game);
     }
 
@@ -350,7 +357,7 @@ export class Marine {
       this.yaw = angleLerp(this.yaw, want, Math.min(1, dt * 9));
       this.cooldown -= dt;
       const aligned = Math.abs(normAngle(want - this.yaw)) < 0.3;
-      if (this.cooldown <= 0 && aligned) {
+      if (this.cooldown <= 0 && aligned && this.silenceT <= 0) {
         this.fire(game);
         this.cooldown = this.stats.attackSpeed * (this.stimT > 0 ? 0.45 : 1);
       }
@@ -386,13 +393,13 @@ export class Marine {
 
   acquire(game) {
     const mine = this.order?.type === 'attack' ? this.order.target : null;
-    if (mine && !(mine.flying && this.spec.targetsAir === false) && !mine.dead && this.distTo(mine) <= this.stats.range && this.inArc(mine)) return mine;
+    if (mine && !(mine.flying && this.spec.targetsAir === false) && !mine.dead && this.distTo(mine) <= this.attackRange && this.inArc(mine)) return mine;
     const focus = game.focus;
-    if (focus && !(focus.flying && this.spec.targetsAir === false) && !focus.dead && this.distTo(focus) <= this.stats.range && this.inArc(focus)) return focus;
+    if (focus && !(focus.flying && this.spec.targetsAir === false) && !focus.dead && this.distTo(focus) <= this.attackRange && this.inArc(focus)) return focus;
     let best = null, bestScore = -Infinity;
     for (const z of game.zerglings) {
       if (z.dead || (z.flying && this.spec.targetsAir === false)) continue;
-      if (this.distTo(z) > this.stats.range || !this.inArc(z)) continue;
+      if (this.distTo(z) > this.attackRange || !this.inArc(z)) continue;
       const score = -Math.hypot(z.x - game.core.x, z.z - game.core.z) + (z.breedId === 'tanker' ? 2 : z.breedId === 'needler' ? 1.5 : 0);
       if (score > bestScore) { bestScore = score; best = z; }
     }
@@ -400,6 +407,7 @@ export class Marine {
   }
 
   fire(game) {
+    if (this.silenceT > 0) return;
     this.recoil = 1;
     const ud = this.model.userData;
     const locals = [];
@@ -423,7 +431,7 @@ export class Marine {
   }
 
   stim(game) {
-    if (!this.spec.canStim || !game.stimUnlocked || this.dead || this.downed || this.stimT > 0) return false;
+    if (this.silenceT > 0 || !this.spec.canStim || !game.stimUnlocked || this.dead || this.downed || this.stimT > 0) return false;
     this.stimT = 4.2;
     this.hp = Math.max(1, this.hp - 12);
     game.voice.say('stim');

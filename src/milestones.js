@@ -37,6 +37,8 @@ export class MilestoneAssault {
     this.enraged = false;
     this.cleared = false;
     this.pulse = 0;
+    this.spellT = this.plan?.spellInterval || 0;
+    this.spellIndex = 0;
     this.status = this.plan ? 'Prepare your line. Spread out before the bombardment.' : '';
   }
 
@@ -96,6 +98,17 @@ export class MilestoneAssault {
 
   detonate(mark) {
     const g = this.game;
+    if (mark.spell) {
+      const blind = mark.spell === 'blind';
+      g.fx.ring({ x: mark.x, z: mark.z }, mark.radius, blind ? 0x8296ff : 0xc06bff);
+      for (const unit of g.gunners) {
+        if (unit.dead || unit.downed || unit.bunker || Math.hypot(unit.x - mark.x, unit.z - mark.z) > mark.radius) continue;
+        if (blind) unit.blindT = this.plan.blindDuration;
+        else { unit.silenceT = this.plan.silenceDuration; unit.stimT = 0; }
+        g.fx.label({ x: unit.x, y: unit.altitude + 1.2, z: unit.z }, blind ? 'BLINDED · 5s' : 'SILENCED · 3s', 'boss-spell');
+      }
+      return;
+    }
     g.fx.explosion({ x: mark.x, y: 0.25, z: mark.z }, mark.radius);
     g.stage.kick(4);
     g.sfx.hitFlesh();
@@ -104,6 +117,48 @@ export class MilestoneAssault {
       if (!unit || unit.dead || unit.downed || unit.bunker || unit.flying) continue;
       if (Math.hypot(unit.x - mark.x, unit.z - mark.z) <= mark.radius) unit.takeDamage(this.plan.strikeDamage, g, 0);
     }
+  }
+
+  castSpell() {
+    const g = this.game;
+    const spell = ['blind', 'silence', 'brood'][this.spellIndex++ % 3];
+    if (spell === 'brood') { this.spawnBrood(); return; }
+    const troops = g.gunners.filter(u => !u.dead && !u.downed && !u.bunker);
+    if (!troops.length) { this.spawnBrood(); return; }
+    const prey = troops[(this.spellIndex - 1) % troops.length];
+    const radius = this.plan.spellRadius;
+    const color = spell === 'blind' ? 0x8296ff : 0xc06bff;
+    const mesh = new THREE.Mesh(new THREE.RingGeometry(radius * 0.88, radius, 48).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide }));
+    mesh.position.set(prey.x, 0.16, prey.z);
+    g.scene.add(mesh);
+    this.marks.push({ x: prey.x, z: prey.z, radius, t: this.plan.spellTelegraph, mesh, spell });
+    const name = spell === 'blind' ? 'BLIND · half weapon range' : 'SILENCE · weapons disabled';
+    this.status = `${name} · leave the glowing circle!`;
+    g.fx.label({ x: prey.x, y: prey.altitude + 1.5, z: prey.z }, `${spell.toUpperCase()} IN 2s · MOVE!`, 'boss-spell');
+    g.sfx.alarm();
+  }
+
+  spawnBrood() {
+    const g = this.game;
+    if (!this.boss || this.boss.dead) return;
+    const available = Math.max(0, 180 - g.zerglings.filter(z => !z.dead).length - g.queue.length);
+    const used = new Set();
+    for (let i = 0; i < Math.min(this.plan.broodCount, available); i++) {
+      const spot = g.grid.nearestOpen(Math.floor(this.boss.x), Math.floor(this.boss.z), 4, used);
+      if (!spot) break;
+      used.add(g.grid.idx(spot.x, spot.y));
+      const baby = new Zergling(spot.x + 0.5, spot.y + 0.5, 'zergling', 0.55 * (1 + (g.level - 1) * 0.12), 1.2);
+      baby.isBrood = true;
+      baby.scale *= 0.55;
+      baby.damage = Math.max(1, Math.round(baby.damage * 0.65));
+      g.zerglings.push(baby);
+      g.world.add(baby.obj);
+      g.fx.ring({ x: baby.x, z: baby.z }, 0.7, 0x91e78b);
+    }
+    this.status = 'BROOD HATCH · baby creeps emerge beside the boss!';
+    g.fx.label({ x: this.boss.x, y: 2, z: this.boss.z }, 'BROOD HATCH!', 'boss-spell');
+    g.sfx.screech();
   }
 
   reinforce() {
@@ -122,6 +177,7 @@ export class MilestoneAssault {
     if (bug !== this.boss || this.cleared) return;
     const g = this.game;
     this.cleared = true;
+    for (const unit of g.gunners) { unit.blindT = 0; unit.silenceT = 0; }
     this.clearMarks();
     g.minerals += this.plan.reward;
     g.airStrikeCd = 0;
@@ -152,6 +208,11 @@ export class MilestoneAssault {
       this.game.stage.kick(3);
     }
     this.boss.crown.rotation.y += dt * 2;
+    this.spellT -= dt;
+    if (this.spellT <= 0) {
+      this.castSpell();
+      this.spellT = this.plan.spellInterval * (this.enraged ? 0.75 : 1);
+    }
     this.strikeT -= dt;
     this.reinforceT -= dt;
     if (this.strikeT <= 0) {

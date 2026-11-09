@@ -24,6 +24,7 @@
       <div>
         <h1>Terran Defense</h1>
         <p id="pilot">Mar Sara · Outpost Delta</p>
+        <span id="commanderBadge" class="commander-badge">Commander</span>
       </div>
     </div>
 
@@ -46,6 +47,7 @@
         <button id="btnSound" class="btn btn--icon" title="Sound on" aria-label="Toggle sound" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-5v16l-5-5H3ZM16 8c3 2 3 6 0 8"/><path class="sound-mute" d="m16 9 6 6m0-6-6 6"/></svg></button>
         <button id="btnFx" class="btn btn--icon" title="Eco graphics: cooler 30 fps rendering">ECO</button>
         <button id="btnSpeed" class="btn btn--icon" title="Game speed">1x</button>
+        <button id="btnCareer" class="btn" type="button" title="Achievements and cosmetics" aria-label="Achievements and cosmetics">★</button>
         <button id="btnInspector" class="btn btn--inspector" title="Unit info" aria-label="Unit info" aria-expanded="false" aria-controls="unitPanel"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 10v7m0-10v1"/></svg></button>
         <button id="btnRestart" class="btn" title="Restart" aria-label="Restart"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8a8 8 0 1 1-1 7M4 3v6h6"/></svg></button>
       </div>
@@ -79,6 +81,21 @@
       <button id="guideDismiss" type="button" aria-label="Dismiss field manual">×</button>
     </div>
     <div id="challengeHud" class="challenge-hud" hidden aria-live="polite"></div>
+    <div id="achievementNotice" class="achievement-notice" role="status" aria-live="polite" hidden></div>
+
+    <section id="pauseMenu" class="banner pause-menu" aria-label="Game paused" hidden>
+      <div class="banner__inner pause-card">
+        <span class="intro__eyebrow">TAKE A BREATHER</span>
+        <h2 class="is-win">Game paused</h2>
+        <p id="pauseSaveInfo"></p>
+        <button id="btnResume" class="btn btn--primary" type="button">Resume game</button>
+        <button id="btnPlan" class="btn" type="button">Plan defense while paused</button>
+        <button id="btnSaveQuit" class="btn" type="button">Save &amp; quit</button>
+        <button class="btn btn--ghost" type="button" data-career>Achievements &amp; cosmetics</button>
+        <p id="saveFeedback" class="save-feedback" role="status"></p>
+      </div>
+    </section>
+    <button id="pausePlanBar" class="pause-plan-bar" type="button" hidden>Planning paused · Open pause menu</button>
 
     <div id="banner" class="banner" hidden>
       <div class="banner__inner">
@@ -92,6 +109,7 @@
         </div>
         <p id="shareStatus" class="share-status" role="status"></p>
         <ol id="bannerBoard" class="board"></ol>
+        <button id="resultCareer" class="career-teaser" type="button" data-career></button>
         <button id="bannerBtn" class="btn btn--primary">Play Again</button>
       </div>
     </div>
@@ -106,11 +124,19 @@
         </div>
         <p class="intro__hint">Boss every 5 levels · automatic Marine upgrades · silver boosts / gold permanent</p>
         <p id="challengeIntro" class="challenge-intro" hidden></p>
+        <section id="savedRun" class="saved-run" aria-label="Saved run" hidden>
+          <span class="intro__eyebrow">YOUR LINE IS STILL HOLDING</span>
+          <button id="btnContinue" class="btn btn--primary" type="button">Continue game</button>
+          <p id="savedRunInfo"></p>
+        </section>
+        <p id="introSaveFeedback" class="save-feedback" role="status"></p>
         <label class="intro__label" for="playerName">Your name</label>
         <input id="playerName" class="intro__input" maxlength="16" placeholder="Commander" spellcheck="false">
         <button id="introBtn" class="btn btn--primary" type="submit" name="deploy" value="quick">Quick deploy →</button>
         <span class="intro__hint">3 soldiers ready · normal mineral cost · straight into combat</span>
         <button class="btn btn--ghost" type="submit" name="deploy" value="build">Build my own defense</button>
+        <button id="introCareer" class="career-teaser" type="button" data-career></button>
+        <span class="intro__hint">Checkpoints and achievements stay in this browser on this device.</span>
         <p class="intro__sub" id="boardTitle">Top commanders</p>
         <ol id="introBoard" class="board"></ol>
       </form>
@@ -181,6 +207,23 @@
   </aside>
 
 </div>
+
+<dialog id="careerDialog" class="career-dialog" aria-labelledby="careerTitle">
+  <div class="career-heading"><div><span class="intro__eyebrow">COMMANDER RECORD</span><h2 id="careerTitle">Make every stand count</h2></div><button id="closeCareer" class="btn" type="button" aria-label="Close achievements">×</button></div>
+  <p id="careerSummary"></p>
+  <p class="career-help">Progress carries across runs. Rewards change your look; combat strength comes from your run.</p>
+  <div id="achievementList" class="achievement-list"></div>
+  <h3>Your loadout</h3>
+  <p class="career-help">Army rings appear beneath your units, including new recruits.</p>
+  <div id="cosmeticLoadout" class="cosmetic-loadout"></div>
+  <p id="careerStorage" class="save-feedback" role="status"></p>
+</dialog>
+
+<dialog id="replaceDialog" class="career-dialog replace-dialog" aria-labelledby="replaceTitle">
+  <h2 id="replaceTitle">Start a new stand?</h2>
+  <p id="replaceText"></p>
+  <div class="share-actions"><button id="cancelReplace" class="btn" type="button">Keep saved run</button><button id="confirmReplace" class="btn btn--primary" type="button">Start new run</button></div>
+</dialog>
 
 <script type="module" src="src/main.js"></script>
 </body>

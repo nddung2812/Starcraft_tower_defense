@@ -9,6 +9,7 @@ import { topScores, submitScore, savedName, rememberName, cleanName, localBest }
 import { sfx } from './audio.js';
 import { voice } from './voice.js';
 import { readChallenge, challengeUrl, makeRunCard } from './challenge.js';
+import { Retention } from './retention.js';
 
 // any .glb files in assets/models/ replace the built-in unit models
 await loadModels();
@@ -674,6 +675,7 @@ window.addEventListener('keydown', (ev) => {
   // typing a name is not issuing orders
   if (ev.target instanceof HTMLElement && ev.target.closest('input, textarea, [contenteditable]')) return;
   if (!document.getElementById('intro').hidden) return;
+  if (document.querySelector('dialog[open]')) return;
   if (ARROWS.includes(ev.key)) { keys.add(ev.key); ev.preventDefault(); return; }
 
   // control groups: Ctrl+N sets, Shift+N adds, N selects, N twice jumps the camera
@@ -728,13 +730,31 @@ game.on('level', () => { cancelModes(); select(null); updateTip(); });
 const intro = document.getElementById('intro');
 const nameInput = document.getElementById('playerName');
 let player = savedName();
-let runStarted = 0;
 let completedRun = null;
 let runGeneration = 0;
 let guideDismissed = false;
 let quickDeployment = true;
 const guide = document.getElementById('fieldGuide');
 const challengeHud = document.getElementById('challengeHud');
+const retention = new Retention(game, {
+  getMeta: () => ({ player: player || 'Commander', quickDeployment, guideDismissed }),
+  onContinue: save => {
+    runGeneration++; completedRun = null;
+    player = save.player; quickDeployment = save.quickDeployment; guideDismissed = save.guideDismissed;
+    rememberName(player);
+    document.getElementById('pilot').textContent = player === 'Commander' ? player : `Commander ${player}`;
+    intro.hidden = true;
+    cancelModes(); select(null); groups.forEach(g => { g.length = 0; });
+    ui.hideBanner(); ui.sync();
+    document.getElementById('btnSpeed').textContent = '1x';
+    sfx.resume(); voice.unlock(); updateGuide(); updateChallenge();
+  },
+  onQuit: () => {
+    runGeneration++; keys.clear(); pointer.inside = false;
+    cancelModes(); select(null); ui.hideBanner();
+    showIntro(); ui.sync(); updateGuide();
+  }
+});
 if (challenge) {
   const message = `Beat ${challenge.name}'s ${challenge.kills.toLocaleString()} kills. Same maps. Your strategy.`;
   const introChallenge = document.getElementById('challengeIntro');
@@ -744,6 +764,7 @@ if (challenge) {
 }
 function updateChallenge() {
   if (!challenge) return;
+  challengeHud.hidden = game.mapSeed !== challenge.seed;
   const beaten = game.kills > challenge.kills;
   challengeHud.classList.toggle('is-beaten', beaten);
   challengeHud.textContent = beaten
@@ -803,35 +824,47 @@ document.getElementById('btnSaveCard').addEventListener('click', () => {
 async function showIntro() {
   intro.hidden = false;
   nameInput.value = player;
-  setTimeout(() => nameInput.focus(), 50);
+  retention.refresh();
+  setTimeout(() => (retention.save ? document.getElementById('btnContinue') : nameInput).focus(), 50);
   const { online, scores } = await topScores(10);
   document.getElementById('boardTitle').textContent = online ? 'Top commanders worldwide' : 'Best runs on this device';
   ui.renderBoard(document.getElementById('introBoard'), scores, player ? { name: player, score: -1 } : null);
 }
 
-document.getElementById('introForm').addEventListener('submit', (ev) => {
-  ev.preventDefault();
-  const name = cleanName(nameInput.value) || 'Commander';
-  player = name;
-  rememberName(name);
+function launchNewRun(name, quick, seed = challenge?.seed ?? null) {
+  retention.active = false;
+  runGeneration++; completedRun = null;
+  player = name; quickDeployment = quick; guideDismissed = false;
+  rememberName(player);
+  game.reset(seed);
+  cancelModes(); select(null); groups.forEach(g => { g.length = 0; });
+  ui.hideBanner(); ui.hideReel();
+  document.getElementById('btnSpeed').textContent = '1x';
   document.getElementById('pilot').textContent = name === 'Commander' ? name : `Commander ${name}`;
   intro.hidden = true;
-  runStarted = performance.now();
+  retention.begin();
   sfx.resume();
   voice.unlock();
-  quickDeployment = ev.submitter?.value !== 'build';
   if (quickDeployment) game.quickDeploy();
-  else { game.startWave(); game.togglePause(); }
+  else { game.startWave(); game.togglePause(); retention.plan(); }
+  ui.sync();
   updateTip();
   updateGuide();
   updateChallenge();
+}
+
+document.getElementById('introForm').addEventListener('submit', (ev) => {
+  ev.preventDefault();
+  const name = cleanName(nameInput.value) || 'Commander';
+  const quick = ev.submitter?.value !== 'build';
+  retention.requestNewRun(() => launchNewRun(name, quick));
 });
 
 game.on('over', async () => {
   const generation = runGeneration;
   const previousBest = localBest();
   const run = { name: player || 'Commander', score: game.score, level: game.level, kills: game.kills,
-    seconds: (performance.now() - runStarted) / 1000, seed: game.mapSeed };
+    seconds: game.time, seed: game.mapSeed };
   completedRun = run;
   const card = document.getElementById('runCard');
   try {
@@ -850,24 +883,8 @@ game.on('over', async () => {
 });
 
 game.on('restart', () => {
-  runGeneration++;
-  completedRun = null;
-  runStarted = performance.now();
-  const seed = challenge ? challenge.seed : game.mapSeed;
-  game.reset(seed);
-  cancelModes();
-  select(null);
-  groups.forEach((g) => { g.length = 0; });
-  ui.hideBanner();
-  ui.hideReel();
-  ui.sync();
-  btnSpeed.textContent = '1x';
-  if (intro.hidden) {
-    if (quickDeployment) game.quickDeploy();
-    else { game.startWave(); game.togglePause(); }
-  }
-  updateGuide();
-  updateChallenge();
+  const seed = game.mapSeed;
+  if (intro.hidden) retention.requestNewRun(() => launchNewRun(player || 'Commander', quickDeployment, seed));
 });
 let alertShownAt = -99;
 game.on('alert', (e) => {
@@ -937,13 +954,13 @@ btnSpeed.addEventListener('click', () => {
 /* ---------------- loop ---------------- */
 
 function resize() {
-  const r = canvas.parentElement.getBoundingClientRect();
+  const r = canvas.getBoundingClientRect();
   game.viewport = { w: r.width, h: r.height };
   stage.resize(r.width, r.height);
   ui.portrait.resize();
 }
 window.addEventListener('resize', resize);
-// Readout rows can change height when a boss arrives or a round finishes.
+// Keep rendering and pointer coordinates matched to the actual canvas size.
 new ResizeObserver(resize).observe(canvas.parentElement);
 
 let last = performance.now();

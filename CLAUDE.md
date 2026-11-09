@@ -49,6 +49,8 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 | `src/ui.js` | Inspector panel, command card, selection chips, leaderboard rendering, HUD readouts. |
 | `src/minimap.js` | Minimap (1 px per tile, scaled), camera footprint, attack pings, click to look / right-click to send. |
 | `src/scores.js` | Leaderboard client: `/api/scores` when available, localStorage fallback. Player name handling. |
+| `src/checkpoints.js` | Versioned round checkpoint capture, validation against the seeded grid, storage reads and paused restoration. |
+| `src/progression.js`, `src/retention.js` | Permanent achievements, cosmetic loadout, Continue, pause/planning menus, save-and-quit, storage failure feedback and new-run confirmation. |
 | `src/fx.js`, `audio.js`, `voice.js` | Particles and decals, synthesised sound effects, speech-synthesis voice lines. |
 | `assets/models/README.md` | How to drop in `.glb` unit models. |
 
@@ -135,6 +137,37 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 - **Typing is not hotkeys.** The keydown handler ignores events from inputs and while the start
   screen is open. Keep it that way when adding keys.
 
+## Saved runs and commander achievements (Nov 9, 2026)
+
+- One run checkpoint per browser/device, stored as `td.checkpoint.v1`. Autosaves during planning
+  and the three-second briefing, including a final snapshot immediately before combat. Clearing
+  a round refunds hardware and saves the next map normally; automatic round progression remains.
+- Continue appears on the start screen with round, player, kills, minerals and save time. It
+  restores paused with a fresh three-second countdown. `Save & quit` during combat returns to
+  the saved start of that round: subsequent combat, spending and kills replay. The pause menu
+  explicitly shows the checkpoint's resources and explains this behavior.
+- Checkpoints preserve seed, round, economy, score, simulation time, air-strike cooldown,
+  technologies, gold/silver upgrades and their individual expiry, core/SCV health, buildings,
+  promoted units, positions, movement paths, grid ownership and bunker garrisons. The SCV resumes
+  idle, ready for new orders. Selection, control groups and camera return to the current base.
+- Pause offers Resume, Plan defense while paused, Save & quit, and achievements. Planning keeps
+  the battlefield interactive without advancing combat. Build my own defense opens this planning
+  view directly. Open pause menu returns to the save controls.
+- Starting a new run or restarting a live run asks before replacing a saved checkpoint. Cancel
+  preserves it. Defeat removes the checkpoint; Play Again keeps the same seed and deployment mode.
+- `td.commander.v1` stores six permanent achievements: first clear, no-base-damage clear, first
+  boss kill, 250 kills in one run, Round 10 clear and Round 20 clear. Progress uses lifetime bests
+  and idempotent unlocks, so replaying a checkpoint cannot duplicate rewards. Next goals appear
+  on the start/results screens. Unlock notifications queue without blocking combat.
+- Rewards are three commander badges and emerald/gold/violet army rings, selectable in the ★
+  menu (under ⋯ on narrow screens), start screen, pause menu or results. Selected cosmetics carry
+  across runs and apply to existing and newly recruited units. Blindness/silence indicators
+  temporarily override ring colours. Cosmetics do not modify combat stats.
+- Saved data is local to this browser and origin, without cloud sync. Version/shape/numeric,
+  grid-occupancy and upgrade validation happens before restoration. Damaged/unsupported saves
+  show a message and allow a new run. Failed writes keep the game open, explain the failure and
+  support retry; Save & quit never pretends a failed write succeeded.
+
 ## Controls (as shipped)
 
 Left-drag box-select · click / Shift-click / double-click or Ctrl-click (all of a type on screen) ·
@@ -145,6 +178,13 @@ F stim · R air strike · U promote · X salvage · F1 SCV · F2 all army · Spa
 last alert · Esc cancel. Build hotkeys: W wall, M marine, B bunker, G goliath, T tank, V Falcon Gunship.
 
 ## Testing
+
+`tests/browser-retention.cjs` uses the browser invocation below. It checks a full checkpoint
+round trip (including garrisons, moving tanks, aircraft, promotion, damage and timed treasure),
+combat replay behavior, paused continuation, replacement confirmation, permanent unlocks and
+loadouts, dialog hotkeys, desktop/mobile layout, defeat cleanup, damaged saves and storage
+failure/retry. Screenshots are written to `/tmp/td-career-{1440,390}.png` and
+`/tmp/td-continue-390.png`.
 
 A browser smoke suite is checked in at `tests/browser-smoke.cjs`. Serve the repo on port 8765,
 then run `node tests/browser-smoke.cjs` with `playwright-core` installed, or pass its absolute

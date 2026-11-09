@@ -98,6 +98,7 @@ export class Game {
     this.called = false;
     this.briefT = 0;
     this.airStrikeCd = 0;
+    this.roundCoreDamaged = false;
     this.pings = [];
     this.lastAlert = null;
     this.loadLevel();
@@ -440,6 +441,7 @@ export class Game {
 
   startWave() {
     if (this.state !== 'build') return;
+    this.roundCoreDamaged = false;
     this.queue = wavePlan(this.level);
     const mouths = this.grid.spawns.length;
     if (mouths > 1) this.queue.forEach((s, i) => { s.lane = i % mouths; });
@@ -458,12 +460,14 @@ export class Game {
         : '')
     });
     this.emit('change');
+    this.emit('checkpoint');
   }
 
   onKill(bug) {
     if (bug?.isBoss) this.assault.defeated(bug);
     this.kills++;
     this.score = this.kills;   // your score is simply how many bugs you killed
+    this.emit('kill', this.kills);
     this.minerals += ECON.perKill * (bug?.breed?.bounty || 1);
     if (this.kills % 6 === 0) voice.say('kill');
     const next = this.nextArmory;
@@ -493,6 +497,7 @@ export class Game {
     const bonus = ECON.waveClearBase + this.level * ECON.waveClearPerWave;
     const prev = this.level;
     const prevName = this.layout.name;
+    this.emit('roundCleared', { level: prev, perfect: !this.roundCoreDamaged && this.core.hp === this.core.maxHp });
     // levels never run out: clear one and the next canyon is waiting
     const refund = this.recoverHardware();
     this.minerals += refund + bonus;
@@ -650,6 +655,7 @@ export class Game {
   /** Something of ours is taking damage: ping the minimap, and say so now and then. */
   alert(e) {
     if (this.state !== 'wave' && this.state !== 'brief') return;
+    if (e.kind === 'core') this.roundCoreDamaged = true;
     if ((e._pingT ?? -99) > this.time - 1.4) return;
     e._pingT = this.time;
     this.pings.push({ x: e.x, z: e.z, t: 0 });
@@ -679,6 +685,8 @@ export class Game {
       const now = Math.ceil(Math.max(0, this.briefT));
       if (now !== prev && now > 0 && now <= 3) this.emit('count', now);
       if (this.briefT <= 0) {
+        // Last peaceful snapshot includes everything built or moved during the countdown.
+        this.emit('checkpoint');
         this.state = 'wave';
         this.spawnTimer = 0;
         voice.say('breach');
