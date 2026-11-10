@@ -144,8 +144,6 @@ html, body {
 }
 
 #game { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
-.camera-help { position: absolute; top: 12px; right: 12px; padding: 7px 10px; border-radius: 7px; background: #070e18d9; color: #b8c8d8; font-size: 11px; line-height: 1.7; pointer-events: none; }
-@media (max-width: 800px) { .camera-help { top: auto; bottom: 144px; font-size: 10px; } }
 
 .overlay { position: absolute; inset: 0; pointer-events: none; }
 
