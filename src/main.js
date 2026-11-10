@@ -122,7 +122,6 @@ function tileAt(ev) {
 
 /** Bugs first (they are what you are usually clicking at), then our own things. */
 function entityAt(tile) {
-  if (!tile) return null;
   // Air silhouettes project away from their ground tile: pick them at flight height.
   const r = canvas.getBoundingClientRect();
   const mouseX = r.left + (ndc.x + 1) * r.width / 2;
@@ -135,6 +134,8 @@ function entityAt(tile) {
     if (p.front && distance < airDistance) { airPick = e; airDistance = distance; }
   }
   if (airPick) return airPick;
+  // Aircraft at a map edge can project beyond the ground boundary.
+  if (!tile) return null;
   const wx = tile.world.x, wz = tile.world.z;
   let best = null, bd = 0.6;
   for (const z of game.zerglings) {
@@ -151,7 +152,7 @@ function entityAt(tile) {
   }
   if (game.scv && !game.scv.dead && Math.hypot(game.scv.x - wx, game.scv.z - wz) < bd) best = game.scv;
   if (best) return best;
-  if (game.state === 'raid') {
+  if (['wave', 'raid'].includes(game.state)) {
     const hive = game.hives.find(h => !h.dead && Math.hypot(h.x - wx, h.z - wz) < 1.5);
     if (hive) return hive;
   }
@@ -376,7 +377,7 @@ let modeTip = false;   // is the status line showing a mode hint we should clear
 const PLACE_TIP = {
   wall: 'Walls redirect the swarm, and bugs stop to chew them. Drag to lay a run. Right-click cancels.',
   marine: 'Place a Lineguard. Right-click the ground to move him later.',
-  goliath: 'Anchor Walker. Twin autocannons, long reach. Too big for a bunker, and it does not move.',
+  goliath: 'Anchor Walker. Twin autocannons, long reach. Advances with the army; too big for a bunker.',
   falcon: 'Kestrel. Attacks ground and air. Right-click to fly over any terrain. V to deploy another.',
   tank: 'Cinder Crawler. Twin cannons, wide blast. Right-click the ground to drive it.',
   bunker: 'Bunker faces the bugs. Select Lineguards and right-click it to garrison.'
@@ -474,7 +475,15 @@ function stimSelected() {
 
 function runCommand(id) {
   sfx.resume();
-  if (id === 'attack') setTargeting(targeting ? null : 'attack');
+  if (id === 'attack') {
+    cancelModes();
+    const count = game.commandAdvanceArmy();
+    if (count) {
+      setSelection(game.gunners.filter(isUnit));
+      voice.say('acquired');
+      ui.say(`<b>Army advancing.</b> ${count} combat units will fight enemies on the way and destroy their bases. S stops the selected units.`);
+    } else sfx.deny();
+  }
   else if (id === 'stop') { game.commandStop(army()); sfx.ui(); }
   else if (id === 'stim') stimSelected();
   else if (id === 'air') setAirAim(!airAim);
@@ -732,7 +741,7 @@ window.addEventListener('keydown', (ev) => {
   const build = Object.values(BUILD).find((b) => b.key.toLowerCase() === k);
   if (build) { setPlacing(build.id); return; }
 
-  if (k === 'a') runCommand('attack');
+  if (k === 'a') { if (ev.shiftKey) setTargeting(targeting ? null : 'attack'); else runCommand('attack'); }
   else if (k === 's') runCommand('stop');
   else if (k === 'f') runCommand('stim');
   else if (k === 'r') runCommand('air');

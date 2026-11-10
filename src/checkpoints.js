@@ -29,7 +29,7 @@ export function captureCheckpoint(g, meta) {
     units: g.gunners.map(m => ({ kind: m.kind, ...Object.fromEntries(fields.map(k => [k, m[k]])),
       placed: m.isPlaced(g), bunker: g.bunkers.indexOf(m.bunker),
       garrisonOrder: m.order?.type === 'garrison' ? g.bunkers.indexOf(m.order.bunker) : -1,
-      attackMove: m.order?.type === 'amove' })),
+      attackMove: m.order?.type === 'amove', advancing: m.order?.type === 'advance' })),
     scv: { x: g.scv.x, z: g.scv.z, hp: g.scv.hp, dead: g.scv.dead, yaw: g.scv.yaw }
   };
   // Detach paths and metadata from the live simulation.
@@ -80,6 +80,7 @@ export function validateCheckpoint(s) {
         (u.restYaw != null && !number(u.restYaw, -100, 100)) ||
         !['cooldown', 'stimT', 'blindT', 'silenceT'].every(k => number(u[k])) ||
         typeof u.placed !== 'boolean' || typeof u.driving !== 'boolean' || typeof u.attackMove !== 'boolean' ||
+        (u.advancing !== undefined && typeof u.advancing !== 'boolean') ||
         !integer(u.bunker, -1, s.bunkers.length - 1) || !integer(u.garrisonOrder, -1, s.bunkers.length - 1)) return false;
       if (u.bunker >= 0) {
         slots.set(u.bunker, (slots.get(u.bunker) || 0) + 1);
@@ -149,6 +150,7 @@ export function restoreCheckpoint(g, s) {
     }
     if (u.placed) g.grid.set(e.tx, e.ty, CELL.TOWER, e);
     e.order = u.garrisonOrder >= 0 ? { type: 'garrison', bunker: g.bunkers[u.garrisonOrder] }
+      : u.advancing ? { type: 'advance', target: g.advanceTarget(e) }
       : u.attackMove ? { type: 'amove' } : null;
     g.gunners.push(e); g.world.add(e.obj);
   }

@@ -1,6 +1,6 @@
 # Ridgewatch balance pass — 9 November 2026
 
-The Compact roster uses affordable mobile infantry, efficient stationary walkers,
+The Compact roster uses affordable mobile infantry, durable slow-moving walkers,
 flexible but expensive aircraft, and slow ground artillery. Starting minerals remain
 480. Quick Deploy buys three Lineguards for 180, leaving 300 for any one support
 unit, fortifications, or promotions. Costs, timings and statistics live in
@@ -11,7 +11,7 @@ unit, fortifications, or promotions. Costs, timings and statistics live in
 | Unit | Cost | HP | Armor | Damage per volley | Interval | Raw DPS | Range | Speed |
 | --- | ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: |
 | Lineguard | 60 | 70 | 1 | 8 | 0.80 s | 10.0 | 4.4 | 2.15 |
-| Anchor Walker | 160 | 220 | 2 | 13 × 2 | 0.80 s | 32.5 | 6.2 | Emplaced |
+| Anchor Walker | 160 | 220 | 2 | 13 × 2 | 0.80 s | 32.5 | 6.2 | 1.5 |
 | Kestrel | 240 | 140 | 1 | 10 × 2 | 0.85 s | 23.5 | 5.8 | 4.4 |
 | Cinder Crawler | 280 | 340 | 3 | 38 × 2 | 2.40 s | 31.7 | 7.0 | 1.25 |
 | Patch Rig | 60 rebuild | 70 | — | Repair / revive | — | — | — | 1.9 |
@@ -142,12 +142,18 @@ balance as permanent treasure stacks and enemy HP grow.
   future combat units. Patch Rigs gain health too. Promotions and Lineguard loot apply first;
   research multiplies the result. Existing health percentages are preserved. Research lasts
   for the run and is included in checkpoints, independently of hardware refunds.
-- After all queued enemies, bosses, and reinforcements are cleared, a 15-second bonus phase
-  keeps the current battlefield active. Hives become attackable by units, artillery, strikes,
+- After all queued enemies, bosses, and reinforcements are cleared, an optional 60-second phase
+  keeps the current battlefield active. A two-second “Destroy enemy's base” notice replaces
+  the visible countdown. Hives are attackable during combat and this optional phase by units, artillery, strikes,
   and the laser. Each hive has 300 + 45 × (round − 1) HP and pays 100 + 25 × (round − 1)
   minerals once when destroyed. Hive destruction does not increase the bug kill score.
-  The full window remains available even if every hive is destroyed. The next canyon then
-  starts with the existing three-second briefing. Locate Hive jumps the camera to a live target.
+  Destroying every hive finishes the optional phase early; otherwise it ends after 60 simulation
+  seconds. The next canyon starts with the existing three-second briefing. A destroyed hive
+  stops spawning its queued troops. Locate Hive jumps the camera to a live target.
+- Attack (A) immediately orders every living combat unit toward enemy bases, including bunker
+  troops and Anchor Walkers (1.5 tiles/second). Units fight enemies en route, then resume and
+  retarget surviving bases. Friendly buildings and Patch Rigs are never attack targets.
+  Stop and move orders override the advance; Shift+A retains selected-unit attack-move.
 - Base laser starts at 0%, charges for 90 simulation seconds, and holds one shot at 100%.
   Click Fire Laser (or L), then click a direction on the battlefield. One red beam extends from
   the base to the map edge and applies 600 damage once to every enemy along its path, including

@@ -307,6 +307,11 @@ export class UI {
     game.on('evolved', ({ id, rank }) => this.toast(`${EVOLUTIONS.find(e => e.id === id).name} · Rank ${rank}`,
       'Active for the rest of this run. Current and future units inherit this evolution.', 'unlock'));
     game.on('change', () => this.sync());
+    game.on('raid', () => {
+      clearTimeout(this.raidNoticeTimer);
+      $('raidNotice').hidden = false;
+      this.raidNoticeTimer = setTimeout(() => { $('raidNotice').hidden = true; }, 2000);
+    });
     game.on('unlock', (u) => this.toast(`Armory unlocked — ${u.name}`, u.effect, 'unlock'));
     game.on('brief', (card) => this.say(`<b>${card.title}.</b> ${card.body}`));
     game.on('hold', (card) => this.say(`<b>${card.kicker}.</b> ${card.body}`));
@@ -368,7 +373,7 @@ export class UI {
       $('pName').textContent = hive ? 'Rift Hive' : `Ridge Relay · Upgrade ${g.baseLevel}`;
       $('pRole').textContent = hive ? `Bonus target · ${entity.reward} minerals` : 'Army research / piercing laser';
       $('pFaction').textContent = hive ? 'The Rift Brood' : 'Ridgewatch Compact';
-      $('pBio').textContent = hive ? 'Clear every enemy, then destroy this hive during the 15-second bonus window. Select troops and right-click the hive to attack.' : 'Upgrade the base to boost every current and future unit. Charge the laser for 90 seconds, then aim one powerful piercing shot. Upgrades and energy carry across rounds.';
+      $('pBio').textContent = hive ? 'Destroy this enemy base to stop its reinforcements and earn minerals. Attack (A) sends the whole army. After the swarm is cleared, you have up to 60 seconds to finish any surviving bases before the next round.' : 'Upgrade the base to boost every current and future unit. Charge the laser for 90 seconds, then aim one powerful piercing shot. Upgrades and energy carry across rounds.';
       $('pQuote').textContent = '';
       $('stats').innerHTML = statRow('Hit Points', Math.ceil(entity.hp) + ' / ' + entity.maxHp, entity.hp / entity.maxHp, '#5ef08a');
     } else if (entity?.kind === 'scv' || entity?.kind === 'bunker') {
@@ -560,7 +565,6 @@ export class UI {
     const g = this.game;
     const sel = g.selection || [];
     const units = sel.filter(unitLike);
-    const guns = units.filter((u) => UNITS[u.kind]);
     const primary = g.selected;
     const fighting = ['wave', 'brief', 'raid'].includes(g.state);
     const set = (id, on, label) => {
@@ -569,7 +573,8 @@ export class UI {
       b.disabled = !on;
       if (label) b.querySelector('.cmd__label').textContent = label;
     };
-    set('attack', guns.length > 0);
+    set('attack', g.state !== 'defeat' && !g.pendingEvolution && g.gunners.some(u => !u.dead && !u.downed));
+    document.querySelector('[data-cmd="attack"]').title = 'Send the whole army to destroy enemy bases (A). Shift+A: attack-move selected units to a clicked point.';
     set('stop', units.length > 0);
     set('air', fighting && g.airStrikeReady, fighting && !g.airStrikeReady ? `Air ${Math.ceil(g.airStrikeCd)}s` : 'Air Strike');
     set('stim', g.stimUnlocked && units.some((u) => u.kind === 'marine' && u.stimT <= 0 && u.silenceT <= 0 && u.hp > OVERDRIVE.hpCost));
@@ -653,9 +658,13 @@ export class UI {
     $('btnLaser').disabled = g.paused || !g.laserReady || !['wave', 'raid'].includes(g.state);
     $('laserHint').textContent = aiming ? 'Click a direction from your base · Esc cancels' : g.laserReady ? 'Ready · 600 damage through the enemy line' : `${Math.ceil(BASE_LASER.chargeTime - g.laserCharge)}s to charge · one piercing shot`;
     $('raidHud').hidden = g.state !== 'raid';
+    if (g.state !== 'raid') {
+      clearTimeout(this.raidNoticeTimer);
+      $('raidNotice').hidden = true;
+    }
     if (g.state === 'raid') {
       const remaining = g.hives.filter(h => !h.dead);
-      $('raidCountdown').textContent = `BONUS · ${Math.ceil(g.raidT)}s`;
+      $('raidObjective').textContent = 'OPTIONAL OBJECTIVE';
       $('raidStatus').textContent = remaining.length ? `Destroy hives: +${remaining[0].reward} minerals each · Earned ${g.raidEarned}` : `Hives destroyed! +${g.raidEarned} minerals`;
       $('btnLocateHive').disabled = !remaining.length;
     }

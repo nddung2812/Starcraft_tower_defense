@@ -211,7 +211,20 @@ export class Game {
   /* ---------------- economy + building ---------------- */
 
   get baseUpgradeCost() { return baseUpgradeCost(this.baseLevel); }
-  get combatTargets() { return this.state === 'raid' ? this.hives : this.zerglings; }
+  get combatTargets() {
+    return ['wave', 'raid'].includes(this.state) ? this.zerglings.concat(this.hives) : this.zerglings;
+  }
+
+  isEnemy(target) {
+    return !!target && !target.dead && (this.zerglings.includes(target) ||
+      (['wave', 'raid'].includes(this.state) && this.hives.includes(target)));
+  }
+
+  advanceTarget(unit) {
+    const bases = this.hives.filter(h => !h.dead);
+    const targets = bases.length ? bases : this.zerglings.filter(z => !z.dead && (!z.flying || unit.spec.targetsAir !== false));
+    return targets.reduce((best, target) => !best || unit.distTo(target) < unit.distTo(best) ? target : best, null);
+  }
 
   upgradeBase() {
     if (!['build', 'brief', 'wave', 'raid'].includes(this.state) || this.core.dead || !this.canAfford(this.baseUpgradeCost)) return false;
@@ -545,6 +558,7 @@ export class Game {
   }
 
   startRaid() {
+    if (this.hives.every(h => h.dead)) { this.completeWave(); return; }
     this.state = 'raid';
     this.raidT = HIVE_RAID.duration;
     this.raidEarned = 0;
@@ -552,6 +566,7 @@ export class Game {
     this.focus = null;
     this.assault.clearMarks();
     this.emit('change');
+    this.emit('raid');
   }
 
   completeWave() {
@@ -648,6 +663,26 @@ export class Game {
   }
 
   /* ---------------- commands ---------------- */
+
+  /** One press sends every combat unit, including bunker troops, toward enemy bases. */
+  commandAdvanceArmy() {
+    if (this.state === 'defeat' || this.pendingEvolution) return 0;
+    let n = 0;
+    for (const unit of this.gunners) {
+      if (unit.dead || unit.downed) continue;
+      const target = this.advanceTarget(unit);
+      if (!target) continue;
+      if (unit.bunker) this.eject(unit, true);
+      unit.order = { type: 'advance', target };
+      unit.target = null;
+      unit.chaseT = 0;
+      unit.chase(this);
+      n++;
+    }
+    this.focus = null;
+    this.emit('change');
+    return n;
+  }
 
   /**
    * Move a group. Each unit gets its own open tile around the clicked one so
@@ -771,7 +806,7 @@ export class Game {
     // Finish an expired raid before projectiles can award any late bounty.
     if (this.state === 'raid') {
       this.raidT = Math.max(0, this.raidT - dt);
-      if (this.raidT <= 1e-9) {
+      if (this.raidT <= 1e-9 || this.hives.every(h => h.dead)) {
         this.completeWave();
         return;
       }
@@ -801,7 +836,9 @@ export class Game {
       while (this.queue.length && this.queue[0].at <= this.spawnTimer) {
         const s = this.queue.shift();
         const mouths = this.grid.spawns;
-        const sp = mouths[(s.lane || 0) % mouths.length];
+        const lane = (s.lane || 0) % mouths.length;
+        if (this.hives[lane]?.dead) continue;
+        const sp = mouths[lane];
         const z = new Zergling(
           sp.x + 0.5 + (Math.random() - 0.5) * 0.28,
           sp.y + 0.85 + (Math.random() - 0.5) * 0.28,

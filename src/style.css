@@ -905,6 +905,10 @@ button:focus-visible { outline: 2px solid var(--compact); outline-offset: 3px; }
 #btnLaser[aria-pressed="true"] { background: #852a2a; color: white; }
 .raid-hud { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .raid-hud strong { color: var(--gold); font-size: 14px; }
+.raid-notice { position: absolute; top: 18%; left: 50%; transform: translateX(-50%); z-index: 20; width: min(90%, 540px); padding: 20px; text-align: center; pointer-events: none; border: 1px solid var(--gold); border-radius: 12px; background: rgba(10, 18, 28, .94); box-shadow: 0 8px 32px #0008; }
+.raid-notice[hidden] { display: none; }
+.raid-notice strong { display: block; color: var(--gold); font-size: clamp(20px, 3vw, 30px); }
+.raid-notice span { display: block; margin-top: 8px; color: var(--muted); font-size: 12px; }
 @media (max-width: 760px) {
   .app { grid-template-areas: "hud" "base" "stage"; }
   .base-controls { gap: 6px; padding: 7px 9px; }

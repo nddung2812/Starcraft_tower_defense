@@ -7,7 +7,7 @@ const os = require('node:os');
   try {
     const page = await browser.newPage({viewport:{width:1440,height:1000}});
     const errors = []; page.on('pageerror', e => errors.push(e.message));
-    await page.goto('http://127.0.0.1:8765/');
+    await page.goto('http://127.0.0.1:8765/?seed=12345');
     await page.waitForFunction(() => window.game);
     await page.getByRole('button', {name:'Build my own defense'}).click();
     const results = await page.evaluate(async () => {
@@ -59,7 +59,7 @@ const os = require('node:os');
       check(wavePlan(5).some(s=>s.breed==='skyhunter') && !wavePlan(4).some(s=>s.breed==='skyhunter'),'Air wave unlock incorrect');
       const antiAirDamage = hp - falcon.hp;
       g.upgradeGunner(falcon);check(falcon.tier===1,'Air upgrade failed');
-      g.stage.render=render; g.stage.focus.set(falcon.x,0,falcon.z);g.stage.updateCamera();g.stage.render();
+      g.stage.render=render; g.stage.shake=0; g.stage.focus.set(falcon.x,0,falcon.z);g.stage.updateCamera();g.stage.render();
       return {groundDamage:bug.maxHp-bug.hp,airDamage:skyHp-sky.hp,antiAirDamage,flightHeight:falcon.altitude};
     });
     console.log('Air combat:', results);
@@ -68,6 +68,19 @@ const os = require('node:os');
     });
     await page.mouse.click(point.x,point.y);
     assert.equal(await page.evaluate(()=>game.selected?.kind),'falcon');
+    const edgePoint=await page.evaluate(async()=>{
+      const THREE=await import('three');const f=game.gunners.find(u=>u.kind==='falcon');
+      f.x=game.grid.COLS/2;f.z=.25;f.obj.position.set(f.x,2.6,f.z);
+      game.stage.focus.set(f.x,0,f.z);game.stage.updateCamera();
+      const p=new THREE.Vector3(f.x,3,f.z).project(game.camera);
+      const ground=game.stage.pick(new THREE.Vector2(p.x,p.y));
+      if(ground&&ground.z>=0)throw Error('Edge picking fixture did not project past map boundary');
+      const r=document.getElementById('game').getBoundingClientRect();
+      game.emit('selectOnly',null);
+      return {x:r.left+(p.x+1)*r.width/2,y:r.top+(1-p.y)*r.height/2};
+    });
+    await page.mouse.click(edgePoint.x,edgePoint.y);
+    assert.equal(await page.evaluate(()=>game.selected?.kind),'falcon','Aircraft at the map edge must stay selectable');
     assert.match(await page.locator('#pName').textContent(),/Kestrel/);
     await page.keyboard.press('F2');
     assert.equal(await page.evaluate(()=>game.selection.some(u=>u.kind==='falcon')),true);

@@ -8,7 +8,7 @@ const assert = require('node:assert/strict');
     page.on('pageerror', e => errors.push(e.message));
     await page.addInitScript(() => { window.requestAnimationFrame = () => 1; });
     await page.goto('http://127.0.0.1:8765/');
-    await page.waitForFunction(() => window.game?.stage);
+    await page.waitForFunction(() => window.game?.stage, null, { polling: 50 });
     await page.locator('#introBtn').click();
     const upgrades = await page.evaluate(async () => {
       const g = game;
@@ -73,7 +73,7 @@ const assert = require('node:assert/strict');
       enemy.takeDamage(10000, g, 0); g.update(0.05);
       const start = { state: g.state, seconds: g.raidT, level: g.level };
       g.paused = true; g.update(100);
-      const paused = g.raidT === 15;
+      const paused = g.raidT === 60;
       g.paused = false;
       const h = g.hives[0], money = g.minerals, kills = g.kills;
       const gun = new Marine('goliath', Math.floor(h.x + 2), Math.floor(h.z), [], 0);
@@ -84,21 +84,21 @@ const assert = require('node:assert/strict');
       h.takeDamage(10000, g); h.takeDamage(10000, g);
       const rewarded = g.minerals - money;
       const noKills = g.kills === kills;
-      g.update(14.9);
+      g.update(59.9);
       const held = g.state === 'raid' && g.level === 1;
       g.laserCharge = 40;
       g.minerals = 1000; g.upgradeBase();
       g.update(0.1);
       const end = { state: g.state, level: g.level, baseLevel: g.baseLevel, charge: g.laserCharge, hives: g.hives.every(h => !h.dead && h.hp === h.maxHp) };
       // Missing the bounty still advances normally.
-      g.state = 'wave'; g.queue = []; g.update(0.05); g.update(15);
+      g.state = 'wave'; g.queue = []; g.update(0.05); g.update(60);
       const timeout = g.state === 'brief' && g.level === 3;
-      // Hives cannot be farmed before the bonus phase.
+      // Hives cannot be farmed during the peaceful countdown.
       const shielded = g.hives[0]; shielded.takeDamage(10000, g);
       return { waitsForQueue, waitsForEnemy, start, paused, acquired, shellHit, rewarded, reward: h.reward, noKills, held, end, timeout, shielded: !shielded.dead };
     });
     for (const key of ['waitsForQueue', 'waitsForEnemy', 'paused', 'acquired', 'shellHit', 'noKills', 'held', 'timeout', 'shielded']) assert.equal(raid[key], true, key);
-    assert.deepEqual(raid.start, { state: 'raid', seconds: 15, level: 1 });
+    assert.deepEqual(raid.start, { state: 'raid', seconds: 60, level: 1 });
     assert.equal(raid.rewarded, raid.reward);
     assert.deepEqual(raid.end, { state: 'brief', level: 2, baseLevel: 1, charge: 40.1, hives: true });
 
@@ -148,7 +148,7 @@ const assert = require('node:assert/strict');
     for (const width of [1440, 390]) {
       await page.setViewportSize({ width, height: 844 });
       await page.evaluate(() => { game.emit('change'); game.stage.updateCamera(); game.stage.render(); });
-      for (const id of ['btnBaseUpgrade', 'btnLaser', 'raidCountdown', 'btnLocateHive']) assert.equal(await page.locator('#' + id).isVisible(), true, id);
+      for (const id of ['btnBaseUpgrade', 'btnLaser', 'raidObjective', 'btnLocateHive']) assert.equal(await page.locator('#' + id).isVisible(), true, id);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
       await page.screenshot({ path: `/tmp/td-base-${width}.png` });
     }
@@ -197,6 +197,6 @@ const assert = require('node:assert/strict');
     });
     for (const [key, value] of Object.entries(edgeCases)) assert.equal(value, true, key);
     assert.deepEqual(errors, []);
-    console.log('PASS: base research costs/stats, save compatibility, 15-second hive raid and one-time bounty, 90-second piercing laser/carryover, controls and responsive layout');
+    console.log('PASS: base research costs/stats, save compatibility, 60-second optional hive raid and one-time bounty, 90-second piercing laser/carryover, controls and responsive layout');
   } finally { await browser.close(); }
 })().catch(e => { console.error(e); process.exit(1); });

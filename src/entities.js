@@ -93,7 +93,7 @@ export class Marine {
     this.goalTy = ty;
     this.driving = false;
     this.trackDist = 0;
-    this.order = null;   // null | { type: 'attack', target } | { type: 'amove' } | { type: 'garrison', bunker }
+    this.order = null;   // attack focuses a target; advance fights en route and retargets bases.
     this.chaseT = 0;
     this.stimLight = new THREE.PointLight(0xff6633, 0, 3.2, 2);
     this.stimLight.position.y = 0.9;
@@ -178,6 +178,7 @@ export class Marine {
     this.goalTx = tx;
     this.goalTy = ty;
     this.driving = true;
+    this.pathGridVersion = game.grid.version;
     return true;
   }
 
@@ -197,8 +198,9 @@ export class Marine {
     const step = Math.min(dist, this.stats.moveSpeed * (this.stimT > 0 ? OVERDRIVE.moveSpeed : 1) * dt);
     const nx = this.x + (dx / dist) * step;
     const nz = this.z + (dz / dist) * step;
-    if (this.flying || game.grid.get(Math.floor(nx), Math.floor(this.z)) !== CELL.ROCK) this.x = nx;
-    if (this.flying || game.grid.get(Math.floor(this.x), Math.floor(nz)) !== CELL.ROCK) this.z = nz;
+    const passable = (x, z) => [CELL.OPEN, CELL.TOWER].includes(game.grid.get(Math.floor(x), Math.floor(z)));
+    if (this.flying || passable(nx, this.z)) this.x = nx;
+    if (this.flying || passable(this.x, nz)) this.z = nz;
     this.trackDist += step;
     const treads = this.model.userData.treads;
     if (treads) {
@@ -232,7 +234,7 @@ export class Marine {
 
   /** Shoot this bug. Mobile units close the distance if it is out of range. */
   orderAttack(target, game) {
-    if (this.dead || this.downed || !target || target.dead || (target.flying && this.spec.targetsAir === false)) return false;
+    if (this.dead || this.downed || !game.isEnemy(target) || (target.flying && this.spec.targetsAir === false)) return false;
     this.order = { type: 'attack', target };
     this.chaseT = 0;
     return true;
@@ -244,7 +246,7 @@ export class Marine {
     if (this.flying) { this.orderMove(Math.floor(t.x), Math.floor(t.z), game); return; }
     const goal = game.grid.nearestOpen(Math.floor(t.x), Math.floor(t.z), 3);
     if (!goal) return;
-    if (this.driving && goal.x === this.goalTx && goal.y === this.goalTy) return;
+    if (this.driving && goal.x === this.goalTx && goal.y === this.goalTy && this.pathGridVersion === game.grid.version) return;
     this.orderMove(goal.x, goal.y, game);
   }
 
@@ -323,7 +325,21 @@ export class Marine {
     }
 
     let o = this.order;
-    if (o?.type === 'attack' && (!o.target || o.target.dead)) this.order = o = null;
+    if (o?.type === 'attack' && !game.isEnemy(o.target)) this.order = o = null;
+    if (o?.type === 'advance') {
+      if (!o.target || o.target.dead) {
+        o.target = game.advanceTarget(this);
+        this.chaseT = 0;
+      }
+      if (!o.target) { this.stop(game); o = null; }
+      else {
+        const nearby = this.acquire(game);
+        if (!nearby && this.distTo(o.target) > this.attackRange * 0.9) {
+          this.chaseT -= dt;
+          if (this.chaseT <= 0) { this.chaseT = 0.6; this.chase(game); }
+        }
+      }
+    }
     if (o?.type === 'attack' && !this.bunker && this.spec.mobile) {
       // close in until comfortably inside range, then hold; only give chase again once it is truly out of reach
       const d = this.distTo(o.target);
@@ -335,7 +351,7 @@ export class Marine {
       }
     }
     // attack-move: plant feet while something is in the sights, then carry on
-    const engaged = o?.type === 'amove' && this.driving && !!this.acquire(game);
+    const engaged = (o?.type === 'amove' || o?.type === 'advance') && !!this.acquire(game);
     const driving = this.bunker || engaged ? false : this.stepMove(dt, game);
 
     if (this.bunker) {
@@ -351,7 +367,7 @@ export class Marine {
     this.model.scale.setScalar(grow * this.visualScale);
 
     const ordered = this.order?.type === 'attack' && this.target !== this.order.target;
-    if (ordered || !this.target || this.target.dead || this.distTo(this.target) > this.attackRange || !this.inArc(this.target)) {
+    if (ordered || !game.isEnemy(this.target) || this.distTo(this.target) > this.attackRange || !this.inArc(this.target)) {
       this.target = this.acquire(game);
     }
 
@@ -405,21 +421,21 @@ export class Marine {
 
   acquire(game) {
     const mine = this.order?.type === 'attack' ? this.order.target : null;
-    if (mine && !(mine.flying && this.spec.targetsAir === false) && !mine.dead && this.distTo(mine) <= this.attackRange && this.inArc(mine)) return mine;
+    if (game.isEnemy(mine) && !(mine.flying && this.spec.targetsAir === false) && this.distTo(mine) <= this.attackRange && this.inArc(mine)) return mine;
     const focus = game.focus;
-    if (focus && !(focus.flying && this.spec.targetsAir === false) && !focus.dead && this.distTo(focus) <= this.attackRange && this.inArc(focus)) return focus;
+    if (game.isEnemy(focus) && !(focus.flying && this.spec.targetsAir === false) && this.distTo(focus) <= this.attackRange && this.inArc(focus)) return focus;
     let best = null, bestScore = -Infinity;
     for (const z of game.combatTargets) {
       if (z.dead || (z.flying && this.spec.targetsAir === false)) continue;
       if (this.distTo(z) > this.attackRange || !this.inArc(z)) continue;
-      const score = -Math.hypot(z.x - game.core.x, z.z - game.core.z) + (z.breedId === 'tanker' ? 2 : z.breedId === 'needler' ? 1.5 : 0);
+      const score = (z.kind === 'hive' ? -10000 : 0) - Math.hypot(z.x - game.core.x, z.z - game.core.z) + (z.breedId === 'tanker' ? 2 : z.breedId === 'needler' ? 1.5 : 0);
       if (score > bestScore) { bestScore = score; best = z; }
     }
     return best;
   }
 
   fire(game) {
-    if (this.silenceT > 0) return;
+    if (this.silenceT > 0 || !game.isEnemy(this.target)) return;
     this.recoil = 1;
     const ud = this.model.userData;
     const locals = [];
@@ -593,15 +609,17 @@ export class Hive {
     this.obj.userData.ring.rotation.z += dt * 0.6;
     this.light.intensity = 6 + Math.sin(game.time * 2) * 2;
     this.bar.set(this.hp / this.maxHp, game.camera, true);
-    this.bar.group.visible = game.state === 'raid';
+    this.bar.group.visible = game.state === 'raid' || this.hp < this.maxHp;
   }
 
   takeDamage(amount, game) {
-    if (this.dead || game.state !== 'raid' || game.raidT <= 0) return;
+    if (this.dead || !['wave', 'raid'].includes(game.state) || (game.state === 'raid' && game.raidT <= 0)) return;
     this.hp = Math.max(0, this.hp - amount);
     if (this.hp > 0) return;
     this.dead = true;
     this.obj.visible = false;
+    // A destroyed base cannot send future troops; surviving lanes keep their waves.
+    game.queue = game.queue.filter(s => !game.hives[(s.lane || 0) % game.hives.length]?.dead);
     game.minerals += this.reward;
     game.raidEarned += this.reward;
     game.fx.explosion({ x: this.x, y: 1, z: this.z }, 2.5);

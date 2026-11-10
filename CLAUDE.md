@@ -219,7 +219,7 @@ the balance suite checks the starting squad can clear both opening approaches.
 
 Left-drag pan · Shift-drag box-select · click / Shift-click / double-click or Ctrl-click (all of a type on screen) ·
 right-click = smart order (move, attack, garrison, repair, revive) · right-drag = rotate/tilt · ⌥ + left-drag = rotate/tilt · middle-drag = pan · wheel = zoom · arrows =
-scroll (no automatic edge scrolling) · Ctrl+1–9 set group, Shift+1–9 add, 1–9 select, double-tap to jump · A attack-move · S stop ·
+scroll (no automatic edge scrolling) · Ctrl+1–9 set group, Shift+1–9 add, 1–9 select, double-tap to jump · A whole-army advance · Shift+A selected attack-move · S stop ·
 F stim · R air strike · U promote · X salvage · F1 SCV · F2 all army · Space launch wave / jump to
 last alert · Esc cancel. Build hotkeys: W wall, M marine, B bunker, G goliath, T tank, V Falcon Gunship.
 
@@ -246,6 +246,10 @@ hits, live movement dodges, rewards, and cleanup. It writes visual captures to t
 `tests/browser-air.cjs` uses the same invocation and checks air/ground damage, anti-air rules,
 terrain flight, grid occupancy, aircraft selection, promotion, destruction, level recovery,
 and the level-5 enemy air unlock.
+
+`tests/browser-attack.cjs` checks whole-army Attack/A, bunker ejection, walker movement,
+fighting en route, base retargeting, friendly-fire rejection, Stop, checkpoint compatibility,
+the two-second objective notice, early completion and the optional 60-second timeout.
 
 `tests/browser-performance.cjs` checks rendering defaults, lazy effects, 30/60 fps limits,
 4 fps idle/paused redraws, responsive paused controls, portrait/minimap throttling and

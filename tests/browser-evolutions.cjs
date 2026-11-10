@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     await page.addInitScript(() => { window.requestAnimationFrame = () => 1; });
     await page.goto('http://127.0.0.1:8765/');
-    await page.waitForFunction(() => window.game?.stage);
+    await page.waitForFunction(() => window.game?.stage, null, { polling: 50 });
     await page.locator('#introBtn').click();
     await page.evaluate(() => {
       const g = game; g.reset(12345); g.level = 5; g.loadLevel();

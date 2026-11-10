@@ -66,7 +66,7 @@ export const GOLIATH_INFO = {
   role: 'Combat Walker',
   armor: 2,
   accent: '#c6e07a',
-  bio: 'An anchored mining frame refitted with paired coil repeaters. Trades movement for durable, long-range fire against ground and air targets.',
+  bio: 'A heavy mining walker refitted with paired coil repeaters. Advances slowly with the army, providing durable, long-range fire against ground and air targets.',
   quote: '"Target locked. Both barrels."'
 };
 
@@ -105,7 +105,7 @@ export const UNITS = {
   goliath: {
     id: 'goliath', shots: 2, tiers: GOLIATH_TIERS, info: GOLIATH_INFO, visualScale: 0.8,
     shell: false, splash: 0, canBunker: false, canStim: false, armory: false, turret: false,
-    mobile: false, speed: 0, accent: 0xc6e07a
+    mobile: true, speed: 1.5, accent: 0xc6e07a
   },
   falcon: {
     id: 'falcon', shots: 2, tiers: FALCON_TIERS, info: FALCON_INFO, visualScale: 0.8,
@@ -201,7 +201,7 @@ export function applyBaseUpgrade(stats, level) {
   if (stats.damage != null) stats.damage *= factor;
 }
 export const BASE_LASER = { chargeTime: 90, damage: 600, halfWidth: 0.8, duration: 0.45 };
-export const HIVE_RAID = { duration: 15, hp: 300, hpPerLevel: 45, reward: 100, rewardPerLevel: 25 };
+export const HIVE_RAID = { duration: 60, hp: 300, hpPerLevel: 45, reward: 100, rewardPerLevel: 25 };
 /* The hand-drawn canyons below come first; after them every level is generated. */
 export const AUTHORED_LEVELS = 10;
 
