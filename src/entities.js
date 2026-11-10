@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CELL, UNITS, BREEDS, UNIT_SCALE, BUG_SCALE, OVERDRIVE, applyBaseUpgrade, HIVE_RAID } from './config.js';
+import { CELL, UNITS, BREEDS, UNIT_SCALE, BUG_SCALE, OVERDRIVE, applyBaseUpgrade, HIVE_RAID, BASE_LASER } from './config.js';
 import { buildWall, buildCore, buildHatchery } from './models.js';
 import { makeModel } from './assets.js';
 
@@ -22,13 +22,15 @@ const BAR_BG = new THREE.MeshBasicMaterial({ color: 0x0a0f14, depthTest: false, 
 const BAR_GEO = new THREE.PlaneGeometry(1, 1);
 
 class HealthBar {
-  constructor(parent, width, height, y) {
+  constructor(parent, width, height, y, color = null) {
+    height *= 0.5;
+    this.color = color;
     this.group = new THREE.Group();
     this.group.position.y = y;
     this.group.renderOrder = 999;
 
     this.bg = new THREE.Mesh(BAR_GEO, BAR_BG);
-    this.bg.scale.set(width + 0.035, height + 0.035, 1);
+    this.bg.scale.set(width + 0.025, height + 0.018, 1);
     this.group.add(this.bg);
 
     this.mat = new THREE.MeshBasicMaterial({ color: 0x5ef08a, depthTest: false, transparent: true });
@@ -46,7 +48,7 @@ class HealthBar {
     if (!this.group.visible) return;
     this.fill.scale.x = Math.max(0.0001, this.width * pct);
     this.fill.position.x = -(this.width - this.fill.scale.x) / 2;
-    this.mat.color.setHex(pct > 0.55 ? 0x5ef08a : pct > 0.25 ? 0xf0b23c : 0xff5a4a);
+    this.mat.color.setHex(this.color ?? (pct > 0.55 ? 0x5ef08a : pct > 0.25 ? 0xf0b23c : 0xff5a4a));
     this.group.quaternion.copy(camera.quaternion);
   }
 }
@@ -619,6 +621,7 @@ export class Core {
     this.obj.add(this.light);
 
     this.bar = new HealthBar(this.obj, 1.6, 0.12, 2.1);
+    this.laserBar = new HealthBar(this.obj, 1.6, 0.12, 2.1, 0xff3020);
   }
 
   update(dt, game) {
@@ -632,6 +635,9 @@ export class Core {
     ud.reactor.material.emissive.setHex(pct < 0.35 ? 0xff4a35 : 0xffa020);
     this.light.color.setHex(pct < 0.35 ? 0xff5a4a : 0xffc56a);
     this.bar.set(pct, game.camera, true);
+    this.laserBar.set(game.laserCharge / BASE_LASER.chargeTime, game.camera, true);
+    // Keep the second bar directly below health as the camera rotates and tilts.
+    this.laserBar.group.position.set(0, -0.12, 0).applyQuaternion(game.camera.quaternion).add(this.bar.group.position);
   }
 
   takeDamage(amount, game, fromAngle) {
