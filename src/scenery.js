@@ -146,8 +146,38 @@ function detailed(material, { strength = 0.85, tint = 0.55 } = {}) {
   return material;
 }
 
-/** Add the rock photo detail to the mountain material (no-op until textures have loaded). */
-export function detailTerrain(material) { return detailed(material); }
+/** Blend the mountain foot into the same world-aligned dirt as the canyon floor. */
+export function detailTerrain(material, rows) {
+  detailed(material);
+  if (!loaded.ground) return material;
+  const detailCompile = material.onBeforeCompile;
+  material.onBeforeCompile = shader => {
+    detailCompile(shader);
+    shader.uniforms.footGround = { value: loaded.ground };
+    shader.uniforms.footTiles = { value: loaded.ground.userData.tiles };
+    shader.uniforms.footRows = { value: rows };
+    shader.uniforms.footTint = { value: new THREE.Color(0xaeb7c0) };
+    shader.vertexShader = 'varying vec3 footPosition;\n' + shader.vertexShader.replace(
+      '#include <begin_vertex>', '#include <begin_vertex>\nfootPosition = (modelMatrix * vec4(transformed, 1.0)).xyz;'
+    );
+    shader.fragmentShader = `varying vec3 footPosition;
+      uniform sampler2D footGround;
+      uniform float footTiles;
+      uniform float footRows;
+      uniform vec3 footTint;
+      ` + shader.fragmentShader.replace('#include <alphamap_fragment>', `
+      // Matching the floor UVs removes the square colour boundary at zero height.
+      vec2 footUv = vec2(footPosition.x, footRows - footPosition.z) / footTiles;
+      vec3 footDirt = texture2D(footGround, footUv).rgb * footTint;
+      float footVariation = sin(footPosition.x * 2.7 + sin(footPosition.z * 1.9))
+        * sin(footPosition.z * 3.1) * 0.08;
+      float footBlend = smoothstep(0.04, 0.65 + footVariation, footPosition.y);
+      diffuseColor.rgb = mix(footDirt, diffuseColor.rgb, footBlend);
+      #include <alphamap_fragment>`);
+  };
+  material.customProgramCacheKey = () => 'scenery-terrain-soft-foot';
+  return material;
+}
 
 /** The canyon-floor photo, or null to keep the painted canvas. Repeats every `userData.tiles` tiles. */
 export function groundMap() { return loaded.ground; }

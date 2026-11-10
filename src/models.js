@@ -721,7 +721,7 @@ export function buildCore() {
 
   // bridge tower, offset so the dome still reads
   const tower = new THREE.Group();
-  tower.position.set(0.18, 1.02, 0.12);
+  tower.position.set(0.5, 0.8, 0.48);
   tower.add(mesh(box(0.34, 0.34, 0.3, 0.04), dark, 0, 0.16, 0));
   tower.add(mesh(box(0.4, 0.07, 0.36, 0.02), red, 0, 0.35, 0));
   tower.add(mesh(new THREE.CylinderGeometry(0.16, 0.18, 0.1, 10), hull, 0, 0.42, 0));
@@ -733,12 +733,36 @@ export function buildCore() {
 
   // rotating comms dish on the tower
   const dish = new THREE.Group();
-  dish.position.set(0.18, 1.5, 0.12);
+  dish.position.set(0.5, 1.28, 0.48);
   dish.add(mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.16, 6), dark, 0, 0.08, 0));
   const plate = mesh(new THREE.SphereGeometry(0.14, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2.4), hull, 0.08, 0.16, 0);
   plate.rotation.z = -0.9;
   dish.add(plate);
   g.add(dish);
+
+  // Roof-mounted laser cannon. The barrel faces +X in turret-local space.
+  g.add(mesh(new THREE.CylinderGeometry(0.35, 0.43, 0.18, 16), dark, 0, 1.2, 0));
+  const laserTurret = new THREE.Group();
+  laserTurret.position.y = 1.52;
+  laserTurret.rotation.y = Math.PI;
+  laserTurret.add(mesh(box(0.7, 0.4, 0.64, 0.08), hull, -0.12, 0, 0));
+  for (const z of [-0.31, 0.31]) {
+    laserTurret.add(mesh(box(0.5, 0.12, 0.08), red, -0.12, 0.08, z));
+  }
+  laserTurret.add(mesh(box(1.05, 0.2, 0.22), dark, 0.62, 0, 0));
+  for (const x of [0.35, 0.58, 0.81]) {
+    laserTurret.add(mesh(box(0.07, 0.28, 0.3), hull, x, 0, 0));
+  }
+  const muzzleHousing = mesh(new THREE.CylinderGeometry(0.19, 0.16, 0.22, 12), dark, 1.16, 0, 0);
+  muzzleHousing.rotation.z = -Math.PI / 2;
+  laserTurret.add(muzzleHousing);
+  const laserLens = new THREE.MeshStandardMaterial({
+    color: 0xff3020, emissive: 0xff1608, emissiveIntensity: 0.35, roughness: 0.2
+  });
+  const laserMuzzle = mesh(new THREE.CircleGeometry(0.13, 16), laserLens, 1.275, 0, 0);
+  laserMuzzle.rotation.y = Math.PI / 2;
+  laserTurret.add(laserMuzzle);
+  g.add(laserTurret);
 
   // landing pad with a lit grid
   g.add(mesh(box(0.72, 0.08, 0.58, 0.02), padMat, 1.02, 0.28, -0.05));
@@ -760,7 +784,7 @@ export function buildCore() {
     g.add(mesh(box(0.05, 0.07, 0.04, 0.01), pip, 0.62, 0.58, -0.22 + i * 0.1));
   });
 
-  g.userData = { reactor, dish };
+  g.userData = { reactor, dish, laserTurret, laserMuzzle };
   return g;
 }
 

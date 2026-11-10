@@ -137,6 +137,27 @@ const assert = require('node:assert/strict');
     for (const [key, value] of Object.entries(laser)) if (key !== 'hit') assert.equal(value, true, key);
     assert.deepEqual(laser.hit, [true, true, true, false, false]);
 
+    // Every firing direction must connect the visible beam to the cannon muzzle.
+    const cannonAligned = await page.evaluate(async () => {
+      const { Vector3 } = await import('three');
+      const g = game;
+      g.reset(123); g.paused = false; g.state = 'wave';
+      for (const [ux, uz] of [[1, 0], [-1, 0], [0, 1], [0, -1], [-0.6, 0.8]]) {
+        g.laserCharge = 90;
+        if (!g.fireLaser(g.core.x + ux * 10, g.core.z + uz * 10)) return false;
+        const muzzle = g.core.model.userData.laserMuzzle.getWorldPosition(new Vector3());
+        const beam = g.fx.beams.at(-1).group;
+        const length = beam.children[0].geometry.parameters.width;
+        const start = beam.localToWorld(new Vector3(-length / 2, 0, 0));
+        const heading = muzzle.clone().sub(g.core.obj.position);
+        if (start.distanceTo(muzzle) > 1e-6 || Math.abs(heading.x * uz - heading.z * ux) > 1e-6
+          || heading.x * ux + heading.z * uz <= 0 || muzzle.y < 1.4) return false;
+        g.fx.update(0.5, g.camera, g.viewport);
+      }
+      return true;
+    });
+    assert.equal(cannonAligned, true, 'Cannon aims along the shot and the beam begins at its muzzle');
+
     // Real buttons, aiming/cancellation, and narrow layouts.
     await page.evaluate(() => { game.reset(123); game.paused = false; game.state = 'wave'; game.queue = [{ at: 999 }]; game.laserCharge = 90; game.emit('selectOnly', game.core); game.emit('change'); });
     // Base controls appear in the inspector once the Ridge Relay is selected.

@@ -72,20 +72,36 @@ export function buildTerrain(depth, seed, cols = COLS, rows = ROWS) {
 
   const resolution = 3;
   const vx = cols * resolution + 1, vy = rows * resolution + 1;
+  const cornerDepth = (cx, cy) => Math.min(cellDepth(cx - 1, cy - 1), cellDepth(cx, cy - 1), cellDepth(cx - 1, cy), cellDepth(cx, cy));
+  // Round the foothills inward, keeping the full width of every walkable lane.
+  // A shared corner field also keeps neighbouring render sections seamless.
+  const roundedDepth = new Float32Array((cols + 1) * (rows + 1));
+  for (let y = 0; y <= rows; y++) {
+    for (let x = 0; x <= cols; x++) {
+      let sum = 0;
+      for (let dz = -1; dz <= 1; dz++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          sum += cornerDepth(x + dx, y + dz) * (dx === 0 ? 2 : 1) * (dz === 0 ? 2 : 1);
+        }
+      }
+      roundedDepth[y * (cols + 1) + x] = Math.min(cornerDepth(x, y), Math.max(0, sum / 16 - 0.3));
+    }
+  }
+  const rounded = (x, y) => roundedDepth[Math.min(rows, y) * (cols + 1) + Math.min(cols, x)];
   const heights = new Float32Array(vx * vy);
   const pos = new Float32Array(vx * vy * 3);
   for (let j = 0; j < vy; j++) {
     for (let i = 0; i < vx; i++) {
       const x = i / resolution, y = j / resolution;
       const ax = Math.floor(x), ay = Math.floor(y), u = x - ax, v = y - ay;
-      const cornerDepth = (cx, cy) => Math.min(cellDepth(cx - 1, cy - 1), cellDepth(cx, cy - 1), cellDepth(cx - 1, cy), cellDepth(cx, cy));
-      const d = cornerDepth(ax, ay) * (1 - u) * (1 - v) + cornerDepth(ax + 1, ay) * u * (1 - v)
-        + cornerDepth(ax, ay + 1) * (1 - u) * v + cornerDepth(ax + 1, ay + 1) * u * v;
+      const d = rounded(ax, ay) * (1 - u) * (1 - v) + rounded(ax + 1, ay) * u * (1 - v)
+        + rounded(ax, ay + 1) * (1 - u) * v + rounded(ax + 1, ay + 1) * u * v;
       let h = 0;
       if (d > 0) {
         const n = fbm(x, y, seed);
         h = PEAK * (1 - Math.exp(-d / RISE)) * (0.62 + 0.76 * n) + Math.min(1, d) * (n - 0.5) * 0.5;
         h = Math.max(0.12 * Math.min(1, d), h);
+        h *= THREE.MathUtils.smoothstep(d, 0, 0.8);
       }
       for (const lake of lakes) {
         const distance = lakeDistance(x, y, lake);
@@ -149,7 +165,7 @@ export function buildTerrain(depth, seed, cols = COLS, rows = ROWS) {
 
   const material = detailTerrain(new THREE.MeshStandardMaterial({
     vertexColors: true, color: 0xa5a5a5, roughness: 0.96, metalness: 0.02
-  }));
+  }), rows);
   const mesh = new THREE.Group();
   mesh.name = 'terrain';
   for (const [key, indices] of chunks) {

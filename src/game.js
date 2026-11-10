@@ -729,7 +729,8 @@ export class Game {
     const edgeZ = uz > 0 ? (this.grid.ROWS - this.core.z) / uz : uz < 0 ? -this.core.z / uz : Infinity;
     const length = Math.min(edgeX, edgeZ);
     this.laserCharge = 0;
-    this.fx.laser(this.core, { x: this.core.x + ux * length, z: this.core.z + uz * length }, BASE_LASER.duration);
+    const muzzle = this.core.fireLaser(ux, uz);
+    this.fx.laser(muzzle, { x: this.core.x + ux * length, z: this.core.z + uz * length }, BASE_LASER.duration);
     // Resolve the whole line once: no projectile stops at the first enemy.
     for (const target of this.combatTargets.slice()) {
       if (target.dead) continue;

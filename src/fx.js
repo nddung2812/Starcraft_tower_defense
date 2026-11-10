@@ -83,7 +83,7 @@ export class Fx {
       mesh.userData.opacity = opacity;
       group.add(mesh);
     }
-    group.position.set((from.x + to.x) / 2, 1.2, (from.z + to.z) / 2);
+    group.position.set((from.x + to.x) / 2, from.y ?? 1.2, (from.z + to.z) / 2);
     group.rotation.y = -Math.atan2(to.z - from.z, to.x - from.x);
     this.scene.add(group);
     this.beams.push({ group, life: duration, max: duration });

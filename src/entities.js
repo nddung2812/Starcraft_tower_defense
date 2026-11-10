@@ -738,13 +738,25 @@ export class Core {
     this.light.position.set(1.0, 0.7, 0);
     this.obj.add(this.light);
 
-    this.bar = new HealthBar(this.obj, 1.6, 0.12, 2.1);
-    this.laserBar = new HealthBar(this.obj, 1.6, 0.12, 2.1, 0xff3020);
+    this.bar = new HealthBar(this.obj, 1.6, 0.12, 2.35);
+    this.laserBar = new HealthBar(this.obj, 1.6, 0.12, 2.35, 0xff3020);
+    this.laserFlash = 0;
+  }
+
+  fireLaser(ux, uz) {
+    const { laserTurret, laserMuzzle } = this.model.userData;
+    laserTurret.rotation.y = -Math.atan2(uz, ux);
+    this.laserFlash = BASE_LASER.duration;
+    laserMuzzle.material.emissiveIntensity = 6;
+    return laserMuzzle.getWorldPosition(new THREE.Vector3());
   }
 
   update(dt, game) {
     const ud = this.model.userData;
     ud.dish.rotation.y += dt * 0.7;
+    this.laserFlash = Math.max(0, this.laserFlash - dt);
+    ud.laserMuzzle.material.emissiveIntensity = this.laserFlash > 0
+      ? 6 : 0.35 + 2.65 * (game.laserCharge / BASE_LASER.chargeTime);
     const pct = this.hp / this.maxHp;
     const pulse = 1 + Math.sin(game.time * 2.4) * 0.1;
     ud.reactor.scale.setScalar(pulse);
