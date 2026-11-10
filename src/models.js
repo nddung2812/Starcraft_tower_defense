@@ -696,7 +696,6 @@ export function buildCore() {
   const hull = new THREE.MeshStandardMaterial({ color: 0x9aa3ab, metalness: 0.86, roughness: 0.34 });
   const dark = new THREE.MeshStandardMaterial({ color: 0x2c333a, metalness: 0.8, roughness: 0.46 });
   const red = new THREE.MeshStandardMaterial({ color: 0xc22830, metalness: 0.5, roughness: 0.4 });
-  const padMat = new THREE.MeshStandardMaterial({ color: 0x3a4148, metalness: 0.7, roughness: 0.5 });
 
   // segmented foundation skirt
   g.add(mesh(new THREE.CylinderGeometry(0.98, 1.05, 0.22, 32), dark, 0, 0.11, 0));
@@ -764,27 +763,13 @@ export function buildCore() {
   laserTurret.add(laserMuzzle);
   g.add(laserTurret);
 
-  // landing pad with a lit grid
-  g.add(mesh(box(0.72, 0.08, 0.58, 0.02), padMat, 1.02, 0.28, -0.05));
-  const reactorMat = new THREE.MeshStandardMaterial({
-    color: 0xffe7a2, emissive: 0xffb020, emissiveIntensity: 1.3, metalness: 0.25, roughness: 0.45
-  });
-  const reactor = mesh(new THREE.PlaneGeometry(0.5, 0.38), reactorMat, 1.02, 0.325, -0.05);
-  reactor.rotation.x = -Math.PI / 2;
-  g.add(reactor);
-  const gridLine = new THREE.MeshStandardMaterial({ color: 0x1c1408, metalness: 0.4, roughness: 0.6 });
-  for (let i = -2; i <= 2; i++) {
-    g.add(mesh(box(0.5, 0.012, 0.012, 0.002), gridLine, 1.02, 0.33, -0.05 + i * 0.08));
-    g.add(mesh(box(0.012, 0.012, 0.36, 0.002), gridLine, 1.02 + i * 0.1, 0.33, -0.05));
-  }
-
   // status pips on the hull
   [0xd23a3a, 0xe6c24a, 0x3aa6ee].forEach((color, i) => {
     const pip = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 1.6, roughness: 0.3 });
     g.add(mesh(box(0.05, 0.07, 0.04, 0.01), pip, 0.62, 0.58, -0.22 + i * 0.1));
   });
 
-  g.userData = { reactor, dish, laserTurret, laserMuzzle };
+  g.userData = { dish, laserTurret, laserMuzzle };
   return g;
 }
 

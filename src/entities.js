@@ -758,11 +758,6 @@ export class Core {
     ud.laserMuzzle.material.emissiveIntensity = this.laserFlash > 0
       ? 6 : 0.35 + 2.65 * (game.laserCharge / BASE_LASER.chargeTime);
     const pct = this.hp / this.maxHp;
-    const pulse = 1 + Math.sin(game.time * 2.4) * 0.1;
-    ud.reactor.scale.setScalar(pulse);
-    ud.reactor.material.emissiveIntensity = 2.6 * pulse;
-    ud.reactor.material.color.setHex(pct < 0.35 ? 0xffb0a0 : 0xffe7a2);
-    ud.reactor.material.emissive.setHex(pct < 0.35 ? 0xff4a35 : 0xffa020);
     this.light.color.setHex(pct < 0.35 ? 0xff5a4a : 0xffc56a);
     this.bar.set(pct, game.camera, true);
     this.laserBar.set(game.laserCharge / BASE_LASER.chargeTime, game.camera, true);
