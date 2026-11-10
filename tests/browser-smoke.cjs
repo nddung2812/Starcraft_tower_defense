@@ -8,7 +8,7 @@ const os = require('node:os');
   const page = await context.newPage();
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('http://127.0.0.1:8765/?seed=12345&vs=Rico&kills=8');
-  await page.waitForFunction(() => window.game);
+  await page.waitForFunction(() => window.game?.stage);
   await page.screenshot({ path: path.join(os.tmpdir(), 'td-intro.png') });
   assert.match(await page.locator('#challengeIntro').textContent(), /Rico/);
   await page.locator('#introBtn').click();
@@ -37,7 +37,7 @@ const os = require('node:os');
         const map = carveLevel(level, seed), grid = new Grid(); grid.load(map);
         const lengths = map.spawns.map(s => grid.findPath(s.x, s.y, map.core.x, map.core.y)?.length || 0);
         if (lengths.some(n => !n)) throw Error(`Unreachable level ${level}, seed ${seed}`);
-        if (map.spawn.x > 6 || map.core.x < map.cols - 6 || map.spawns.length !== (level <= 5 ? 1 : level <= 15 ? 2 : 3)) throw Error('Bases or difficulty-based route count incorrect');
+        if (map.spawn.x > 6 || map.core.x < map.cols - 6 || map.spawns.length !== (level <= 6 ? 2 : level <= 15 ? 3 : 4)) throw Error('Bases or difficulty-based route count incorrect');
         if (JSON.stringify(map) !== JSON.stringify(carveLevel(level, seed))) throw Error('Map seed mismatch');
         results.push({ level, seed, lengths });
       }
@@ -62,7 +62,7 @@ const os = require('node:os');
   await page.waitForTimeout(500);
   assert.equal(await page.locator('#banner').isVisible(), false, 'Old score request reopened game over');
   await page.goto(copied);
-  await page.waitForFunction(() => window.game);
+  await page.waitForFunction(() => window.game?.stage);
   assert.match(await page.locator('#challengeIntro').textContent(), /9 kills/);
   await page.getByRole('button', { name: 'Build my own defense' }).click();
   // Following a challenge preserves the previous run until replacement is chosen.

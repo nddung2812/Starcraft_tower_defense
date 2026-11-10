@@ -13,7 +13,7 @@ for (let seed = 0; seed < 24; seed++) {
     const terrain = new Set([...map.open, ...map.boulders].map(([x,y]) => y * map.cols + x));
     const hist = {};
     const necks = [];
-    for (let x = 6; x < Math.floor(map.cols * 0.75); x++) {
+    for (let x = 6; x < Math.floor(map.cols * 0.64); x++) {
       let run = [];
       const measure = () => {
         if (!run.length) return;
@@ -50,6 +50,16 @@ for (const [level, seed, expected] of legacy) {
   const m = carveLevel(level, seed, 1);
   const hash = createHash('sha256').update(JSON.stringify({ open: m.open, boulders: m.boulders, peaks: m.peaks, paths: m.paths, focus: m.focus })).digest('hex');
   assert.equal(hash, expected, 'Legacy terrain changed');
+}
+const versionTwo = [
+  [1, 12345, 'bf1c8e2e7cc1d9d6ae75b4db47c3c278d4b1120082f445537369f5af393587a4'],
+  [6, 0, '32cb9275a86f32640f4befe52769ca9eef315fe522c4e74e3b95509ae062ed9e'],
+  [26, 4294967295, '9632a8f8c40c7b0d3c8e9de9c620f3953c55962882e7e27ae359e4500d803631']
+];
+for (const [level, seed, expected] of versionTwo) {
+  const m = carveLevel(level, seed, 2);
+  const hash = createHash('sha256').update(JSON.stringify({ open: m.open, boulders: m.boulders, peaks: m.peaks, paths: m.paths, focus: m.focus })).digest('hex');
+  assert.equal(hash, expected, 'Version-2 terrain changed');
 }
 assert.throws(() => carveLevel(1, 0, 99), /Unsupported map version/);
 console.log(`PASS: ${checked} maps with 2/3/4/6/7-tile sections, broader majority, protected necks, connected routes and legacy terrain; widths:`, totals);

@@ -1,6 +1,6 @@
 import { ARMORY, TREASURE, TREASURE_RULES, BUILD, UNITS, CELL, applyBaseUpgrade, BASE_LASER } from './config.js';
 import { Grid } from './grid.js';
-import { carveLevel, MAP_VERSION } from './levels.js';
+import { carveLevel, SUPPORTED_MAP_VERSIONS } from './levels.js';
 import { Marine, Wall, Bunker } from './entities.js';
 
 export const SAVE_KEY = 'td.checkpoint.v1';
@@ -42,7 +42,7 @@ export function validateCheckpoint(s) {
       !['build', 'brief'].includes(s.phase) || !number(s.coreHp, 0.001)) return false;
     if (s.laserCharge !== undefined && !number(s.laserCharge, 0, BASE_LASER.chargeTime)) return false;
     if (s.baseLevel !== undefined && !integer(s.baseLevel, 0, 100000)) return false;
-    if (s.mapVersion !== undefined && s.mapVersion !== 1 && s.mapVersion !== MAP_VERSION) return false;
+    if (s.mapVersion !== undefined && !SUPPORTED_MAP_VERSIONS.includes(s.mapVersion)) return false;
     if (!Array.isArray(s.armory) || s.armory.length > ARMORY.length || new Set(s.armory).size !== s.armory.length ||
       !s.armory.every(id => ARMORY.some(a => a.id === id))) return false;
     if (!Array.isArray(s.treasure) || s.treasure.length > 10000 || !s.treasure.every(t =>

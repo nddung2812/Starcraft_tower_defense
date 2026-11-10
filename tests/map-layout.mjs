@@ -41,7 +41,7 @@ for (const seed of [0, 12345, 0xffffffff]) {
     const size = Math.min(128, 56 + Math.floor((level - 1) / 5) * 16);
     assert.equal(map.cols, size); assert.equal(map.rows, size);
     assert.equal(map.depth.length, size * size);
-    const expectedRoutes = level <= 5 ? 1 : level <= 15 ? 2 : 3;
+    const expectedRoutes = level <= 6 ? 2 : level <= 15 ? 3 : 4;
     assert.equal(map.routeCount, expectedRoutes);
     assert.equal(map.spawns.length, expectedRoutes);
     assert.equal(map.paths.length, expectedRoutes);

@@ -41,16 +41,17 @@ function rockDepth(cols, rows, isWalkable) {
 }
 
 const SECTORS = ['Ash Flats', 'Red Gully', 'Shale Run', 'Dust Basin', 'Scar Ridge', 'Cinder Pass', 'Hollow Reach', 'Iron Wash', 'Broken Mesa', 'Last Light'];
-export const MAP_VERSION = 2;
+export const MAP_VERSION = 3;
+export const SUPPORTED_MAP_VERSIONS = [1, 2, MAP_VERSION];
 
 /** Broad building areas separated by short necks; widths are measured in whole tiles. */
-function canyonWidths(cols, rng) {
+function canyonWidths(cols, rng, end = Math.floor(cols * 0.75)) {
   const widths = [6, 4, 7, 3, 6, 2, 7];
   // Rotate/reverse the sequence without ever putting both narrow sections together.
   const offset = Math.floor(rng() * widths.length);
   const ordered = widths.map((_, i) => widths[(i + offset) % widths.length]);
   if (rng() < 0.5) ordered.reverse();
-  const start = 6, end = Math.floor(cols * 0.75);
+  const start = 6;
   const weights = ordered.map(w => w <= 3 ? 0 : 0.8 + rng() * 0.4);
   const totalWeight = weights.reduce((sum, w) => sum + w, 0);
   const broadLength = end - start - 10;
@@ -88,18 +89,34 @@ function centerAt(path, x) {
 
 /** Several separated western approaches converge only near the eastern command center. */
 export function carveLevel(level, seed, version = MAP_VERSION) {
-  if (version !== 1 && version !== MAP_VERSION) throw new Error('Unsupported map version');
-  const { cols, rows, routeCount } = mapDimensions(level);
+  if (!SUPPORTED_MAP_VERSIONS.includes(version)) throw new Error('Unsupported map version');
+  const { cols, rows } = mapDimensions(level);
+  // Old saves must reconstruct the same lanes before validating placed hardware.
+  const routeCount = version < 3 ? (level <= 5 ? 1 : level <= 15 ? 2 : 3) : mapDimensions(level).routeCount;
   const rng = mulberry32((seed ^ Math.imul(level, 0x9e3779b1)) >>> 0);
   const key = (x,y) => y * cols + x;
   const core = { x: cols - 5, y: Math.floor(rows / 2) - 1, w: 2, h: 2, hp: CORE_HP };
+  if (version >= 3) core.y += Math.round((rng() - 0.5) * 6);
   const laneY = routeCount === 1 ? [Math.floor(rows / 2)]
     : Array.from({length: routeCount}, (_,i) => Math.round(rows * (0.18 + 0.64 * i / (routeCount - 1))));
+  if (version >= 3) for (let i = 0; i < laneY.length; i++) laneY[i] += Math.round((rng() - 0.5) * 4);
   // The primary hive is central; every hive remains on the western edge.
   laneY.sort((a,b) => Math.abs(a - rows / 2) - Math.abs(b - rows / 2) || a - b);
   const spawns = laneY.map(y => ({ x: 3, y }));
   const spawn = spawns[0];
+  const convergence = version >= 3 ? Math.floor(cols * 0.64) : cols * 0.75;
   const paths = laneY.map(y => {
+    if (version >= 3) {
+      // Alternate gentle bends/sweeps, with small seeded offsets for each approach.
+      const shapes = [[1, -0.8, 0.4], [-0.6, 1, -0.5], [0.4, 1, 0.6], [-0.4, -1, -0.6]];
+      const shape = shapes[(level - 1) % shapes.length];
+      const bend = 3 + rng() * 2;
+      const points = [0.24 * cols, 0.44 * cols, convergence].map((x, i) =>
+        [x, y + shape[i] * bend + (rng() - 0.5) * 2]);
+      // Early lanes share a longer firing line; later lanes approach the base separately.
+      const joinX = cols - (routeCount === 2 ? 12 : routeCount === 3 ? 10 : 8);
+      return [[3.5, y + 0.5], ...points, [joinX, core.y + 1], [core.x + 1, core.y + 1]];
+    }
     const wiggle = () => (rng() - 0.5) * Math.min(6, rows / routeCount * 0.25);
     return [[3.5,y + 0.5], [cols * 0.25,y + wiggle()], [cols * 0.5,y + wiggle()],
       [cols * 0.75,y + wiggle()], [cols - 7,core.y + 1], [core.x + 1,core.y + 1]];
@@ -114,11 +131,11 @@ export function carveLevel(level, seed, version = MAP_VERSION) {
     }
   } else {
     paths.forEach((path, lane) => {
-      const widths = canyonWidths(cols, mulberry32((seed ^ Math.imul(level, 0x9e3779b1) ^ Math.imul(lane + 1, 0x85ebca6b)) >>> 0));
+      const widths = canyonWidths(cols, mulberry32((seed ^ Math.imul(level, 0x9e3779b1) ^ Math.imul(lane + 1, 0x85ebca6b)) >>> 0), Math.floor(convergence));
       for (let x = 1; x < cols - 1; x++) {
         const center = centerAt(path, x + 0.5);
         // Keep 2–7 exact tile rows in the canyon; widen the steep final convergence.
-        const width = x + 0.5 < cols * 0.75 ? widths[x]
+        const width = x + 0.5 < convergence ? widths[x]
           : Math.max(widths[x], Math.round(widths[x] * Math.hypot(1, center.slope)));
         const bottom = Math.round(center.y - width / 2);
         const spine = Math.round(center.y - 1);

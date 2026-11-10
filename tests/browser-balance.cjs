@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     await page.addInitScript(() => { window.requestAnimationFrame = () => 1; });
     await page.goto(process.env.TEST_URL || 'http://127.0.0.1:8765/?seed=12345');
-    await page.waitForFunction(() => window.game, null, { polling: 50 });
+    await page.waitForFunction(() => window.game?.stage, null, { polling: 50 });
     await page.locator('#introBtn').click();
     assert.match(await page.title(), /Ridgewatch/);
     const result = await page.evaluate(async () => {

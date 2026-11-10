@@ -52,6 +52,26 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 | `src/fx.js`, `audio.js`, `voice.js` | Particles and decals, synthesised sound effects, speech-synthesis voice lines. |
 | `assets/models/README.md` | How to drop in `.glb` unit models. |
 
+## Map progression update (Nov 10, 2026)
+
+New runs use map version 3: two western approaches on rounds 1–6, three on rounds 7–15,
+and four from round 16. Each round varies the approach bends, entrance rows, base row,
+width pattern and obstacles using the run seed. Early routes merge farther from the base;
+later routes keep their separate approaches longer. Quick Deploy places its squad at the
+shared defense line so it can cover both opening routes. Map size still grows every five
+rounds from 56×56 to a maximum of 128×128.
+
+Basic enemy counts now rise by a few each round instead of doubling on round 2.
+Health grows by 10% of base HP per round and speed by 1.5% of base speed per round,
+capped at +30%. New enemy types and five-round boss milestones retain their introductions.
+Version-1 and version-2 checkpoints reconstruct their original terrain and placed hardware;
+the next round uses version 3.
+
+`tests/map-progression.mjs` checks round/run variation and increasing wave health budgets.
+The map layout/width suites check routing, lane separation and exact legacy terrain fixtures.
+The browser map suite checks live multi-lane spawning and all three checkpoint versions;
+the balance suite checks the starting squad can clear both opening approaches.
+
 ## Latest gameplay update (Nov 9, 2026)
 
 - Canyon width now varies along each approach: mostly 4–7 tiles, with short 2–3 tile necks

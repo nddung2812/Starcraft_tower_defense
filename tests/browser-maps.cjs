@@ -7,7 +7,7 @@ const path = require('node:path');
   try {
     const page = await browser.newPage({viewport:{width:1440,height:1000}});
     const errors=[]; page.on('pageerror',e=>errors.push(e.message));
-    await page.goto('http://127.0.0.1:8765/'); await page.waitForFunction(()=>window.game);
+    await page.goto('http://127.0.0.1:8765/'); await page.waitForFunction(()=>window.game?.stage);
     await page.getByRole('button',{name:'Build my own defense'}).click();
     const layouts=await page.evaluate(async()=>{
       const THREE=await import('three');
@@ -15,10 +15,10 @@ const path = require('node:path');
       const g=game, render=g.stage.render.bind(g.stage); g.stage.render=()=>{};
       const check=(ok,message)=>{if(!ok)throw Error(message);};
       const result=[];
-      for(const level of [1,5,6,10,11,20,21,26,30,100]){
+      for(const level of [1,2,5,6,7,10,11,15,16,20,21,26,30,100]){
         g.wipeUnits();g.level=level;g.state='build';g.loadLevel();
         const {cols,rows,routeCount}=g.layout;
-        check(routeCount===(level<=5?1:level<=15?2:3),'Incorrect difficulty-based route count');
+        check(routeCount===(level<=6?2:level<=15?3:4),'Incorrect difficulty-based route count');
         check(g.grid.cells.length===cols*rows,'Grid was not resized');
         check(g.stage.cols===cols&&g.stage.rows===rows,'Camera bounds were not resized');
         g.zoneMesh.geometry.computeBoundingBox();
@@ -27,7 +27,7 @@ const path = require('node:path');
         const ground=new THREE.Box3().setFromObject(g.stage.ground);
         check(Math.abs(ground.min.x)<.001&&Math.abs(ground.max.x-cols)<.001&&Math.abs(ground.min.z)<.001&&Math.abs(ground.max.z-rows)<.001,'Ground extends outside map');
         g.startWave();
-        check(new Set(g.queue.map(s=>s.lane)).size===routeCount,'Wave did not use every attack route');
+        check(new Set(g.queue.filter(s=>s.breed==='zergling').map(s=>s.lane)).size===routeCount,'Ground wave did not use every attack route');
         for(const spawn of g.grid.spawns){
           const bug=new Zergling(spawn.x+.5,spawn.y+.85,'zergling',1,1);
           bug.repath(g);check(bug.path?.length>1,'Spawned bug could not read a route');
@@ -50,7 +50,18 @@ const path = require('node:path');
       check(validateCheckpoint(legacySave),'Original checkpoint rejected');
       restoreCheckpoint(g,legacySave);
       check(g.mapVersion===1&&g.walls[0].tx===legacySpot[0]&&g.walls[0].ty===legacySpot[1],'Original terrain was not restored');
-      g.completeWave();check(g.mapVersion===MAP_VERSION&&g.layout.mapVersion===MAP_VERSION,'Next round did not adopt wider paths');
+      g.completeWave();check(g.mapVersion===MAP_VERSION&&g.layout.mapVersion===MAP_VERSION,'Next round did not adopt the new routes');
+      for(const version of [2,MAP_VERSION]) {
+        g.reset(12345);g.mapVersion=version;g.loadLevel();
+        const spot=g.layout.open.find(([x,y])=>g.grid.buildable(x,y));
+        check(g.placeWall(...spot),'Cannot place checkpoint fixture');
+        const saved=captureCheckpoint(g,{player:'Routes',quickDeployment:false,guideDismissed:true});
+        const terrain=JSON.stringify(g.layout.open);
+        check(validateCheckpoint(saved),`Version ${version} save rejected`);
+        restoreCheckpoint(g,saved);
+        check(g.mapVersion===version&&JSON.stringify(g.layout.open)===terrain&&g.walls[0].tx===spot[0]&&g.walls[0].ty===spot[1],`Version ${version} terrain changed on restore`);
+        g.completeWave();check(g.mapVersion===MAP_VERSION,'Next round did not upgrade map version');
+      }
       g.reset(12345);check(g.grid.COLS===56&&g.stage.cols===56,'Restart did not shrink the map');
       g.stage.render=render;
       g.stage.focus.set(28,0,28);g.stage.pitch=1.1;g.stage.dist=g.stage.fitDistance();g.stage.updateCamera();g.stage.render();
@@ -65,6 +76,6 @@ const path = require('node:path');
     await page.screenshot({path:path.join(os.tmpdir(),'td-map-overview.png')});
     assert.deepEqual(errors,[]);
     console.log('Dynamic map integration:',layouts);
-    console.log('PASS: exact terrain/ground bounds, 1–3 difficulty-based live wave routes, shared routing, map growth, restart shrink, camera clamps and minimap coordinates');
+    console.log('PASS: exact terrain/ground bounds, 2–4 difficulty-based live wave routes, shared routing, map growth, restart shrink, camera clamps and minimap coordinates');
   }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

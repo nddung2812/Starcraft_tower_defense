@@ -132,3 +132,17 @@ balance as permanent treasure stacks and enemy HP grow.
   of the round, using that checkpoint's research and charge.
 - `tests/browser-base.cjs` checks research, old/new checkpoints, bonus timing and rewards,
   bosses and multiple hives, laser damage/charging/carryover, mouse controls and mobile layout.
+
+
+## Map and wave progression (Nov 10, 2026)
+
+- New maps have two routes on rounds 1–6, three on rounds 7–15, and four from round 16.
+  Entrances, bends, base rows, widths and obstacles vary each round. Earlier convergence
+  gives the starting squad a shared defense position; later convergence spreads defenses.
+- Basic skitter count is `min(192, 4 + 2*(round-1) + floor(0.08*(round-1)^2))`, in groups
+  of up to `min(12, 4 + floor((round-1)/4))`. The first two rounds have four and six skitters.
+- Wave HP is multiplied by `1 + 0.10*(round-1)`. Movement speed is multiplied by
+  `1 + min(0.30, 0.015*(round-1))`. Existing strain introductions and boss milestones remain.
+- Map version 3 preserves exact version-1/2 checkpoint terrain until the next round.
+  Route/width/variation checks, live spawning and checkpoint restoration, and opening
+  combat simulations cover the progression. Late-game difficulty still needs playtesting.

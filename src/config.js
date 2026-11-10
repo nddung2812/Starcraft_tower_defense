@@ -5,7 +5,7 @@ export const ROWS = 128;
 /** Real grid dimensions, growing every five levels and capped at 128×128. */
 export function mapDimensions(level) {
   const size = Math.min(COLS, 56 + Math.floor(Math.max(0, level - 1) / 5) * 16);
-  return { cols: size, rows: size, routeCount: level <= 5 ? 1 : level <= 15 ? 2 : 3 };
+  return { cols: size, rows: size, routeCount: level <= 6 ? 2 : level <= 15 ? 3 : 4 };
 }
 export const W = TILE * COLS;
 export const H = TILE * ROWS;
@@ -233,16 +233,18 @@ export const LEVELS = [
  * toughness, new strains join as you go, and the column gets longer.
  */
 export function wavePlan(n) {
-  const hpScale = 1 + (n - 1) * 0.12;
-  const speedScale = 1 + Math.min(0.4, (n - 1) * 0.02);
+  const hpScale = 1 + (n - 1) * 0.10;
+  const speedScale = 1 + Math.min(0.3, (n - 1) * 0.015);
   const out = [];
   const add = (count, start, gap, breed) => {
     for (let i = 0; i < count; i++) out.push({ at: start + i * gap, breed, hpScale, speedScale });
   };
   let t = 0.2;
-  const clumps = Math.min(16, 1 + Math.floor(n * 0.6));
-  for (let c = 0; c < clumps; c++) {
-    const size = Math.min(12, 4 + Math.floor(n / 3));
+  // Add a few enemies each round instead of doubling the opening wave at level 2.
+  const count = Math.min(192, 4 + 2 * (n - 1) + Math.floor(0.08 * (n - 1) ** 2));
+  const groupSize = Math.min(12, 4 + Math.floor((n - 1) / 4));
+  for (let sent = 0; sent < count; sent += groupSize) {
+    const size = Math.min(groupSize, count - sent);
     add(size, t, 0.1, 'zergling');
     t += 1.05 + size * 0.1;
   }
@@ -257,6 +259,21 @@ export function wavePlan(n) {
 
 // Silver lasts through the next three full rounds; gold lasts for the run.
 export const TREASURE_RULES = { silverRounds: 3, goldChance: 0.35 };
+// Boss evolutions last for one run; repeat picks improve a branch with diminishing returns.
+export const EVOLUTIONS = [
+  { id: 'siege', name: 'Walking Fortress', unit: 'Cinder Crawlers', icon: '⌖', color: '#f0b23c',
+    flavor: 'Plant your treads. Own the canyon.' },
+  { id: 'chain', name: 'Chain Lightning', unit: 'Anchor Walkers', icon: 'ϟ', color: '#71e7e0',
+    flavor: 'One target becomes an entire swarm.' },
+  { id: 'stand', name: 'Last Stand', unit: 'Garrisoned Lineguards', icon: '▰', color: '#ff8066',
+    flavor: 'When the walls crack, the guns roar.' }
+];
+export const EVOLUTION_RULES = {
+  deployTime: 1.2, siegeRange: 5, siegeRangeStep: 0.75, siegeSplash: 0.6,
+  chainHops: 2, chainRadius: 3.5, chainDamage: 0.5, chainDamageStep: 0.1,
+  standThreshold: 0.3, standDuration: 6, standDurationStep: 1, standCooldown: 20, standFireRate: 3
+};
+export function evolutionPower(rank) { return Math.log2(Math.max(1, rank)); }
 // Treasure bonuses stack for all current and future Lineguards.
 export const TREASURE = [
   { id: 'gun', name: 'Pulse Rifle Kit', effect: '+15% Lineguard gun damage', apply: s => { s.damage *= 1.15; } },

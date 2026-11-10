@@ -8,7 +8,7 @@ const assert = require('node:assert/strict');
     page.on('pageerror', e => errors.push(e.message));
     await page.addInitScript(() => { window.requestAnimationFrame = () => 1; });
     await page.goto('http://127.0.0.1:8765/');
-    await page.waitForFunction(() => window.game);
+    await page.waitForFunction(() => window.game?.stage);
     await page.locator('#introBtn').click();
     const upgrades = await page.evaluate(async () => {
       const g = game;
@@ -189,7 +189,7 @@ const assert = require('node:assert/strict');
       g.wipeUnits(); g.level = 16; g.loadLevel(); g.state = 'raid'; g.raidT = 15;
       const money = g.minerals;
       for (const h of g.hives) { h.takeDamage(100000, g); h.takeDamage(100000, g); }
-      const allRewards = g.hives.length === 3 && g.minerals - money === g.hives.reduce((sum, h) => sum + h.reward, 0);
+      const allRewards = g.hives.length === 4 && g.minerals - money === g.hives.reduce((sum, h) => sum + h.reward, 0);
       g.reset(123);
       const reset = g.baseLevel === 0 && g.laserCharge === 0 && g.raidT === 0 && !g.fx.beams.length;
       return { exactCharge, bossPending, bossRaid, allRewards, reset };

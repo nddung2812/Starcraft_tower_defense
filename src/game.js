@@ -444,7 +444,10 @@ export class Game {
     const c = this.grid.core;
     const route = this.grid.findPath(this.grid.spawn.x, this.grid.spawn.y, c.x, c.y);
     if (!route?.length) return false;
-    const anchor = route[Math.max(0, route.length - 9)];
+    // Cover the shared approach, rather than placing the whole squad on one branch.
+    const anchor = this.grid.spawns.length > 1
+      ? { x: c.x - 5, y: c.y }
+      : route[Math.max(0, route.length - 9)];
     let placed = 0;
     for (let r = 0; r <= 4 && placed < 3; r++) {
       for (let dy = -r; dy <= r && placed < 3; dy++) {
