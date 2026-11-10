@@ -240,6 +240,18 @@ export const MODEL_FILES = {
   needler:  { file: 'assets/models/needler.glb',  fit: 'height', size: 0.85 }
 };
 
+/*
+ * Scenery art (see assets/CREDITS.md). Optional, like MODEL_FILES: a missing file keeps the
+ * built-in rock or painted texture. `tiles` is how many tiles one repeat of a texture covers.
+ */
+export const SCENERY_FILES = {
+  boulders: [1, 2, 3, 4].map((n) => `assets/models/rocks/boulder-${n}.glb`),
+  spires: [1, 2].map((n) => `assets/models/rocks/spire-${n}.glb`),
+  ground: { file: 'assets/textures/ground.jpg', tiles: 7 },
+  cliff: { file: 'assets/textures/cliff.jpg', tiles: 5 },
+  slope: { file: 'assets/textures/slope.jpg', tiles: 6 }
+};
+
 /* Units and bugs are drawn a bit larger than one tile so they read against the rock. */
 export const UNIT_SCALE = 1.45;
 export const BUG_SCALE = 1.12;

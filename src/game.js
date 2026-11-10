@@ -5,6 +5,7 @@ import { carveLevel, MAP_VERSION } from './levels.js';
 import { Marine, Zergling, Wall, Bunker, Scv, Core, Hive, Tracer, Shell, AirBomb, SupplyCrate } from './entities.js';
 import { buildRock, buildBoulder } from './models.js';
 import { buildTerrain } from './terrain.js';
+import { sceneryBoulder, scenerySpire } from './scenery.js';
 import { Fx } from './fx.js';
 import { sfx } from './audio.js';
 import { voice } from './voice.js';
@@ -201,7 +202,7 @@ export class Game {
     const lumps = [...layout.boulders.map(([x, y]) => [x, y, 1]), ...terrain.flatRock.map(([x, y]) => [x, y, 0])];
     lumps.forEach(([x, y, inLane], i) => {
       const n = noise(x, y, i);
-      const rock = buildBoulder(n);
+      const rock = sceneryBoulder(n) || buildBoulder(n);
       const s = (inLane ? 1.05 : 1.15) + (n % 7) / 30;
       rock.scale.set(s * (0.92 + (n % 5) / 25), s * (0.85 + (n % 6) / 20), s * (0.9 + ((n >> 3) % 5) / 25));
       rock.rotation.y = (n % 628) / 100;
@@ -213,7 +214,7 @@ export class Game {
     layout.peaks.forEach(([x, y], i) => {
       if (terrain.lakes.some(l => Math.hypot(x + 0.5 - l.x, y + 0.5 - l.z) < l.radius * 1.3)) return;
       const n = noise(x, y, i + 101);
-      const rock = buildRock(n);
+      const rock = scenerySpire(n) || buildRock(n);
       const s = 2.2 + (n % 9) / 8;
       rock.scale.set(s, s * (1.3 + (n % 5) / 10), s);
       rock.rotation.y = (n % 628) / 100;

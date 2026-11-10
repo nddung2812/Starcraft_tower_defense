@@ -30,6 +30,19 @@ Any unit without a file keeps its built-in model, so you can add them one at a t
 - **Turret:** a model file turns as one piece to aim. Only the built-in tank rotates its
   turret separately.
 
+## Scenery: rocks and ground textures
+
+Lane boulders, mountain spires and the ground and cliff textures are also files, listed under
+`SCENERY_FILES` in `src/config.js` and loaded by `src/scenery.js`:
+
+- `assets/models/rocks/boulder-N.glb` and `spire-N.glb`: only the shape is used. Boulders are
+  fitted to one tile and flattened so they never hide a unit; spires are fitted by height.
+- `assets/textures/ground.jpg` (canyon floor), `cliff.jpg` (steep faces) and `slope.jpg`
+  (flatter mountain tops). Use seamless, tileable images.
+
+Delete or rename a file and that piece goes back to the built-in look. Sources and licences
+for the files in the repo are in `assets/CREDITS.md`.
+
 ## Where to get models
 
 - **Free, use for anything (CC0):** Quaternius (quaternius.com) and Kenney (kenney.nl) have

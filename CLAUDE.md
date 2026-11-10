@@ -41,6 +41,7 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 | `src/grid.js` | Tile grid, A* for player units, the shared bug route field, line-of-sight helpers. |
 | `src/levels.js` | Generates 1–3 difficulty-based seeded approaches between west/east bases, with boulders, rock depth and spires. Early level names come from `LEVELS`. |
 | `src/terrain.js` | The mountain heightfield mesh built from the per-cell rock depth. |
+| `src/scenery.js` | Optional scenery art from `SCENERY_FILES`: rock `.glb` shapes for lane boulders and spires, and photo textures for the canyon floor and mountains (world-space triplanar detail multiplied into the existing colours). A missing file falls back to the procedural rock or painted texture. Sources and licences are in `assets/CREDITS.md`. |
 | `src/config.js` | **All tuning lives here**: map size, costs, unit and bug stats, wave plan, level paths, model files. |
 | `src/models.js` | Procedural low-poly models (units, bugs including the Needler, buildings, boulders, spires). |
 | `src/assets.js` | `makeModel(kind)`: uses a `.glb` from `assets/models/` if present, else the procedural model; team rim light. |

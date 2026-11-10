@@ -5,6 +5,7 @@ import { Game } from './game.js';
 import { UI } from './ui.js';
 import { Minimap } from './minimap.js';
 import { loadModels } from './assets.js';
+import { loadScenery } from './scenery.js';
 import { topScores, submitScore, beginRunSession, savedName, rememberName, cleanName, localBest } from './scores.js';
 import { sfx } from './audio.js';
 import { voice } from './voice.js';
@@ -13,7 +14,7 @@ import { Retention } from './retention.js';
 import { dailyStatus, recordDaily, dailyShareText } from './daily.js';
 
 // any .glb files in assets/models/ replace the built-in unit models
-await loadModels();
+await Promise.all([loadModels(), loadScenery()]);
 
 const canvas = document.getElementById('game');
 const stage = new Stage(canvas);

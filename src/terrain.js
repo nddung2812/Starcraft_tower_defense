@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { COLS, ROWS } from './config.js';
+import { detailTerrain } from './scenery.js';
 
 /*
  * Mountains around the lanes, as a heightfield split into cullable sections. Walkable ground
@@ -146,9 +147,9 @@ export function buildTerrain(depth, seed, cols = COLS, rows = ROWS) {
   }
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
 
-  const material = new THREE.MeshStandardMaterial({
+  const material = detailTerrain(new THREE.MeshStandardMaterial({
     vertexColors: true, color: 0xa5a5a5, roughness: 0.96, metalness: 0.02
-  });
+  }));
   const mesh = new THREE.Group();
   mesh.name = 'terrain';
   for (const [key, indices] of chunks) {

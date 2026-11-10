@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { groundMap } from './scenery.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
@@ -197,7 +198,7 @@ export class Stage {
   buildGround() {
     const g = new THREE.Mesh(
       new THREE.PlaneGeometry(this.cols, this.rows),
-      new THREE.MeshStandardMaterial({ map: groundTexture(), color: 0xaeb7c0, roughness: 0.97, metalness: 0 })
+      new THREE.MeshStandardMaterial({ map: groundMap() || groundTexture(), color: 0xaeb7c0, roughness: 0.97, metalness: 0 })
     );
     g.rotation.x = -Math.PI / 2;
     g.position.set(this.cols / 2, 0, this.rows / 2);
@@ -231,7 +232,8 @@ export class Stage {
       mesh.position.x = cols / 2;
       mesh.position.z = rows / 2;
     }
-    this.ground.material.map.repeat.set(cols / 9, rows / 9);
+    const tiles = this.ground.material.map.userData.tiles || 9;   // tiles covered by one repeat
+    this.ground.material.map.repeat.set(cols / tiles, rows / tiles);
     this.grid.material.map.repeat.set(cols, rows);
     this.boundary.geometry.dispose();
     this.boundary.geometry = new THREE.BufferGeometry().setFromPoints([
