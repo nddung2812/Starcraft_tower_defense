@@ -388,7 +388,6 @@ html, body {
 /* ---------------- RTS controls ---------------- */
 
 #game.is-targeting { cursor: crosshair; }
-#game.is-dragging { cursor: grabbing; }
 
 .selbox {
   position: absolute;

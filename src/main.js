@@ -95,7 +95,7 @@ let placing = null;
 let airAim = false;
 let laserAim = false;
 let targeting = null;          // 'attack' while waiting for the A-click
-const drag = { on: false, mode: null, button: null, x: 0, y: 0, sx: 0, sy: 0, moved: 0, anchor: null, pointerId: null };
+const drag = { on: false, mode: null, x: 0, y: 0, sx: 0, sy: 0, moved: 0, anchor: null, pointerId: null };
 const keys = new Set();
 const PAN_SPEED = 14;
 const selbox = document.getElementById('selbox');
@@ -578,7 +578,6 @@ canvas.addEventListener('pointermove', (ev) => {
       const t = tileAt(ev);
       if (t && (!hoverTile || t.x !== hoverTile.x || t.y !== hoverTile.y)) tryPlace(t);
     }
-    canvas.classList.toggle('is-dragging', drag.button !== 2 && ['left', 'pan', 'orbit'].includes(drag.mode));
     if (drag.mode === 'pan' || drag.mode === 'orbit') cursor.visible = false;
     drag.x = ev.clientX; drag.y = ev.clientY;
     if (drag.mode !== 'build') return;
@@ -635,13 +634,10 @@ canvas.addEventListener('pointerdown', (ev) => {
   ev.preventDefault();
   canvas.setPointerCapture(ev.pointerId);
   drag.pointerId = ev.pointerId;
-  drag.button = ev.button;
   drag.on = true;
   drag.x = drag.sx = ev.clientX;
   drag.y = drag.sy = ev.clientY;
   drag.moved = 0;
-  canvas.classList.toggle('is-dragging', ev.button !== 2 && (ev.button === 1 || ev.altKey
-    || !(ev.shiftKey || placing || airAim || laserAim || targeting)));
 
   stage.updateCamera();
   drag.anchor = groundAt(ev);
@@ -677,11 +673,9 @@ function endDrag() {
   const id = drag.pointerId;
   drag.on = false;
   drag.mode = null;
-  drag.button = null;
   drag.pointerId = null;
   drag.anchor = null;
   selbox.hidden = true;
-  canvas.classList.remove('is-dragging');
   if (id !== null && canvas.hasPointerCapture(id)) canvas.releasePointerCapture(id);
 }
 
