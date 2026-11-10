@@ -237,7 +237,7 @@ export class Grid {
   }
 
   /** Check the exact route from a moving bug to its next waypoint. */
-  clearWorldLine(ax, ay, bx, by, allowBlockedEnd = false) {
+  clearWorldLine(ax, ay, bx, by, allowBlockedEnd = false, blocked = (x, y) => this.blocked(x, y)) {
     // Walk every tile the segment touches. Bresenham can skip a
     // rock at a shallow angle, making a smoothed waypoint impossible to reach.
     let x = Math.floor(ax), y = Math.floor(ay);
@@ -249,18 +249,25 @@ export class Grid {
     let edgeX = sx > 0 ? (x + 1 - ax) * stepX : sx < 0 ? (ax - x) * stepX : Infinity;
     let edgeY = sy > 0 ? (y + 1 - ay) * stepY : sy < 0 ? (ay - y) * stepY : Infinity;
     while (x !== tx || y !== ty) {
-      if (this.blocked(x, y)) return false;
+      if (blocked(x, y)) return false;
       if (edgeX < edgeY - 1e-12) { x += sx; edgeX += stepX; }
       else if (edgeY < edgeX - 1e-12) { y += sy; edgeY += stepY; }
       else {
         // A line exactly through a corner must not cut between solid tiles.
-        if (this.blocked(x + sx, y) || this.blocked(x, y + sy)) return false;
+        if (blocked(x + sx, y) || blocked(x, y + sy)) return false;
         x += sx; y += sy;
         edgeX += stepX; edgeY += stepY;
       }
-      if (this.blocked(x, y) && !(allowBlockedEnd && x === tx && y === ty)) return false;
+      if (blocked(x, y) && !(allowBlockedEnd && x === tx && y === ty)) return false;
     }
     return true;
+  }
+
+  /** Sweep ground troop movement through every touched cell, including solid corners. */
+  clearWalkLine(ax, ay, bx, by) {
+    const blocked = (x, y) => ![CELL.OPEN, CELL.TOWER].includes(this.get(x, y));
+    return !blocked(Math.floor(ax), Math.floor(ay)) && !blocked(Math.floor(bx), Math.floor(by))
+      && this.clearWorldLine(ax, ay, bx, by, false, blocked);
   }
 
   /** Cell path -> world waypoints, with corners pulled tight for smooth movement. */

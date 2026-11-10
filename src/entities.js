@@ -174,7 +174,7 @@ export class Marine {
     packSiege(this);
     if (game.grid.occupant(this.tx, this.ty) === this) game.grid.clear(this.tx, this.ty);
     this.waypoints = path;
-    this.wp = 1;
+    this.wp = game.grid.clearWalkLine(this.x, this.z, path[1].x, path[1].y) ? 1 : 0;
     this.goalTx = tx;
     this.goalTy = ty;
     this.driving = true;
@@ -186,9 +186,16 @@ export class Marine {
     if (!this.driving || !this.waypoints) return false;
     const node = this.waypoints[this.wp];
     if (!node) { this.finishMove(game); return false; }
+    // Orders can change between tile centers, and buildings can close an existing route.
+    // Validate the full segment so neither a corner nor a long frame skips solid terrain.
+    if (!this.flying && !game.grid.clearWalkLine(this.x, this.z, node.x, node.y)) {
+      if (!this.orderMove(this.goalTx, this.goalTy, game)) this.halt(game);
+      return false;
+    }
     const dx = node.x - this.x, dz = node.y - this.z;
     const dist = Math.hypot(dx, dz);
     if (dist < 0.07) {
+      this.x = node.x; this.z = node.y;
       this.wp++;
       if (this.wp >= this.waypoints.length) this.finishMove(game);
       return this.driving;
@@ -198,9 +205,8 @@ export class Marine {
     const step = Math.min(dist, this.stats.moveSpeed * (this.stimT > 0 ? OVERDRIVE.moveSpeed : 1) * dt);
     const nx = this.x + (dx / dist) * step;
     const nz = this.z + (dz / dist) * step;
-    const passable = (x, z) => [CELL.OPEN, CELL.TOWER].includes(game.grid.get(Math.floor(x), Math.floor(z)));
-    if (this.flying || passable(nx, this.z)) this.x = nx;
-    if (this.flying || passable(this.x, nz)) this.z = nz;
+    this.x = nx;
+    this.z = nz;
     this.trackDist += step;
     const treads = this.model.userData.treads;
     if (treads) {
@@ -270,12 +276,19 @@ export class Marine {
         for (let dy = -r; dy <= r && !spot; dy++) {
           for (let dx = -r; dx <= r; dx++) {
             const x = ox + dx, y = oy + dy;
-            if (game.grid.inside(x, y) && game.grid.get(x, y) === CELL.OPEN) { spot = { x, y }; break; }
+            if (game.grid.inside(x, y) && game.grid.get(x, y) === CELL.OPEN
+              && game.grid.walkRoute(ox, oy, x, y)) { spot = { x, y }; break; }
           }
         }
       }
     }
     if (!spot) return;
+    // If another unit took our destination, drive to a reachable free tile instead
+    // of snapping across a ridge or lake to the first nearby opening.
+    if (Math.floor(this.x) !== spot.x || Math.floor(this.z) !== spot.y) {
+      this.orderMove(spot.x, spot.y, game);
+      return;
+    }
     this.tx = spot.x;
     this.ty = spot.y;
     this.x = spot.x + 0.5;
