@@ -138,7 +138,8 @@ const assert = require('node:assert/strict');
     assert.deepEqual(laser.hit, [true, true, true, false, false]);
 
     // Real buttons, aiming/cancellation, and narrow layouts.
-    await page.evaluate(() => { game.reset(123); game.paused = false; game.state = 'wave'; game.queue = [{ at: 999 }]; game.laserCharge = 90; game.emit('change'); });
+    await page.evaluate(() => { game.reset(123); game.paused = false; game.state = 'wave'; game.queue = [{ at: 999 }]; game.laserCharge = 90; game.emit('selectOnly', game.core); game.emit('change'); });
+    // Base controls appear in the inspector once the Ridge Relay is selected.
     await page.locator('#btnLaser').click();
     assert.equal(await page.locator('#btnLaser').getAttribute('aria-pressed'), 'true');
     await page.keyboard.press('Escape');
@@ -148,12 +149,12 @@ const assert = require('node:assert/strict');
     for (const width of [1440, 390]) {
       await page.setViewportSize({ width, height: 844 });
       await page.evaluate(() => { game.emit('change'); game.stage.updateCamera(); game.stage.render(); });
-      for (const id of ['btnBaseUpgrade', 'btnLaser', 'raidObjective', 'btnLocateHive']) assert.equal(await page.locator('#' + id).isVisible(), true, id);
+      await page.evaluate(() => game.emit('selectOnly', game.core));
+      for (const id of ['btnBaseUpgrade', 'btnLaser']) assert.equal(await page.locator('#' + id).isVisible(), true, id);
+      assert.equal(await page.locator('#baseControls, #raidHud, #btnLocateHive').count(), 0, 'The base strip stays removed');
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
       await page.screenshot({ path: `/tmp/td-base-${width}.png` });
     }
-    await page.locator('#btnLocateHive').click();
-    assert.equal(await page.evaluate(() => game.stage.focus.x === game.hives[0].x), true);
     await page.setViewportSize({ width: 1440, height: 1000 });
     // Right-clicking the real hive model issues an attack order to a selected unit.
     const hiveClick = await page.evaluate(async () => {
@@ -171,7 +172,7 @@ const assert = require('node:assert/strict');
     await page.mouse.click(hiveClick.x, hiveClick.y, { button: 'right' });
     assert.equal(await page.evaluate(() => game.gunners.at(-1).order?.target === game.hives[0]), true);
     // Fire from the actual UI at a ground point. The single beam also damages hives.
-    await page.locator('#btnLaser').click();
+    await page.keyboard.press('l');
     await page.mouse.click(hiveClick.x, hiveClick.y);
     assert.equal(await page.evaluate(() => game.laserCharge === 0 && game.hives[0].dead && game.fx.beams.length === 1), true);
     await page.evaluate(() => { game.stage.render(); });

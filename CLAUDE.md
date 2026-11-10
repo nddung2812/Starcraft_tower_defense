@@ -68,6 +68,10 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
   `ui.toast()` shows a short card above the dock (three at most); `ui.callout()` is the one large
   centre-screen line for streaks, unlocks, supply drops and round starts. `ui.say()`/`ui.tip()` only
   record `ui.line`; nothing renders them.
+- **No base strip.** The row under the toolbar was removed as too noisy. Upgrade Base and Fire
+  Laser are in the inspector (`#baseActions`) when the Ridge Relay is selected; L still aims the
+  laser and a toast announces when it is charged. The raid readout and Locate Hive button are gone
+  (the two-second raid notice remains). Redeploy is a single button at the top of the battlefield.
 - **Kill streaks.** Kills within `STREAK.window` (2.5 s) of each other build `game.streak`; tiers at
   10/25/50/100 pay bonus minerals once per streak and emit `streak`. The HUD shows `×N` from 5.
   `bestStreak` is per session and is not saved.

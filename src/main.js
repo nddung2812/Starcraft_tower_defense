@@ -231,6 +231,11 @@ function inspect(e) {
     selRange.scale.setScalar(e.attackRange);
     selRange.material.color.setHex(UNITS[e.kind].accent);
   }
+  // On narrow screens the inspector is closed by default; the base's controls live there.
+  if (e?.kind === 'core') {
+    document.querySelector('.app').classList.add('is-inspecting');
+    document.getElementById('btnInspector').setAttribute('aria-expanded', 'true');
+  }
   if (!e) { ui.showUnit(ui.inspect.kind, ui.inspect.tier, null); return; }
   const tab = e.kind === 'zergling' || isGun(e) ? e.kind : ui.inspect.kind;
   ui.showUnit(tab, isGun(e) ? e.tier : 0, e);
@@ -320,6 +325,11 @@ function centerOn(list) {
 function setLaserAim(on) {
   if (on && (!game.laserReady || game.paused || !['wave', 'raid'].includes(game.state))) { sfx.deny(); return; }
   if (on) cancelModes();
+  // Aiming needs the battlefield: on narrow screens the inspector would cover it.
+  if (on) {
+    document.querySelector('.app').classList.remove('is-inspecting');
+    document.getElementById('btnInspector').setAttribute('aria-expanded', 'false');
+  }
   laserAim = !!on;
   if (!laserAim) cursor.visible = false;
   document.getElementById('btnLaser').setAttribute('aria-pressed', String(laserAim));

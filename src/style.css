@@ -1008,3 +1008,13 @@ button:focus-visible { outline: 2px solid var(--compact); outline-offset: 3px; }
 #dailyInfo:empty { display: none; }
 
 @media (max-width: 760px) { #redeployHint { display: none; } }
+
+/* The base strip is gone: research and laser sit in the inspector when the Ridge Relay is selected. */
+.app { grid-template-rows: auto minmax(0, 1fr); grid-template-areas: "hud hud" "stage panel"; }
+@media (max-width: 760px) { .app { grid-template-areas: "hud" "stage"; } }
+.base-actions { display: grid; gap: 6px; }
+.base-actions[hidden] { display: none; }
+.base-actions span { font-size: 11px; line-height: 1.4; color: var(--muted); }
+.base-actions span + .btn { margin-top: 6px; }
+.redeploy { position: absolute; z-index: 3; top: 12px; left: 50%; transform: translateX(-50%); font-size: 11px; letter-spacing: .04em; padding: 8px 14px; white-space: nowrap; }
+.redeploy[hidden] { display: none; }

@@ -224,7 +224,7 @@ const assert = require('node:assert/strict');
     assert.match(await page.locator('#btnRedeploy').textContent(), /Redeploy army \(Z\) · 2 units/);
     await page.keyboard.press('z');
     assert.deepEqual(await page.evaluate(() => game.gunners.map(u => `${u.kind}:${u.rank}`).sort()), ['deadeye:Marksman', 'marine:Warden']);
-    assert.equal(await page.locator('#redeployBox').isHidden(), true);
+    assert.equal(await page.locator('#btnRedeploy').isHidden(), true);
     assert.equal(await page.evaluate(() => game.selection.length), 2, 'Redeployed army is selected, ready to move');
 
     // ---- a supply drop can be clicked on the battlefield ----

@@ -60,22 +60,13 @@
   </header>
 
 
-  <section id="baseControls" class="base-controls" aria-label="Base upgrades and abilities" hidden>
-    <div class="base-research"><button id="btnBaseUpgrade" class="btn btn--gold" type="button">Upgrade base · 200 minerals</button><span id="baseBonus"></span></div>
-    <div class="base-laser"><button id="btnLaser" class="btn" type="button" aria-pressed="false">Laser · 0%</button><span id="laserHint">90s charge · one piercing shot</span></div>
-    <div id="redeployBox" class="base-redeploy" hidden><button id="btnRedeploy" class="btn btn--primary" type="button">Redeploy army (Z)</button><span id="redeployHint"></span></div>
-    <div id="raidHud" class="raid-hud" hidden>
-      <strong id="raidObjective"></strong><span id="raidStatus"></span>
-      <button id="btnLocateHive" class="btn" type="button">Locate hive ↗</button>
-    </div>
-  </section>
-
   <main class="stage">
     <canvas id="game" aria-label="Battlefield: drag to pan, right-drag or Alt-drag to rotate, scroll to zoom, Shift-drag to select units"></canvas>
     <div class="camera-help">Drag to pan · Right-drag to rotate<br>Scroll to zoom · Shift-drag to select</div>
     <div id="overlay" class="overlay"></div>
     <div id="raidNotice" class="raid-notice" role="status" hidden><strong>Destroy enemy's base</strong><span>Optional · Attack (A) sends your army · Next round starts within 60 seconds</span></div>
     <div id="callout" class="callout" role="status" aria-live="polite" hidden><strong id="calloutTitle"></strong><span id="calloutNote"></span></div>
+    <button id="btnRedeploy" class="btn btn--primary redeploy" type="button" hidden>Redeploy army (Z)</button>
     <div id="selbox" class="selbox" hidden></div>
     <canvas id="minimap" class="minimap" title="Minimap — click to look, right-click to send selected units"></canvas>
 
@@ -204,6 +195,13 @@
     <div class="selgrid" id="selGrid" hidden></div>
 
     <div class="stats" id="stats"></div>
+
+    <div id="baseActions" class="base-actions" hidden>
+      <button id="btnBaseUpgrade" class="btn btn--gold" type="button">Upgrade base · 200 minerals</button>
+      <span id="baseBonus"></span>
+      <button id="btnLaser" class="btn" type="button" aria-pressed="false">Laser · 0%</button>
+      <span id="laserHint">90s charge · one piercing shot</span>
+    </div>
 
     <div class="actions">
       <button id="btnUpgrade" class="btn btn--gold" hidden>Promote</button>

@@ -271,10 +271,6 @@ export class UI {
     });
     $('btnBaseUpgrade').addEventListener('click', () => game.upgradeBase());
     $('btnLaser').addEventListener('click', () => game.emit('laser'));
-    $('btnLocateHive').addEventListener('click', () => {
-      const hive = game.hives.find(h => !h.dead);
-      if (hive) game.stage.focus.set(hive.x, 0, hive.z);
-    });
     $('btnPause').addEventListener('click', () => game.togglePause());
     $('btnAir').addEventListener('click', () => game.emit('airstrike'));
     $('btnUpgrade').addEventListener('click', () => {
@@ -719,7 +715,12 @@ export class UI {
 
   syncBase() {
     const g = this.game;
-    $('baseControls').hidden = !$('intro').hidden || g.state === 'defeat';
+    // Base research and the laser live in the inspector: click the Ridge Relay to see them.
+    $('baseActions').hidden = this.inspect.entity?.kind !== 'core' || g.state === 'defeat';
+    if (g.laserReady && !this.laserAnnounced && ['wave', 'raid'].includes(g.state)) {
+      this.toast('Laser ready', 'Press L, or click your base, then click a direction.', 'unlock', 5000);
+    }
+    this.laserAnnounced = g.laserReady;
     $('btnBaseUpgrade').textContent = `Upgrade base · ${g.baseUpgradeCost} minerals`;
     $('btnBaseUpgrade').disabled = g.minerals < g.baseUpgradeCost || g.state === 'defeat';
     const bonus = Math.round(g.baseLevel * BASE_UPGRADE.bonus * 100);
@@ -730,22 +731,14 @@ export class UI {
     $('btnLaser').disabled = g.paused || !g.laserReady || !['wave', 'raid'].includes(g.state);
     $('laserHint').textContent = aiming ? 'Click a direction from your base · Esc cancels' : g.laserReady ? 'Ready · 600 damage through the enemy line' : `${Math.ceil(BASE_LASER.chargeTime - g.laserCharge)}s to charge · one piercing shot`;
     const waiting = g.lastArmy?.length || 0;
-    $('redeployBox').hidden = !waiting || !['build', 'brief', 'wave'].includes(g.state);
+    $('btnRedeploy').hidden = !waiting || !$('intro').hidden || !['build', 'brief', 'wave'].includes(g.state);
     if (waiting) {
-      const cost = g.lastArmy.reduce((sum, u) => sum + u.invested, 0);
       $('btnRedeploy').textContent = `Redeploy army (Z) · ${waiting} unit${waiting === 1 ? '' : 's'}`;
-      $('redeployHint').textContent = `${cost} minerals · same units and ranks at the new defense line`;
+      $('btnRedeploy').title = `Rebuild last round's units and ranks at the new defense line for ${g.lastArmy.reduce((sum, u) => sum + u.invested, 0)} minerals`;
     }
-    $('raidHud').hidden = g.state !== 'raid';
     if (g.state !== 'raid') {
       clearTimeout(this.raidNoticeTimer);
       $('raidNotice').hidden = true;
-    }
-    if (g.state === 'raid') {
-      const remaining = g.hives.filter(h => !h.dead);
-      $('raidObjective').textContent = 'OPTIONAL OBJECTIVE';
-      $('raidStatus').textContent = remaining.length ? `Destroy hives: +${remaining[0].reward} minerals each · Earned ${g.raidEarned}` : `Hives destroyed! +${g.raidEarned} minerals`;
-      $('btnLocateHive').disabled = !remaining.length;
     }
   }
 
