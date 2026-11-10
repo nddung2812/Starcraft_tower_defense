@@ -2,10 +2,10 @@ import * as THREE from 'three';
 import { COLS, ROWS } from './config.js';
 
 /*
- * Mountains around the lanes, as a single heightfield mesh. Walkable ground stays flat at
- * y = 0 (the sand plane shows through); rock rises from the lane edge into ridges the deeper
- * it sits, with value noise so no two ranges look alike. One mesh for the whole map keeps a
- * 128 x 128 battlefield cheap to draw.
+ * Mountains around the lanes, as a heightfield split into cullable sections. Walkable ground
+ * stays flat at y = 0 (the sand plane shows through); rock rises into ridges the deeper
+ * it sits, with value noise so no two ranges look alike. Only visible sections reach the GPU;
+ * normals are computed across the full heightfield first to keep section edges seamless.
  */
 
 const MARGIN = 0;           // hard boundary: no terrain exists beyond the playable map
@@ -35,6 +35,9 @@ const LOW = new THREE.Color(0x536a3c);     // dusty foothill, matches the lane d
 const MID = new THREE.Color(0x667354);     // weathered rock
 const HIGH = new THREE.Color(0x9a8f7e);    // pale high ground
 const CLIFF = new THREE.Color(0x3f3933);   // steep faces
+const VEGETATION = new THREE.Color(0x416735);
+const SHORE = new THREE.Color(0x9d9970);
+const CHUNK_TILES = 12;
 
 /**
  * @param depth  per-cell distance into the rock (0 = walkable), from carveLevel
@@ -97,6 +100,7 @@ export function buildTerrain(depth, seed, cols = COLS, rows = ROWS) {
   }
 
   const index = [];
+  const chunks = new Map();
   const flatRock = [];
   for (let j = 0; j < vy - 1; j++) {
     for (let i = 0; i < vx - 1; i++) {
@@ -108,6 +112,9 @@ export function buildTerrain(depth, seed, cols = COLS, rows = ROWS) {
         continue;
       }
       index.push(a, c, b, b, c, d);
+      const key = `${Math.floor(i / (resolution * CHUNK_TILES))},${Math.floor(j / (resolution * CHUNK_TILES))}`;
+      if (!chunks.has(key)) chunks.set(key, []);
+      chunks.get(key).push(a, c, b, b, c, d);
     }
   }
 
@@ -129,21 +136,45 @@ export function buildTerrain(depth, seed, cols = COLS, rows = ROWS) {
     c.lerp(CLIFF, Math.min(0.75, steep * 1.4));
     const x = pos[k * 3], z = pos[k * 3 + 2];
     const vegetation = valueNoise(x / 5, z / 5, seed + 81);
-    c.lerp(new THREE.Color(0x416735), Math.max(0, vegetation - 0.3) * (1 - steep) * 0.8);
+    c.lerp(VEGETATION, Math.max(0, vegetation - 0.3) * (1 - steep) * 0.8);
     for (const lake of lakes) {
       const distance = lakeDistance(x, z, lake);
-      if (distance < 1.15) c.lerp(new THREE.Color(0x9d9970), (1 - THREE.MathUtils.smoothstep(distance, 0.7, 1.15)) * 0.65);
+      if (distance < 1.15) c.lerp(SHORE, (1 - THREE.MathUtils.smoothstep(distance, 0.7, 1.15)) * 0.65);
     }
     const grain = (hash(k, 3, seed) - 0.5) * 0.025;
     col[k * 3] = c.r + grain; col[k * 3 + 1] = c.g + grain; col[k * 3 + 2] = c.b + grain;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
 
-  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+  const material = new THREE.MeshStandardMaterial({
     vertexColors: true, color: 0xa5a5a5, roughness: 0.96, metalness: 0.02
-  }));
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
+  });
+  const mesh = new THREE.Group();
+  mesh.name = 'terrain';
+  for (const [key, indices] of chunks) {
+    const vertices = new Map();
+    const localIndices = indices.map(i => {
+      if (!vertices.has(i)) vertices.set(i, vertices.size);
+      return vertices.get(i);
+    });
+    const geometry = new THREE.BufferGeometry();
+    for (const name of ['position', 'normal', 'color']) {
+      const source = geo.getAttribute(name);
+      const values = new Float32Array(vertices.size * 3);
+      for (const [from, to] of vertices) values.set(source.array.subarray(from * 3, from * 3 + 3), to * 3);
+      geometry.setAttribute(name, new THREE.BufferAttribute(values, 3));
+    }
+    geometry.setIndex(localIndices);
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
+    const section = new THREE.Mesh(geometry, material);
+    section.name = `terrain-${key}`;
+    section.castShadow = section.receiveShadow = true;
+    section.matrixAutoUpdate = false;
+    mesh.add(section);
+  }
+  geo.dispose();
+  if (!chunks.size) material.dispose();
 
   const heightAt = (x, z) => {
     const fi = x * resolution, fj = z * resolution;

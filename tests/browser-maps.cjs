@@ -21,8 +21,7 @@ const path = require('node:path');
         check(routeCount===(level<=6?2:level<=15?3:4),'Incorrect difficulty-based route count');
         check(g.grid.cells.length===cols*rows,'Grid was not resized');
         check(g.stage.cols===cols&&g.stage.rows===rows,'Camera bounds were not resized');
-        g.zoneMesh.geometry.computeBoundingBox();
-        const terrain=g.zoneMesh.geometry.boundingBox;
+        const terrain=new THREE.Box3().setFromObject(g.zoneMesh);
         check(terrain.min.x>=0&&terrain.min.z>=0&&terrain.max.x<=cols&&terrain.max.z<=rows,'Terrain extends outside map');
         const ground=new THREE.Box3().setFromObject(g.stage.ground);
         check(Math.abs(ground.min.x)<.001&&Math.abs(ground.max.x-cols)<.001&&Math.abs(ground.min.z)<.001&&Math.abs(ground.max.z-rows)<.001,'Ground extends outside map');
@@ -34,7 +33,9 @@ const path = require('node:path');
         }
         g.stage.pan(1e5,1e5);
         check(g.stage.focus.x>=0&&g.stage.focus.x<=cols&&g.stage.focus.z>=0&&g.stage.focus.z<=rows,'Camera escaped bounds');
-        result.push({level,size:cols,routes:routeCount,terrainVertices:g.zoneMesh.geometry.attributes.position.count});
+        let terrainVertices=0;
+        g.zoneMesh.traverse(o=>{if(o.isMesh)terrainVertices+=o.geometry.attributes.position.count;});
+        result.push({level,size:cols,routes:routeCount,terrainVertices});
       }
       g.wipeUnits();g.level=5;g.state='build';g.loadLevel();g.completeWave();
       check(g.level===6&&g.grid.COLS===72&&g.stage.cols===72,'5→6 transition failed');

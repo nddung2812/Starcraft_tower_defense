@@ -145,6 +145,13 @@ export class Stage {
       { radius: 0.55, distanceExponent: 1.6, thickness: 1.2, scale: 1.15, samples: 16, distanceFallOff: 1, screenSpaceRadius: false },
       { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 });
     this.gtao.blendIntensity = 0.85;
+    // Soft contact shadows need fewer pixels than the sharp scene underneath.
+    // Keep AO at CSS-pixel resolution on Retina displays; the final image stays native.
+    const renderer = this.renderer;
+    this.gtao.setSize = function (width, height) {
+      const ratio = renderer.getPixelRatio();
+      GTAOPass.prototype.setSize.call(this, Math.max(1, Math.ceil(width / ratio)), Math.max(1, Math.ceil(height / ratio)));
+    };
     // health bars, rings, decals and particles are see-through: keep them out of the occlusion buffers
     this.gtao.overrideVisibility = function () {
       const cache = this._visibilityCache;
@@ -317,24 +324,43 @@ export class Stage {
   }
 
   resize(w, h) {
+    if (w <= 0 || h <= 0) return;
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
-    this.renderer.setSize(w, h, false);
-    this.composer?.setSize(w, h);
+    const ratio = Math.min(2, window.devicePixelRatio || 1);
+    if (this.width !== w || this.height !== h || this.renderer.getPixelRatio() !== ratio) {
+      this.width = w; this.height = h;
+      if (this.renderer.getPixelRatio() !== ratio) this.renderer.setPixelRatio(ratio);
+      this.renderer.setSize(w, h, false);
+      if (this.composer) {
+        if (this.composerRatio !== ratio) this.composer.setPixelRatio(ratio);
+        this.composerRatio = ratio;
+        this.composer.setSize(w, h);
+      }
+    }
     this.dist = Math.max(this.minDist, Math.min(this.maxDist, this.dist));
   }
 
   /** Both modes use sharp native pixels (up to 2×); Eco keeps effects off and 30 fps. */
   setQuality(q) {
-    this.quality = q === 'high' ? 'high' : 'low';
+    const quality = q === 'high' ? 'high' : 'low';
+    if (this.quality === quality && (quality === 'low' || this.composer)) return;
+    this.quality = quality;
     const high = this.quality === 'high';
     this.renderer.shadowMap.enabled = high;
-    this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     if (high && !this.composer) this.buildPostProcessing();
-    if (this.gtao) this.gtao.enabled = high;
-    const size = this.renderer.getSize(new THREE.Vector2());
-    if (this.composer) {
-      this.composer.setPixelRatio(this.renderer.getPixelRatio());
+    if (!high && this.composer) {
+      for (const pass of this.composer.passes) pass.dispose();
+      // r169's GTAOPass.dispose omits its main shader material.
+      this.gtao.gtaoMaterial.dispose();
+      this.composer.dispose();
+      this.composer = this.gtao = this.bloom = null;
+      this.sun.shadow.map?.dispose();
+      this.sun.shadow.map = null;
+    } else if (high) {
+      const size = this.renderer.getSize(new THREE.Vector2());
+      this.composerRatio = this.renderer.getPixelRatio();
+      this.composer.setPixelRatio(this.composerRatio);
       this.composer.setSize(size.x, size.y);
     }
   }

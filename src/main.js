@@ -1000,12 +1000,20 @@ let last = performance.now();
 let lastTick = last;
 let lastMinimap = -Infinity;
 let animationFrame = 0;
+let inputPending = false;
+let interactiveUntil = 0;
+for (const event of ['pointerdown', 'pointermove', 'wheel', 'keydown', 'click']) {
+  document.addEventListener(event, () => { inputPending = true; }, { passive: true });
+}
 function frame(now) {
   animationFrame = 0;
   if (document.hidden) return;
   animationFrame = requestAnimationFrame(frame);
   const idle = !intro.hidden || game.state === 'defeat';
-  const interval = 1000 / (idle ? 4 : stage.quality === 'high' ? 60 : 30);
+  if (inputPending) { interactiveUntil = now + 250; inputPending = false; }
+  const interacting = now < interactiveUntil || drag.on || keys.size > 0 || minimap.dragging;
+  const resting = idle || (game.paused && !interacting);
+  const interval = 1000 / (resting ? 4 : stage.quality === 'high' ? 60 : 30);
   const elapsed = now - last;
   if (elapsed < interval - 0.5) return;
   last += interval * Math.max(1, Math.floor((elapsed + 0.5) / interval));

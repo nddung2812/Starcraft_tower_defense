@@ -102,6 +102,12 @@ the balance suite checks the starting squad can clear both opening approaches.
 - Rendering requests prefer a low-power GPU. Menus/game-over redraw at 4 fps; portrait at up
   to 8 fps only while visible; HUD/minimap about 10 Hz. Hidden tabs cancel their animation
   callback and pause simulation, resuming without time catch-up. Simulation uses <=50ms steps.
+- Paused games also settle to 4 fps, returning to the selected frame rate during input so
+  camera movement and placement remain responsive. Both WebGL contexts prefer low power.
+- Terrain is split into 12-tile sections for off-screen culling, retaining the original
+  geometry, normals and colours. High-mode AO uses CSS-pixel resolution while the scene
+  stays at native resolution. Returning to Eco disposes post-processing and shadow targets;
+  unchanged resize notifications no longer reallocate the drawing buffers.
 
 - Build cards and army commands sit on the battlefield immediately right of the minimap.
   The compact dock matches the minimap height (130px, 90px on small screens). Build buttons
@@ -242,10 +248,12 @@ terrain flight, grid occupancy, aircraft selection, promotion, destruction, leve
 and the level-5 enemy air unlock.
 
 `tests/browser-performance.cjs` checks rendering defaults, lazy effects, 30/60 fps limits,
-4 fps idle redraws, portrait/minimap throttling and hidden-tab pause/resume. Its fake 120 Hz
-clock avoids prolonged GPU stress; only two actual battlefield frames compare draw calls.
-One tested scene used about 174 draw calls in Eco versus 714 in High (scene-dependent,
-not a measurement of real hardware temperature or energy consumption).
+4 fps idle/paused redraws, responsive paused controls, portrait/minimap throttling and
+hidden-tab pause/resume. Its fake 120 Hz clock avoids prolonged GPU stress. A few actual
+frames check quality-switch resource cleanup, independent AO resolution, stable resize,
+seamless terrain section borders and off-screen culling. A seeded comparison at the same
+resolution reduced Eco triangles from 56,262 to 26,022 at level 1 and 165,474 to 21,708 at
+level 16. These are geometry workload measurements, not hardware temperature or FPS gains.
 
 `node tests/map-layout.mjs` checks 51 reproducible seeded maps across size boundaries and
 late levels: real dimensions, disjoint middle approaches, connectivity, grid resizing and cached

@@ -10,7 +10,7 @@ const $ = (id) => document.getElementById(id);
 /* A tiny second renderer that spins the real 3D model in the inspector. */
 class Portrait {
   constructor(canvas) {
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'low-power' });
     this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     this.renderer.setSize(canvas.clientWidth || 300, canvas.clientHeight || 190, false);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -112,6 +112,10 @@ class Portrait {
     const c = this.renderer.domElement;
     const w = c.clientWidth, h = c.clientHeight;
     if (!w || !h) return;
+    const ratio = Math.min(2, window.devicePixelRatio || 1);
+    if (this.width === w && this.height === h && this.renderer.getPixelRatio() === ratio) return;
+    this.width = w; this.height = h;
+    if (this.renderer.getPixelRatio() !== ratio) this.renderer.setPixelRatio(ratio);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h, false);
