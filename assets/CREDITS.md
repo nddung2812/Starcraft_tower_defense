@@ -18,6 +18,16 @@ and surface detail come from `src/scenery.js`.
 | `spire-1.glb` | Rock Large | https://poly.pizza/m/d2VWOdthtR |
 | `spire-2.glb` | Rock | https://poly.pizza/m/R2UjZAX3By |
 
+## Unit models (`assets/models/`)
+
+All by Quaternius, from Poly Pizza. Colours are replaced in the game (`tint` in `MODEL_FILES`).
+
+| File | Source model | Page | Changes to the file |
+|---|---|---|---|
+| `soldier.glb` | Character Soldier | https://poly.pizza/m/PpLF4rt4ah | Kept three of its guns and five animation clips; welded and quantized. Used by the Lineguard, Scorcher, Deadeye and Mender. |
+| `tank.glb` | Tank | https://poly.pizza/m/jWS1CLA0RO | Kept the forward track animation; welded and quantized. |
+| `falcon.glb` | Spaceship | https://poly.pizza/m/PQzePrvBCD | None. |
+
 ## Textures (`assets/textures/`)
 
 From Poly Haven (https://polyhaven.com/license). Colour maps only, recompressed as JPEG.

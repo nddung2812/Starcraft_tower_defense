@@ -43,7 +43,7 @@ const loaded = {};
 /* Clip names to look for, best match first. */
 const clipRe = {
   idle: [/^idle/i, /idle/i, /stand/i, /breath/i],
-  walk: [/^walk(ing)?$/i, /walk(?!.*jump)/i, /^run(ning)?$/i, /run/i, /move|drive|locomot/i],
+  walk: [/^walk(ing)?$/i, /walk(?!.*jump)/i, /^run(ning)?$/i, /run/i, /move|drive|locomot|forward/i],
   shoot: [/shoot/i, /fire/i, /aim/i, /attack/i],
   attack: [/attack/i, /bite/i, /slash/i, /hit/i, /shoot/i],
   death: [/^death$/i, /death/i, /die|dying|dead/i]
@@ -58,11 +58,18 @@ export function loadedModels() { return Object.keys(loaded); }
  */
 export async function loadModels({ timeoutMs = 15000 } = {}) {
   const loader = new GLTFLoader();
+  const files = new Map();     // several kinds can share one file (the infantry do)
+  const fetchFile = (file) => {
+    if (!files.has(file)) {
+      files.set(file, fetch(file, { method: 'HEAD', cache: 'no-cache' })
+        .then((head) => (head.ok ? loader.loadAsync(file) : null)));
+    }
+    return files.get(file);
+  };
   const jobs = Object.entries(MODEL_FILES).map(async ([kind, spec]) => {
     try {
-      const head = await fetch(spec.file, { method: 'HEAD', cache: 'no-cache' });
-      if (!head.ok) return;
-      const gltf = await loader.loadAsync(spec.file);
+      const gltf = await fetchFile(spec.file);
+      if (!gltf) return;
       loaded[kind] = prepare(gltf, spec);
       console.info(`[models] ${kind}: using ${spec.file}${gltf.animations.length ? ` (${gltf.animations.map((a) => a.name).join(', ')})` : ''}`);
     } catch (err) {
@@ -73,14 +80,43 @@ export async function loadModels({ timeoutMs = 15000 } = {}) {
   return loadedModels();
 }
 
+const re = (pattern) => (pattern ? new RegExp(pattern) : null);
+
+/** This kind's own copy of the file: unwanted parts removed, materials repainted in its colours. */
+function dress(scene, spec) {
+  const src = cloneSkinned(scene);
+  const hide = re(spec.hide);
+  if (hide) {
+    const gone = [];
+    src.traverse((o) => { if (hide.test(o.name)) gone.push(o); });
+    for (const o of gone) o.removeFromParent();
+  }
+  if (spec.tint) {
+    const painted = new Map();
+    const paint = (m) => {
+      if (!(m.name in spec.tint)) return m;
+      if (!painted.has(m)) { const c = m.clone(); c.color.set(spec.tint[m.name]); painted.set(m, c); }
+      return painted.get(m);
+    };
+    src.traverse((o) => {
+      if (o.isMesh) o.material = Array.isArray(o.material) ? o.material.map(paint) : paint(o.material);
+    });
+  }
+  return src;
+}
+
 /** Work out once how to scale and seat a loaded model so it matches the game's footprint. */
 function prepare(gltf, spec) {
-  const src = gltf.scene;
+  const src = dress(gltf.scene, spec);
   const probe = new THREE.Group();
   probe.rotation.y = spec.yaw ?? Math.PI / 2; // glTF faces +Z, the game faces +X
   probe.add(src);
   probe.updateMatrixWorld(true);
-  const box = new THREE.Box3().setFromObject(probe, true);
+  // seat on the body alone when asked, so a long gun does not pull the unit off its tile
+  const seat = re(spec.seat);
+  const box = new THREE.Box3();
+  if (seat) src.traverse((o) => { if (o.isMesh && seat.test(o.name)) box.expandByObject(o, true); });
+  if (box.isEmpty()) box.setFromObject(probe, true);
   const size = box.getSize(new THREE.Vector3());
   const fitDim = spec.fit === 'length' ? Math.max(size.x, size.z) : size.y;
   const k = fitDim > 0 ? spec.size / fitDim : 1;
@@ -90,21 +126,23 @@ function prepare(gltf, spec) {
   const center = box.getCenter(new THREE.Vector3());
   const offset = new THREE.Vector3(-center.x, -box.min.y, -center.z);
   const scaled = size.clone().multiplyScalar(k);
-  const muzzle = spec.muzzle
-    ? new THREE.Vector3(...spec.muzzle)
-    : new THREE.Vector3(scaled.x * 0.48, scaled.y * 0.6, 0);
+  const muzzles = (spec.muzzles || (spec.muzzle ? [spec.muzzle] : [[scaled.x * 0.48, scaled.y * 0.6, 0]]))
+    .map((m) => new THREE.Vector3(...m));
 
   const clips = {};
   for (const [state, patterns] of Object.entries(clipRe)) {
     const named = spec.clips?.[state];
-    if (named) { clips[state] = gltf.animations.find((c) => c.name === named) || null; continue; }
+    if (named) { clips[state] = gltf.animations.find((c) => c.name === named || c.name.endsWith('|' + named)) || null; continue; }
     clips[state] = null;
-    for (const re of patterns) {
-      clips[state] = gltf.animations.find((c) => re.test(c.name)) || null;
+    for (const pattern of patterns) {
+      clips[state] = gltf.animations.find((c) => pattern.test(c.name)) || null;
       if (clips[state]) break;
     }
   }
-  return { src, yaw: spec.yaw ?? Math.PI / 2, k, offset, muzzle, clips, height: scaled.y };
+  const turret = spec.turret === 'all' ? 'all'
+    : spec.turret ? { parts: re(spec.turret.parts), pivot: re(spec.turret.pivot || spec.turret.parts) } : null;
+  const tiers = spec.tierTint ? { nodes: re(spec.tierTint.nodes), colors: spec.tierTint.colors, mats: new Map() } : null;
+  return { src, yaw: spec.yaw ?? Math.PI / 2, k, offset, muzzles, clips, height: scaled.y, turret, tiers };
 }
 
 function rimmed(mat, color, strength) {
@@ -140,8 +178,20 @@ function applyRim(root, kind) {
   });
 }
 
+/** Promotion marker: repaint the chosen parts (shoulder pads, say) in the tier's colour. */
+function paintTier(model, tiers, tier) {
+  const color = tiers.colors[Math.min(tier, tiers.colors.length - 1)];
+  if (color == null) return;
+  model.traverse((o) => {
+    if (!o.isMesh || !tiers.nodes.test(o.name) || Array.isArray(o.material)) return;
+    const key = o.material.uuid + ':' + color;
+    if (!tiers.mats.has(key)) { const m = o.material.clone(); m.color.set(color); tiers.mats.set(key, m); }
+    o.material = tiers.mats.get(key);
+  });
+}
+
 /** A loaded file wrapped in the same rig shape the procedural builders return. */
-function instance(kind, L) {
+function instance(kind, L, tier = 0) {
   const model = cloneSkinned(L.src);
   model.position.copy(L.offset);
   model.traverse((o) => {
@@ -151,6 +201,7 @@ function instance(kind, L) {
       o.frustumCulled = !o.isSkinnedMesh; // skinned bounds are often wrong once animated
     }
   });
+  if (L.tiers) paintTier(model, L.tiers, tier);
 
   const turn = new THREE.Group();
   turn.rotation.y = L.yaw;
@@ -162,14 +213,27 @@ function instance(kind, L) {
   const root = new THREE.Group();
   const torso = new THREE.Group();
   const weapon = new THREE.Group();
-  weapon.userData.muzzle = L.muzzle.clone();
-  weapon.userData.muzzles = [weapon.userData.muzzle];
-  torso.add(fit, weapon);
+  torso.add(weapon);
   root.add(torso);
+  if (L.turret && L.turret !== 'all') {
+    // hull stays with the unit; the named parts move into the torso, which the game turns to aim
+    root.add(fit);
+    root.updateMatrixWorld(true);
+    const parts = [], pivot = new THREE.Box3();
+    model.traverse((o) => { if (L.turret.parts.test(o.name)) parts.push(o); });
+    for (const o of parts) if (L.turret.pivot.test(o.name)) pivot.expandByObject(o);
+    if (!pivot.isEmpty()) { const c = pivot.getCenter(new THREE.Vector3()); torso.position.set(c.x, 0, c.z); }
+    root.updateMatrixWorld(true);
+    for (const o of parts) torso.attach(o);
+  } else {
+    torso.add(fit);
+  }
+  weapon.userData.muzzles = L.muzzles.map((m) => m.clone().sub(torso.position));
+  weapon.userData.muzzle = weapon.userData.muzzles[0];
 
   root.userData.torso = torso;
   root.userData.weapon = weapon;
-  root.userData.solid = true;        // one piece: the whole model turns to aim
+  root.userData.solid = !L.turret;   // no turret: the whole model turns to aim
   root.userData.fromFile = true;
 
   const clips = Object.values(L.clips).filter(Boolean);
@@ -182,14 +246,25 @@ function instance(kind, L) {
       if (state === 'death') { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; }
       actions[state] = a;
     }
-    let current = null;
+    let current = null, fallen = 0;
     root.userData.anim = (state, dt) => {
-      const want = actions[state] || (state === 'attack' ? actions.shoot : null) || actions.idle || actions.walk;
+      if (state === 'death' && !actions.death) {
+        // no death clip in the file: tip over, as the built-in models do
+        fallen = Math.min(1, fallen + dt * 2.2);
+        fit.rotation.z = fallen * 1.2;
+        if (current) current.paused = true;
+        return;
+      }
+      if (fallen) { fallen = 0; fit.rotation.z = 0; }
+      const want = actions[state] || (state === 'attack' ? actions.shoot : null) || actions.idle
+        || (actions.shoot && state !== 'walk' ? null : actions.walk);
       if (want && want !== current) {
         want.reset().fadeIn(0.18).play();
         if (current) current.fadeOut(0.18);
         current = want;
       }
+      // a file with only a movement clip (tank tracks) holds still when the unit does
+      if (current) current.paused = !actions.idle && current === actions.walk && state !== 'walk';
       mixer.update(dt);
     };
   }
@@ -199,7 +274,7 @@ function instance(kind, L) {
 /** The model for a unit kind (and tier, for procedural Marines/Goliaths). */
 export function makeModel(kind, tier = 0, { rim = true } = {}) {
   const L = loaded[kind] || (MODEL_FILES[kind]?.fallback && loaded[MODEL_FILES[kind].fallback]);
-  const root = L ? instance(kind, L) : PROCEDURAL[kind](tier);
+  const root = L ? instance(kind, L, tier) : PROCEDURAL[kind](tier);
   if (rim) applyRim(root, kind);
   return root;
 }

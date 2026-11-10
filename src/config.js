@@ -226,11 +226,41 @@ export const BREEDS = {
  *   clips       optional { idle, walk, shoot, attack, death } animation clip names;
  *               otherwise clips are matched by name (Idle, Walk/Run, Shoot/Fire, Death...)
  *   fallback    use another kind's file if this one is missing
+ *   muzzles     several barrels, as a list of [x, y, z]
+ *   tint        { MaterialName: 0xrrggbb } repaints the file's materials for this unit
+ *   hide        pattern of part names to leave out; seat: parts used to centre the unit
+ *   turret      { parts, pivot } patterns for parts that swivel to aim, or 'all' for aircraft
+ *   tierTint    { nodes, colors } repaints matching parts per promotion tier (null = unchanged)
  */
+/* The infantry share one soldier file: each role keeps one of its guns and wears its own colours. */
+const SOLDIER = 'assets/models/soldier.glb';
+const SOLDIER_GUNS = ['AK', 'Sniper', 'ShortCannon'];
+const soldier = (gun, uniform, trousers, extra = {}) => ({
+  file: SOLDIER, fit: 'height', size: 1.25, seat: '^(Body|Head)$', yaw: Math.PI / 2 + 0.37,   // the aim pose holds the gun off-centre
+  hide: `^(${SOLDIER_GUNS.filter((g) => g !== gun).join('|')})$`,
+  tint: { Character_Main: uniform, Pants: trousers },
+  tierTint: { nodes: '^ShoulderPad', colors: [null, 0x9fd8ff, 0xffc24a, 0xff5a4a] },
+  clips: { walk: gun ? 'Run_Gun' : 'Run', shoot: gun ? 'Idle_Shoot' : 'Idle' },
+  ...extra
+});
+
 export const MODEL_FILES = {
-  marine:   { file: 'assets/models/marine.glb',   fit: 'height', size: 1.2 },
+  marine:   soldier('AK', 0x2f6fb5, 0x23364d, { muzzle: [1.3, 1.0, 0] }),
+  scorcher: soldier('ShortCannon', 0xc8571f, 0x3d2a20, { muzzle: [1.15, 1.12, 0] }),
+  deadeye:  soldier('Sniper', 0x6a4bb0, 0x2b2540, { muzzle: [1.55, 1.22, 0] }),
+  mender:   soldier(null, 0xe8eef2, 0x4d8f6a),
   goliath:  { file: 'assets/models/goliath.glb',  fit: 'height', size: 1.45 },
-  tank:     { file: 'assets/models/tank.glb',     fit: 'length', size: 1.45 },
+  tank:     {
+    file: 'assets/models/tank.glb', fit: 'length', size: 1.2, yaw: Math.PI,
+    turret: { parts: '^Tank_(Turret|Gun)$', pivot: '^Tank_Turret$' },
+    tint: { Main: 0x8f9aa3, Main_Light: 0xb7c1c9, Main_Dark: 0x5c666e, Main_Details: 0xb3262b, Wheels: 0x2b2f33 },
+    muzzles: [[0.77, 0.27, 0]]
+  },
+  falcon:   {
+    file: 'assets/models/falcon.glb', fit: 'length', size: 1.9, turret: 'all',
+    tint: { White: 0xc9d3dc, Orange: 0x2f7fd0 },
+    muzzles: [[0.6, 0.1, 0.3], [0.6, 0.1, -0.3]]
+  },
   scv:      { file: 'assets/models/scv.glb',      fit: 'length', size: 0.7 },
   bunker:   { file: 'assets/models/bunker.glb',   fit: 'length', size: 1.0 },
   zergling: { file: 'assets/models/zergling.glb', fit: 'length', size: 1.0 },

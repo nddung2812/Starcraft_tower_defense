@@ -5,13 +5,14 @@ built-in shape. Reload the page; the browser console says which files were picke
 
 | File | Unit |
 |---|---|
-| `marine.glb` | Marine |
-| `goliath.glb` | Goliath |
-| `tank.glb` | Siege Tank |
-| `scv.glb` | SCV |
+| `soldier.glb` | Lineguard, Scorcher, Deadeye and Mender (one file, each with its own gun and colours) |
+| `goliath.glb` | Anchor Walker |
+| `tank.glb` | Cinder Crawler |
+| `falcon.glb` | Kestrel |
+| `scv.glb` | Patch Rig |
 | `bunker.glb` | Bunker |
-| `zergling.glb` | Zergling (also used for the other bugs unless they have their own file) |
-| `warrior.glb`, `hopper.glb`, `tanker.glb` | The other bug strains |
+| `zergling.glb` | Rift Skitter (also used for the other bugs unless they have their own file) |
+| `warrior.glb`, `hopper.glb`, `tanker.glb`, `needler.glb` | The other bug strains |
 
 Any unit without a file keeps its built-in model, so you can add them one at a time.
 
@@ -26,9 +27,14 @@ Any unit without a file keeps its built-in model, so you can add them one at a t
   and *death*/*die*. If yours are named differently, list them under `clips` in
   `MODEL_FILES`, for example `clips: { walk: 'Armature|Jog', death: 'Armature|Fall' }`.
 - **Muzzle:** shots leave from the front of the model at about 60% of its height. Set
-  `muzzle: [x, y, z]` in `MODEL_FILES` to move it.
-- **Turret:** a model file turns as one piece to aim. Only the built-in tank rotates its
-  turret separately.
+  `muzzle: [x, y, z]` in `MODEL_FILES` to move it, or `muzzles` for several barrels.
+- **Turret:** a model file turns as one piece to aim unless `turret` names the parts that
+  should swivel, for example `turret: { parts: '^Tank_(Turret|Gun)$', pivot: '^Tank_Turret$' }`.
+  `turret: 'all'` is for aircraft, which turn whole but still fire on the move.
+- **Colours:** `tint: { MaterialName: 0xrrggbb }` repaints a material, so one file can serve
+  several units. `tierTint` repaints chosen parts (the soldier's shoulder pads) per promotion.
+- **Parts:** `hide` is a pattern of part names to leave out, such as the guns a role does not
+  carry. `seat` names the parts used to centre the unit on its tile.
 
 ## Scenery: rocks and ground textures
 
