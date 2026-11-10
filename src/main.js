@@ -273,8 +273,7 @@ function boxSelect(ev) {
     const p = screenPos(e);
     return p.front && p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1;
   });
-  if (ev.shiftKey) setSelection([...army(), ...picks]);
-  else setSelection(picks);
+  setSelection([...army(), ...picks]);
 }
 
 function selectKindOnScreen(kind, add) {
@@ -282,9 +281,10 @@ function selectKindOnScreen(kind, add) {
   setSelection(add ? [...army(), ...picks] : picks);
 }
 
-function clickSelect(t, ev) {
+function clickSelect(t, ev, additive = ev.shiftKey) {
   const e = entityAt(t);
-  if (ev.shiftKey && isUnit(e)) {
+  if (additive) {
+    if (!isUnit(e)) return;
     const cur = army();
     setSelection(cur.includes(e) ? cur.filter((u) => u !== e) : [...cur, e]);
     return;
@@ -578,7 +578,7 @@ canvas.addEventListener('pointermove', (ev) => {
       const t = tileAt(ev);
       if (t && (!hoverTile || t.x !== hoverTile.x || t.y !== hoverTile.y)) tryPlace(t);
     }
-    canvas.classList.toggle('is-dragging', drag.mode === 'pan' || drag.mode === 'orbit');
+    canvas.classList.toggle('is-dragging', ['left', 'right', 'pan', 'orbit'].includes(drag.mode));
     if (drag.mode === 'pan' || drag.mode === 'orbit') cursor.visible = false;
     drag.x = ev.clientX; drag.y = ev.clientY;
     if (drag.mode !== 'build') return;
@@ -639,6 +639,8 @@ canvas.addEventListener('pointerdown', (ev) => {
   drag.x = drag.sx = ev.clientX;
   drag.y = drag.sy = ev.clientY;
   drag.moved = 0;
+  canvas.classList.toggle('is-dragging', ev.button !== 0 || ev.altKey
+    || !(ev.shiftKey || placing || airAim || laserAim || targeting));
 
   stage.updateCamera();
   drag.anchor = groundAt(ev);
@@ -690,7 +692,7 @@ canvas.addEventListener('pointerup', (ev) => {
     else smartCommand(tileAt(ev));
   } else if (mode === 'box' || mode === 'left') {
     if (mode === 'box' && drag.moved > 6) boxSelect(ev);
-    else if (!grabCrate(tileAt(ev))) clickSelect(tileAt(ev), ev);
+    else if (!grabCrate(tileAt(ev))) clickSelect(tileAt(ev), ev, mode === 'box' || ev.shiftKey);
   }
 });
 
@@ -703,7 +705,7 @@ function grabCrate(t) {
 
 canvas.addEventListener('pointercancel', endDrag);
 canvas.addEventListener('lostpointercapture', endDrag);
-window.addEventListener('blur', () => { endDrag(); keys.clear(); });
+window.addEventListener('blur', () => { keys.clear(); endDrag(); });
 
 // double-click a unit: everything of that type on screen
 canvas.addEventListener('dblclick', (ev) => {
@@ -788,7 +790,6 @@ window.addEventListener('keydown', (ev) => {
 });
 
 window.addEventListener('keyup', (ev) => keys.delete(ev.key));
-window.addEventListener('blur', () => keys.clear());
 
 /* ---------------- game events ---------------- */
 

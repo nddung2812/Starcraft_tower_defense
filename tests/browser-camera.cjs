@@ -14,6 +14,8 @@ const assert = require('node:assert/strict');
     await page.evaluate(() => { game.paused = true; game.stage.shake = 0; });
     const rect = await page.locator('#game').boundingBox();
     const cx = rect.x + rect.width / 2, cy = rect.y + rect.height / 2;
+    const cursor = () => page.locator('#game').evaluate(e => getComputedStyle(e).cursor);
+    assert.equal(await cursor(), 'default');
     const state = () => page.evaluate(() => {
       const s = game.stage;
       return { x: s.focus.x, z: s.focus.z, yaw: s.yaw, pitch: s.pitch, dist: s.dist };
@@ -26,8 +28,10 @@ const assert = require('node:assert/strict');
       await page.mouse.move(cx, cy);
       if (modifier) await page.keyboard.down(modifier);
       await page.mouse.down({ button });
+      assert.equal(await cursor(), 'grabbing');
       await page.mouse.move(cx + dx, cy + dy, { steps: 8 });
       await page.mouse.up({ button });
+      assert.equal(await cursor(), 'default');
       if (modifier) await page.keyboard.up(modifier);
     };
     // Grab stays under the pointer in every direction and at rotated/tilted angles.
@@ -91,12 +95,30 @@ const assert = require('node:assert/strict');
     await page.keyboard.press('Escape');
     const beforeBox = await state();
     await page.keyboard.down('Shift');
+    assert.equal(await cursor(), 'default');
     await page.mouse.move(unit.x - 45, unit.y - 45); await page.mouse.down();
+    assert.equal(await cursor(), 'default');
     await page.mouse.move(unit.x + 45, unit.y + 45, { steps: 8 });
     assert.equal(await page.locator('#selbox').isVisible(), true);
     await page.mouse.up(); await page.keyboard.up('Shift');
     assert.equal(await page.evaluate(() => game.selection.includes(game.gunners[0])), true);
     assert.deepEqual(await state(), beforeBox);
+
+    // Shift-click toggles units without dropping the rest of the group.
+    await page.keyboard.press('F2');
+    const armySize = await page.evaluate(() => game.selection.length);
+    assert.ok(armySize > 1);
+    await page.keyboard.down('Shift');
+    await page.mouse.click(unit.x, unit.y);
+    assert.equal(await page.evaluate(() => game.selection.length), armySize - 1);
+    await page.mouse.click(unit.x, unit.y);
+    assert.equal(await page.evaluate(() => game.selection.length), armySize);
+    // Releasing Shift before the mouse preserves an additive box selection.
+    await page.mouse.move(unit.x - 12, unit.y - 30); await page.mouse.down();
+    await page.mouse.move(unit.x + 12, unit.y + 12, { steps: 4 });
+    await page.keyboard.up('Shift'); await page.mouse.up();
+    assert.equal(await page.evaluate(() => game.selection.length), armySize);
+    assert.equal(await cursor(), 'default');
 
     // Wheel deltas are proportional, bounded, and a zero delta is a no-op.
     await page.mouse.move(cx, cy);
@@ -123,6 +145,7 @@ const assert = require('node:assert/strict');
     await page.mouse.move(cx + 140, cy); await page.mouse.up();
     assert.deepEqual(await state(), afterBlur);
     assert.equal(await page.locator('#game').evaluate(e => e.classList.contains('is-dragging')), false);
+    assert.equal(await cursor(), 'default');
     await gesture('left', -70, 0);
     assert.notEqual((await state()).x, afterBlur.x);
     await page.screenshot({ path: '/tmp/td-camera-controls.png' });
