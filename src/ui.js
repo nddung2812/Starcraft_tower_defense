@@ -393,7 +393,7 @@ export class UI {
       if (open) shown++;
     });
     $('buildBar').dataset.cols = String(Math.max(3, Math.ceil(shown / 2)));
-    $('buildBar').style.setProperty('--cards', String(Math.max(6, shown)));
+    $('buildBar').style.setProperty('--cols', $('buildBar').dataset.cols);
   }
 
   /** Big centre-screen moment: streaks, new units, supply drops. One at a time. */

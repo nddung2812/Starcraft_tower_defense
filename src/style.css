@@ -957,7 +957,18 @@ button:focus-visible { outline: 2px solid var(--compact); outline-offset: 3px; }
 
 /* The build bar grows as specialists unlock: one long row on desktop, two rows elsewhere. */
 @media (min-width: 1101px) {
-  .dock .buildbar[data-cols] { grid-template-columns: repeat(var(--cards, 6), minmax(0, 1fr)); }
+  /* Two compact rows: every unit stays on screen, with the icon beside its price. */
+  .dock { width: min(600px, calc(100% - 132px)); }
+  .dock .buildbar[data-cols] { grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 4px; }
+  .dock .buildbar .card { grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr); gap: 0 4px; padding: 2px 6px 2px 3px; }
+  .dock .buildbar .card__icon { grid-column: 1; max-height: 36px; }
+  .dock .buildbar .card__cost { grid-column: 2; align-self: end; justify-self: end; font-size: 11px; }
+  .dock .buildbar .card__key { top: 2px; right: 4px; font-size: 8px; }
+}
+@media (min-width: 1800px) and (min-height: 900px) {
+  .dock { width: min(700px, calc(100% - 156px)); }
+  .dock .buildbar .card__icon { max-height: 48px; }
+  .dock .buildbar .card__cost { font-size: 13px; }
 }
 @media (max-width: 1100px) {
   .dock .buildbar[data-cols="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
