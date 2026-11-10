@@ -773,6 +773,16 @@ html, body {
 .intro { width: min(470px, 100%); min-width: 0; }
 .intro > .btn { width: 100%; }
 .intro > p, .intro__hint { max-width: 100%; }
+.intro h2 { margin-bottom: 0; }
+.intro__label { margin-top: 8px; letter-spacing: .08em; }
+.intro__label span { text-transform: none; letter-spacing: 0; }
+.intro > .btn { min-height: 44px; }
+.intro .career-teaser { margin: 0; padding: 8px; background: none; border-color: transparent; text-align: center; }
+.intro__scores { width: 100%; min-width: 0; border-top: 1px solid var(--line); }
+.intro__scores summary { padding: 14px 8px; color: var(--muted); font-size: 11px; cursor: pointer; }
+.intro__scores summary:hover { color: var(--text); }
+.intro__scores summary:focus-visible { outline: 2px solid var(--compact); outline-offset: 2px; border-radius: 6px; }
+.intro__scores .board { min-width: 0; margin-top: 10px; }
 .pause-menu { z-index: 6; }
 .pause-card { display: grid; gap: 12px; width: min(430px, 100%); }
 .pause-card p { margin: 0; max-width: none; }

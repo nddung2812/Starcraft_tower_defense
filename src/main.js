@@ -788,7 +788,7 @@ const retention = new Retention(game, {
   }
 });
 if (challenge) {
-  const message = `Beat ${challenge.name}'s ${challenge.kills.toLocaleString()} kills. Same maps. Your strategy.`;
+  const message = `Beat ${challenge.name}'s ${challenge.kills.toLocaleString()} kills.`;
   const introChallenge = document.getElementById('challengeIntro');
   introChallenge.textContent = message;
   introChallenge.hidden = false;
@@ -855,9 +855,10 @@ document.getElementById('btnSaveCard').addEventListener('click', () => {
 
 async function showIntro() {
   intro.hidden = false;
+  document.getElementById('introScores').open = false;
   nameInput.value = player;
   retention.refresh();
-  setTimeout(() => (retention.save ? document.getElementById('btnContinue') : nameInput).focus(), 50);
+  setTimeout(() => (retention.save ? document.getElementById('btnContinue') : document.getElementById('introBtn')).focus(), 50);
   const { online, scores } = await topScores(10);
   document.getElementById('boardTitle').textContent = online ? 'Top commanders worldwide' : 'Best runs on this device';
   ui.renderBoard(document.getElementById('introBoard'), scores, player ? { name: player, score: -1 } : null);

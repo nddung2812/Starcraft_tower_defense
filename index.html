@@ -126,29 +126,26 @@
 
     <div id="intro" class="banner">
       <form id="introForm" class="banner__inner intro" autocomplete="off">
-        <span class="intro__eyebrow">BUILD. SURVIVE. CHALLENGE.</span>
+        <span class="intro__eyebrow">RIDGEWATCH</span>
         <h2 class="is-win">Hold the Line</h2>
-        <p>The swarm never stops. Every canyon is harder than the last. How far can you hold?</p>
-        <div class="milestone-track" aria-label="Boss milestones">
-          <span><b>5 · 15 · 25</b>MEDIUM BOSSES</span><span><b>10 · 20 · 30</b>HARD BOSSES</span>
-        </div>
-        <p class="intro__hint">Boss every 5 levels · automatic Lineguard upgrades · silver boosts / gold permanent</p>
+        <p>Defend your base. Survive the swarm.</p>
         <p id="challengeIntro" class="challenge-intro" hidden></p>
         <section id="savedRun" class="saved-run" aria-label="Saved run" hidden>
-          <span class="intro__eyebrow">YOUR LINE IS STILL HOLDING</span>
           <button id="btnContinue" class="btn btn--primary" type="button">Continue game</button>
           <p id="savedRunInfo"></p>
         </section>
         <p id="introSaveFeedback" class="save-feedback" role="status"></p>
-        <label class="intro__label" for="playerName">Your name</label>
+        <label class="intro__label" for="playerName">Name <span>(optional)</span></label>
         <input id="playerName" class="intro__input" maxlength="16" placeholder="Commander" spellcheck="false">
-        <button id="introBtn" class="btn btn--primary" type="submit" name="deploy" value="quick">Quick deploy →</button>
-        <span class="intro__hint">3 soldiers ready · normal mineral cost · straight into combat</span>
+        <button id="introBtn" class="btn btn--primary" type="submit" name="deploy" value="quick">Play →</button>
+        <span class="intro__hint">Start with 3 soldiers. They fire automatically.</span>
         <button class="btn btn--ghost" type="submit" name="deploy" value="build">Build my own defense</button>
         <button id="introCareer" class="career-teaser" type="button" data-career></button>
-        <span class="intro__hint">Checkpoints and achievements stay in this browser on this device.</span>
-        <p class="intro__sub" id="boardTitle">Top commanders</p>
-        <ol id="introBoard" class="board"></ol>
+        <details id="introScores" class="intro__scores">
+          <summary>High scores</summary>
+          <p class="intro__sub" id="boardTitle">Top commanders</p>
+          <ol id="introBoard" class="board"></ol>
+        </details>
       </form>
     </div>
   </main>

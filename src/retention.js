@@ -148,15 +148,18 @@ export class Retention {
 
   refresh() {
     $('savedRun').hidden = !this.save;
+    $('introBtn').textContent = this.save ? 'New game' : 'Play →';
+    $('introBtn').classList.toggle('btn--primary', !this.save);
     if (this.save) {
       $('btnContinue').textContent = `Continue — Round ${this.save.level}`;
-      $('savedRunInfo').textContent = `${this.save.player} · ${count(this.save.kills)} kills · ${count(this.save.minerals)} minerals · ${new Date(this.save.savedAt).toLocaleString()}\nRound checkpoint · resumes paused`;
+      $('savedRunInfo').textContent = `${this.save.player} · ${count(this.save.kills)} kills · resumes paused`;
     }
     const next = this.profile.next;
     const unlocked = Object.keys(this.profile.unlocked).length;
     const teaser = next ? `Next: ${next.name} · ${Math.min(this.profile.stats[next.stat], next.target)}/${next.target} — ${next.detail}`
       : 'All achievements earned. Choose your commander loadout.';
-    for (const id of ['introCareer', 'resultCareer']) $(id).textContent = `★ ${unlocked}/${ACHIEVEMENTS.length} achievements · ${teaser}`;
+    $('introCareer').textContent = `★ Achievements · ${unlocked}/${ACHIEVEMENTS.length}`;
+    $('resultCareer').textContent = `★ ${unlocked}/${ACHIEVEMENTS.length} achievements · ${teaser}`;
   }
 
   record(values) {
