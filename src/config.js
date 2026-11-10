@@ -31,8 +31,13 @@ export const BUILD = {
   bunker: { id: 'bunker', name: 'Bunker', cost: 80, hp: 300, icon: 'B', key: 'B', desc: 'Holds two Lineguards. Extra armour, a firing slit, and a facing you set by where you build it.' },
   goliath: { id: 'goliath', name: 'Anchor Walker', cost: 160, icon: 'G', key: 'G', desc: 'Walker with twin autocannons. Long reach. Too big for a bunker.' },
   falcon: { id: 'falcon', name: 'Kestrel', cost: 240, icon: 'V', key: 'V', desc: 'Flying gunship. Twin cannons attack ground and air. Flies over terrain; vulnerable to spines and flying hunters.' },
-  tank: { id: 'tank', name: 'Cinder Crawler', cost: 280, icon: 'H', key: 'T', desc: 'Silver heavy tank. Twin cinder launchers. Right-click the canyon to drive it.' }
+  tank: { id: 'tank', name: 'Cinder Crawler', cost: 280, icon: 'H', key: 'T', desc: 'Silver heavy tank. Twin cinder launchers. Right-click the canyon to drive it.' },
+  // Specialists join the build bar one round at a time (`unlock` is the first round they can be built).
+  scorcher: { id: 'scorcher', name: 'Scorcher', cost: 110, icon: 'C', key: 'C', unlock: 2, desc: 'Flame trooper. Burns every ground bug in a short cone. Weak against armour.' },
+  deadeye: { id: 'deadeye', name: 'Deadeye', cost: 150, icon: 'D', key: 'D', unlock: 3, desc: 'Marksman. Very long range, ignores armour, picks the biggest target. Fragile.' },
+  mender: { id: 'mender', name: 'Mender', cost: 100, icon: '+', key: 'H', unlock: 4, desc: 'Field medic. Heals the most injured unit nearby. Carries no weapon.' }
 };
+export const unlockRound = id => BUILD[id]?.unlock || 1;
 
 // Damage is per projectile; paired weapons fire two projectiles per volley.
 export const MARINE_TIERS = [
@@ -96,6 +101,39 @@ export const FALCON_INFO = {
   quote: '"Sky clear. Guns ready."'
 };
 
+export const SCORCHER_TIERS = [
+  { rank: 'Kindler', hp: 130, damage: 7, attackSpeed: 0.35, range: 2.7, upgradeCost: 130 },
+  { rank: 'Inferno', hp: 185, damage: 11, attackSpeed: 0.32, range: 3.1, upgradeCost: null }
+];
+export const SCORCHER_INFO = {
+  id: 'scorcher', name: 'Scorcher', faction: 'Ridgewatch Compact', role: 'Flame Trooper',
+  armor: 2, accent: '#ff8a3c',
+  bio: 'Slag-furnace crew in heat plating, carrying a pressurised burner. Every ground bug inside the short cone burns at once, so packs melt; plated strains shrug off most of the heat and aircraft stay out of reach.',
+  quote: '"Stand behind me."'
+};
+
+export const DEADEYE_TIERS = [
+  { rank: 'Spotter', hp: 60, damage: 64, attackSpeed: 2.5, range: 9.5, upgradeCost: 170 },
+  { rank: 'Marksman', hp: 85, damage: 100, attackSpeed: 2.1, range: 10.5, upgradeCost: null }
+];
+export const DEADEYE_INFO = {
+  id: 'deadeye', name: 'Deadeye', faction: 'Ridgewatch Compact', role: 'Marksman',
+  armor: 0, accent: '#c9a8ff',
+  bio: 'Survey scout with a long coil rifle. One slow, armour-ignoring round at the largest thing in sight, from further away than anything else on the ridge. Thin suit: keep bugs off them.',
+  quote: '"Biggest one first."'
+};
+
+export const MENDER_TIERS = [
+  { rank: 'Field Mender', hp: 80, damage: 12, attackSpeed: 0.8, range: 4.2, upgradeCost: 120 },
+  { rank: 'Chief Mender', hp: 115, damage: 20, attackSpeed: 0.7, range: 4.8, upgradeCost: null }
+];
+export const MENDER_INFO = {
+  id: 'mender', name: 'Mender', faction: 'Ridgewatch Compact', role: 'Field Medic',
+  armor: 1, accent: '#7dffb0',
+  bio: 'Outpost medic with a repair-foam projector. Automatically patches the most injured soldier, walker, crawler or aircraft in reach. Unarmed, and cannot raise the fallen; that is still Patch Rig work.',
+  quote: '"Hold still. Almost done."'
+};
+
 export const UNITS = {
   marine: {
     id: 'marine', shots: 1, tiers: MARINE_TIERS, info: MARINE_INFO, visualScale: 0.56,
@@ -117,6 +155,21 @@ export const UNITS = {
     id: 'tank', shots: 2, tiers: TANK_TIERS, info: TANK_INFO,
     shell: true, splash: 1.65, canBunker: false, canStim: false, armory: false, turret: true,
     mobile: true, speed: 1.25, accent: 0xd21f28
+  },
+  scorcher: {
+    id: 'scorcher', shots: 1, tiers: SCORCHER_TIERS, info: SCORCHER_INFO, visualScale: 0.6,
+    flame: { arc: 0.55 }, targetsAir: false, shell: false, splash: 0, canBunker: false, canStim: false,
+    armory: false, turret: false, mobile: true, speed: 2.0, accent: 0xff8a3c
+  },
+  deadeye: {
+    id: 'deadeye', shots: 1, tiers: DEADEYE_TIERS, info: DEADEYE_INFO, visualScale: 0.56,
+    pierce: true, prefersBig: true, shell: false, splash: 0, canBunker: false, canStim: false,
+    armory: false, turret: false, mobile: true, speed: 2.0, accent: 0xc9a8ff
+  },
+  mender: {
+    id: 'mender', shots: 1, tiers: MENDER_TIERS, info: MENDER_INFO, visualScale: 0.56,
+    heals: true, shell: false, splash: 0, canBunker: false, canStim: false,
+    armory: false, turret: false, mobile: true, speed: 2.05, accent: 0x7dffb0
   }
 };
 
@@ -202,6 +255,18 @@ export function applyBaseUpgrade(stats, level) {
 }
 export const BASE_LASER = { chargeTime: 90, damage: 600, halfWidth: 0.8, duration: 0.45 };
 export const HIVE_RAID = { duration: 60, hp: 300, hpPerLevel: 45, reward: 100, rewardPerLevel: 25 };
+/* Kills landed within `window` seconds of each other build a streak; each tier pays once per streak. */
+export const STREAK = {
+  window: 2.5,
+  tiers: [
+    { at: 10, name: 'LINE HOLDING', bonus: 20 },
+    { at: 25, name: 'MEAT GRINDER', bonus: 50 },
+    { at: 50, name: 'CANYON CLEANER', bonus: 100 },
+    { at: 100, name: 'RIFT BREAKER', bonus: 250 }
+  ]
+};
+/* Supply drops land near the base mid-wave. Click one, or walk a unit onto it, before it expires. */
+export const SUPPLY = { first: 14, interval: 26, life: 18, minerals: 30, mineralsPerLevel: 6, pickup: 0.9, strikeChance: 0.2 };
 /* The hand-drawn canyons below come first; after them every level is generated. */
 export const AUTHORED_LEVELS = 10;
 

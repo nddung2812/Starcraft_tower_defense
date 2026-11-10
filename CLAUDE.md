@@ -36,7 +36,7 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 | `index.html` | HUD, battlefield, build bar, command card, inspector, start screen, game-over banner. Import map points `three` at `vendor/`. |
 | `src/main.js` | Entry point. Loads models, then owns all input: selection, orders, control groups, hotkeys, camera, minimap wiring, start screen and game-over flow, the frame loop. |
 | `src/game.js` | Game state and rules: placing and selling, levels, waves, kills and score, group commands (`commandMove/Attack/Garrison/Stop`), alerts, terrain rebuild. |
-| `src/entities.js` | `Marine` (all player gun units: marine/goliath/tank/falcon), `Zergling` (all bug strains), `Wall`, `Bunker`, `Scv`, `Core`, projectiles. |
+| `src/entities.js` | `Marine` (all player units: marine/goliath/tank/falcon plus the scorcher/deadeye/mender specialists), `Zergling` (all bug strains), `Wall`, `Bunker`, `Scv`, `Core`, `SupplyCrate`, projectiles. |
 | `src/evolutions.js` | Boss reward abilities: automatic tank siege, walker chain lightning, bunker Last Stand, descriptions and model additions. Tuning lives in config. |
 | `src/grid.js` | Tile grid, A* for player units, the shared bug route field, line-of-sight helpers. |
 | `src/levels.js` | Generates 1–3 difficulty-based seeded approaches between west/east bases, with boulders, rock depth and spires. Early level names come from `LEVELS`. |
@@ -50,8 +50,38 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 | `src/scores.js` | Leaderboard client: `/api/scores` when available, localStorage fallback. Player name handling. |
 | `src/checkpoints.js` | Versioned round checkpoint capture, validation against the seeded grid, storage reads and paused restoration. |
 | `src/progression.js`, `src/retention.js` | Permanent achievements, cosmetic loadout, Continue, pause/planning menus, save-and-quit, storage failure feedback and new-run confirmation. |
+| `src/daily.js` | Daily challenge: one seed per UTC day, today's best and day streak in `td.daily.v1`, share text. |
 | `src/fx.js`, `audio.js`, `voice.js` | Particles and decals, synthesised sound effects, speech-synthesis voice lines. |
 | `assets/models/README.md` | How to drop in `.glb` unit models. |
+
+## Specialists, streaks, supply drops, redeploy and daily challenge (Nov 11, 2026)
+
+- **Three specialists, one per round.** `BUILD[id].unlock` is the first round a unit can be built:
+  Scorcher (C, round 2), Deadeye (D, round 3), Mender (H, round 4). `game.isUnlocked(id)` gates
+  `placeGunner`; locked cards are hidden, so round 1 still shows six cards. `unitUnlocked` fires
+  when the round arrives. All three are `Marine` instances driven by spec flags:
+  `flame` (cone damage to every ground target, no projectile), `pierce` + `prefersBig` (tracer adds
+  the target's armour back; targets the highest max HP), `heals` (targets the most injured ally via
+  `seek()`/`acquireFriend()`, never attacks, cannot revive). Stats are in `BALANCE.md`.
+- **Messages are toasts.** There is deliberately no `#status` line (a test asserts it stays gone).
+  `ui.toast()` shows a short card above the dock (three at most); `ui.callout()` is the one large
+  centre-screen line for streaks, unlocks, supply drops and round starts. `ui.say()`/`ui.tip()` only
+  record `ui.line`; nothing renders them.
+- **Kill streaks.** Kills within `STREAK.window` (2.5 s) of each other build `game.streak`; tiers at
+  10/25/50/100 pay bonus minerals once per streak and emit `streak`. The HUD shows `×N` from 5.
+  `bestStreak` is per session and is not saved.
+- **Supply drops.** During `wave`, a `SupplyCrate` lands near the base every `SUPPLY.interval`
+  seconds, never within 2.2 tiles of a unit. Clicking it, or a ground unit or the Patch Rig
+  within 0.9 tiles, calls `game.collectCrate()`. It pays minerals (20% chance to also recharge the
+  air strike) and expires after 18 s. Crates are cleared by `loadLevel()` and are not saved.
+- **Redeploy army (Z).** `completeWave()` records `game.lastArmy` (kind, tier, invested) before the
+  refund. `game.redeployArmy()` rebuilds it around `deployAnchor()` at normal prices, dearest
+  first, leaving anything unaffordable waiting. Walls and bunkers are not rebuilt. `lastArmy` is an
+  optional checkpoint field; older saves load without it.
+- **Daily challenge.** The start screen's Daily button starts a Quick Deploy run on
+  `dailySeed()`. A finished run on that seed updates today's best and the day streak, and the
+  share/copy text names the daily number. It is local only: there is no daily leaderboard.
+- `tests/browser-specialists.cjs` covers all of the above with the browser invocation below.
 
 ## Map progression update (Nov 10, 2026)
 
@@ -221,7 +251,9 @@ Left-drag pan · Shift-drag box-select · click / Shift-click / double-click or 
 right-click = smart order (move, attack, garrison, repair, revive) · right-drag = rotate/tilt · ⌥ + left-drag = rotate/tilt · middle-drag = pan · wheel = zoom · arrows =
 scroll (no automatic edge scrolling) · Ctrl+1–9 set group, Shift+1–9 add, 1–9 select, double-tap to jump · A whole-army advance · Shift+A selected attack-move · S stop ·
 F stim · R air strike · U promote · X salvage · F1 SCV · F2 all army · Space launch wave / jump to
-last alert · Esc cancel. Build hotkeys: W wall, M marine, B bunker, G goliath, T tank, V Falcon Gunship.
+last alert · Esc cancel · Z redeploy last round's army · click a supply drop to collect it.
+Build hotkeys: W wall, M marine, B bunker, G goliath, T tank, V Falcon Gunship, and once unlocked
+C Scorcher, D Deadeye, H Mender.
 
 ## Testing
 

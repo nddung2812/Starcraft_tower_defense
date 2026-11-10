@@ -927,3 +927,126 @@ export function buildSkyhunter() {
   };
   return root;
 }
+
+/* ------------------------------------------------------------------ */
+/*  SPECIALISTS — the infantry frame with its own plating, pack and    */
+/*  tool, so each role reads at a glance from the battlefield camera.  */
+/* ------------------------------------------------------------------ */
+
+const SPECIALIST_MAT = {
+  scorch: new THREE.MeshStandardMaterial({ color: 0xc8521c, metalness: 0.35, roughness: 0.45 }),
+  tankage: new THREE.MeshStandardMaterial({ color: 0xe2b423, metalness: 0.55, roughness: 0.4 }),
+  pilot: new THREE.MeshStandardMaterial({ color: 0xffc070, emissive: 0xff6a10, emissiveIntensity: 3.2 }),
+  slate: new THREE.MeshStandardMaterial({ color: 0x4b3f73, metalness: 0.3, roughness: 0.55 }),
+  cloak: new THREE.MeshStandardMaterial({ color: 0x2a2440, metalness: 0.05, roughness: 0.9, side: THREE.DoubleSide }),
+  lens: new THREE.MeshStandardMaterial({ color: 0xe6d4ff, emissive: 0xa46bff, emissiveIntensity: 2.6 }),
+  medic: new THREE.MeshStandardMaterial({ color: 0xe9eef0, metalness: 0.2, roughness: 0.5 }),
+  foam: new THREE.MeshStandardMaterial({ color: 0x9dffc4, emissive: 0x2fe07a, emissiveIntensity: 2.6 })
+};
+
+/** A trooper frame repainted, with the rifle removed so a role-specific tool can be fitted. */
+function specialistFrame(tier, plating) {
+  const root = buildMarine(0);
+  root.traverse((o) => { if (o.isMesh && o.material === MAT.armor) o.material = plating; });
+  const { weapon, torso } = root.userData;
+  weapon.remove(weapon.children[0]);
+  // one bright shoulder bar per promotion
+  for (let i = 0; i < tier; i++) {
+    torso.add(mesh(box(0.2, 0.03, 0.05, 0.01),
+      new THREE.MeshStandardMaterial({ color: 0xffd36a, emissive: 0xffa020, emissiveIntensity: 1.4 }), -0.01, 0.27 + i * 0.04, 0.26));
+  }
+  return root;
+}
+
+export function buildScorcher(tier = 0) {
+  const root = specialistFrame(tier, SPECIALIST_MAT.scorch);
+  const { weapon, torso } = root.userData;
+  // twin fuel bottles riding high on the pack
+  for (const s of [-1, 1]) {
+    const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.42, 12), SPECIALIST_MAT.tankage);
+    tank.position.set(-0.3, 0.1, s * 0.09);
+    tank.castShadow = true;
+    torso.add(tank);
+    torso.add(mesh(new THREE.SphereGeometry(0.075, 10, 8), SPECIALIST_MAT.tankage, -0.3, 0.31, s * 0.09));
+  }
+  // burner: fat body, flared nozzle, pilot light
+  weapon.add(mesh(box(0.34, 0.14, 0.14, 0.04), MAT.gunmetal, 0.1, 0, 0));
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.3, 10), MAT.steelDark);
+  barrel.rotation.z = Math.PI / 2;
+  barrel.position.set(0.38, 0.01, 0);
+  weapon.add(barrel);
+  const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.05, 0.1, 10), MAT.steel);
+  nozzle.rotation.z = -Math.PI / 2;
+  nozzle.position.set(0.56, 0.01, 0);
+  weapon.add(nozzle);
+  weapon.add(mesh(new THREE.SphereGeometry(0.03 + tier * 0.01, 8, 6), SPECIALIST_MAT.pilot, 0.62, 0.01, 0));
+  weapon.userData.muzzle = new THREE.Vector3(0.64, 0.01, 0);
+  return root;
+}
+
+export function buildDeadeye(tier = 0) {
+  const root = specialistFrame(tier, SPECIALIST_MAT.slate);
+  const { weapon, torso, head } = root.userData;
+  // long rifle, scope and bipod
+  const len = 0.78 + tier * 0.08;
+  weapon.add(mesh(box(0.24, 0.1, 0.09, 0.025), MAT.gunmetal, 0.0, 0, 0));
+  weapon.add(mesh(box(len, 0.05, 0.05, 0.015), MAT.steelDark, 0.12 + len / 2, 0.015, 0));
+  weapon.add(mesh(box(0.1, 0.075, 0.075, 0.02), MAT.steel, 0.14 + len, 0.015, 0));
+  const scope = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.2, 10), MAT.gunmetal);
+  scope.rotation.z = Math.PI / 2;
+  scope.position.set(0.1, 0.09, 0);
+  weapon.add(scope);
+  weapon.add(mesh(new THREE.SphereGeometry(0.028, 8, 6), SPECIALIST_MAT.lens, 0.2, 0.09, 0));
+  weapon.userData.muzzle = new THREE.Vector3(0.2 + len, 0.015, 0);
+  // short cloak and a hooded lens instead of the gold visor
+  const cloak = mesh(box(0.03, 0.5, 0.42, 0.01), SPECIALIST_MAT.cloak, -0.31, -0.12, 0);
+  cloak.rotation.z = -0.16;
+  torso.add(cloak);
+  head.add(mesh(box(0.2, 0.07, 0.27, 0.03), SPECIALIST_MAT.cloak, -0.03, 0.12, 0));
+  root.userData.visor.material = SPECIALIST_MAT.lens;
+  return root;
+}
+
+export function buildMender(tier = 0) {
+  const root = specialistFrame(tier, SPECIALIST_MAT.medic);
+  const { weapon, torso } = root.userData;
+  // foam canister on the pack, with a green cross facing the camera side
+  const can = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.36, 14), SPECIALIST_MAT.foam);
+  can.position.set(-0.32, 0.08, 0);
+  can.castShadow = true;
+  torso.add(can);
+  for (const s of [-1, 1]) {
+    torso.add(mesh(box(0.13, 0.04, 0.012, 0.004), SPECIALIST_MAT.foam, 0.0, 0.14, s * 0.36));
+    torso.add(mesh(box(0.04, 0.13, 0.012, 0.004), SPECIALIST_MAT.foam, 0.0, 0.14, s * 0.36));
+  }
+  // projector: short wand with a glowing emitter
+  weapon.add(mesh(box(0.2, 0.09, 0.09, 0.03), MAT.steelDark, 0.06, 0, 0));
+  const wand = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.26, 8), MAT.steel);
+  wand.rotation.z = Math.PI / 2;
+  wand.position.set(0.28, 0.01, 0);
+  weapon.add(wand);
+  weapon.add(mesh(new THREE.SphereGeometry(0.055 + tier * 0.012, 12, 10), SPECIALIST_MAT.foam, 0.43, 0.01, 0));
+  weapon.userData.muzzle = new THREE.Vector3(0.46, 0.01, 0);
+  return root;
+}
+
+/** Supply drop: a strapped crate under a tall beacon, so it can be found from across the map. */
+export function buildCrate() {
+  const root = new THREE.Group();
+  const crate = new THREE.Group();
+  crate.add(mesh(box(0.5, 0.36, 0.5, 0.04), MAT.steelDark, 0, 0.2, 0));
+  crate.add(mesh(box(0.54, 0.08, 0.54, 0.02), MAT.hazard, 0, 0.2, 0));
+  crate.add(mesh(box(0.12, 0.4, 0.54, 0.02), MAT.hazard, 0, 0.2, 0));
+  crate.add(mesh(box(0.16, 0.06, 0.16, 0.02), MAT.lampGreen, 0, 0.41, 0));
+  root.add(crate);
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.16, 5, 10, 1, true),
+    new THREE.MeshBasicMaterial({ color: 0xffd36a, transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+  beam.position.y = 2.7;
+  root.add(beam);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.68, 28).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({ color: 0xffd36a, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide }));
+  ring.position.y = 0.04;
+  root.add(ring);
+  root.userData = { crate, beam, ring };
+  return root;
+}

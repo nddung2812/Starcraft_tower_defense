@@ -42,8 +42,8 @@ class Portrait {
     if (kind === 'core' || kind === 'hive') {
       this.current = kind === 'core' ? buildCore() : buildHatchery();
       this.frame(this.current);
-    } else if (kind === 'marine') {
-      this.current = model('marine');
+    } else if (['marine', 'scorcher', 'deadeye', 'mender'].includes(kind)) {
+      this.current = model(kind);
       this.camera.position.set(0, 0.72, 2.0);
       this.camera.lookAt(0, 0.5, 0);
     } else if (kind === 'goliath') {
@@ -211,7 +211,7 @@ function buildIcons(renderer) {
   return icons;
 }
 
-const CHIP = { marine: 'M', goliath: 'G', tank: 'H', falcon: 'V', scv: 'S' };
+const CHIP = { marine: 'M', goliath: 'G', tank: 'H', falcon: 'V', scorcher: 'C', deadeye: 'D', mender: '+', scv: 'S' };
 
 function unitLike(e) {
   if (!e || e.dead) return false;
@@ -233,6 +233,10 @@ export class UI {
         <span class="card__cost">${b.cost}</span>
         <span class="card__key">${b.key}</span>
       </button>`).join('');
+
+    this.newCards = new Set();
+    this.syncRoster();
+    $('btnRedeploy').addEventListener('click', () => game.emit('cmd', 'redeploy'));
 
     $('buildBar').addEventListener('click', (e) => {
       const btn = e.target.closest('[data-build]');
@@ -313,7 +317,25 @@ export class UI {
       this.raidNoticeTimer = setTimeout(() => { $('raidNotice').hidden = true; }, 2000);
     });
     game.on('unlock', (u) => this.toast(`Armory unlocked — ${u.name}`, u.effect, 'unlock'));
-    game.on('brief', (card) => this.say(`<b>${card.title}.</b> ${card.body}`));
+    game.on('unitUnlocked', (b) => {
+      this.newCards.add(b.id);
+      this.callout('New unit unlocked', `${b.name} · press ${b.key} · ${b.cost} minerals`, 'unit');
+      this.toast(`${b.name} unlocked (${b.key})`, b.desc, 'unlock', 9000);
+    });
+    game.on('streak', (t) => this.callout(`${t.name} ×${t.streak}`, `Kill streak · +${t.bonus} minerals`));
+    game.on('supply', () => {
+      this.callout('Supply drop', 'Click the crate or walk a unit onto it', 'supply');
+      this.toast('Supply drop near your base', 'Gold marker on the minimap. It leaves in 18 seconds.', 'supply');
+    });
+    game.on('supplyCollected', ({ crate, recharge }) => this.toast(`Supplies recovered · +${crate.value} minerals`,
+      recharge ? 'Air strike recharged.' : 'More drops arrive while the swarm is attacking.', 'ok', 3200));
+    game.on('redeployed', ({ placed, waiting }) => this.toast(`Army redeployed · ${placed} unit${placed === 1 ? '' : 's'}`,
+      waiting ? `${waiting} more waiting for minerals or space. Press Z again.` : 'Promotions kept. Move them into position.', 'ok'));
+    game.on('brief', (card) => {
+      this.say(`<b>${card.title}.</b> ${card.body}`);
+      // A unit unlocked this round already owns the centre of the screen.
+      if (game.level > 1 && !Object.values(BUILD).some(b => b.unlock === game.level)) this.callout(`Round ${game.level}`, card.title, 'unit');
+    });
     game.on('hold', (card) => this.say(`<b>${card.kicker}.</b> ${card.body}`));
 
     this.showUnit('marine', 0, null);
@@ -352,8 +374,39 @@ export class UI {
   }
 
   setPlacing(id) {
-    document.querySelectorAll('[data-build]').forEach((b) =>
-      b.classList.toggle('card--on', b.dataset.build === id));
+    if (id) this.newCards.delete(id);
+    document.querySelectorAll('[data-build]').forEach((b) => {
+      b.classList.toggle('card--on', b.dataset.build === id);
+      b.classList.toggle('card--new', this.newCards.has(b.dataset.build));
+    });
+  }
+
+  /** Locked specialists stay off the build bar until their round, so new players start with a short list. */
+  syncRoster() {
+    const g = this.game;
+    let shown = 0;
+    document.querySelectorAll('[data-build]').forEach((b) => {
+      const open = g.isUnlocked(b.dataset.build);
+      b.hidden = !open;
+      if (!open) this.newCards.delete(b.dataset.build);
+      b.classList.toggle('card--new', this.newCards.has(b.dataset.build));
+      if (open) shown++;
+    });
+    $('buildBar').dataset.cols = String(Math.max(3, Math.ceil(shown / 2)));
+    $('buildBar').style.setProperty('--cards', String(Math.max(6, shown)));
+  }
+
+  /** Big centre-screen moment: streaks, new units, supply drops. One at a time. */
+  callout(title, note, kind = 'streak') {
+    const el = $('callout');
+    $('calloutTitle').textContent = title;
+    $('calloutNote').textContent = note;
+    el.className = `callout callout--${kind}`;
+    el.hidden = true;
+    void el.offsetWidth;   // restart the pop animation
+    el.hidden = false;
+    clearTimeout(this.calloutTimer);
+    this.calloutTimer = setTimeout(() => { el.hidden = true; }, 2600);
   }
 
   showUnit(kind, tier, entity) {
@@ -406,7 +459,7 @@ export class UI {
         ? `${base.rank} · Tier ${tier + 1} of ${spec.tiers.length}`
         : spec.info.role;
       $('pFaction').textContent = spec.info.faction;
-      $('pBio').textContent = spec.info.bio;
+      $('pBio').textContent = spec.info.bio + (g.isUnlocked(kind) ? '' : ` Unlocks in Round ${BUILD[kind].unlock}.`);
       const evolution = kind === 'tank' ? 'siege' : kind === 'goliath' ? 'chain' : null;
       if (evolution && g.evolutions[evolution]) {
         $('pBio').textContent += ` ${EVOLUTIONS.find(e => e.id === evolution).name} · Rank ${g.evolutions[evolution]}. ${evolutionDescription(evolution, g.evolutions[evolution])}`;
@@ -416,12 +469,12 @@ export class UI {
       const accent = spec.info.accent;
       $('stats').innerHTML =
         statRow('Hit Points', Math.round(s.hp), s.hp / 380, '#5ef08a') +
-        statRow('Damage', shots > 1 ? Number(s.damage.toFixed(1)) + ' ×2' : Number(s.damage.toFixed(1)), (s.damage * shots) / 50, '#f0b23c') +
+        statRow(spec.heals ? 'Heal' : 'Damage', shots > 1 ? Number(s.damage.toFixed(1)) + ' ×2' : Number(s.damage.toFixed(1)), (s.damage * shots) / 50, spec.heals ? '#7dffb0' : '#f0b23c') +
         statRow('Armour', s.armor, s.armor / 4, '#9aa3a8') +
-        statRow('Fire Rate', (1 / s.attackSpeed).toFixed(2) + '/s', (1 / s.attackSpeed) / 3.5, '#f0b23c') +
+        statRow(spec.heals ? 'Heal Rate' : 'Fire Rate', (1 / s.attackSpeed).toFixed(2) + '/s', (1 / s.attackSpeed) / 3.5, '#f0b23c') +
         statRow('Range', s.range.toFixed(1) + ' tiles', s.range / 8, accent) +
         (spec.splash ? statRow('Blast', (spec.splash + (entity?.siegeDeployed ? EVOLUTION_RULES.siegeSplash : 0)).toFixed(2) + ' tiles', spec.splash / 2, accent) : '') +
-        statRow('Targets', spec.targetsAir === false ? 'Ground' : 'Ground + Air', 1, accent) +
+        statRow('Targets', spec.heals ? 'Allies' : spec.flame ? 'Ground · cone' : spec.pierce ? 'Largest · ignores armour' : spec.targetsAir === false ? 'Ground' : 'Ground + Air', 1, accent) +
         statRow('Move Speed', spec.mobile ? s.moveSpeed.toFixed(1) + ' t/s' : 'Emplaced', s.moveSpeed / 3, accent);
     } else {
       const b = entity?.breed || BREEDS.zergling;
@@ -484,6 +537,8 @@ export class UI {
     this.updateAssault();
     this.syncBase();
     $('rKills').textContent = g.kills;
+    this.syncRoster();
+    this.syncStreak();
     const pct = Math.max(0, g.core.hp / g.core.maxHp);
     $('rCore').textContent = Math.ceil(pct * 100) + '%';
     $('rCore').style.color = pct > 0.5 ? '' : pct > 0.25 ? '#f0b23c' : '#ff5a4a';
@@ -590,11 +645,12 @@ export class UI {
   hideReel() { this.say(''); }
 
   /** Game over: your run, and the leaderboard with your row highlighted. */
-  showBanner({ name, score, level, kills, rank, online, scores, best }) {
+  showBanner({ name, score, level, kills, rank, online, scores, best, daily }) {
     $('bannerTitle').textContent = 'Outpost Overrun';
     $('bannerTitle').classList.remove('is-win');
     const place = rank ? ` · #${rank} ${online ? 'worldwide' : 'on this device'}` : '';
-    $('bannerText').textContent = `${name}, you killed ${score.toLocaleString()} bugs and held to level ${level}${place}. Your best: ${best.toLocaleString()} kills.`;
+    const streak = this.game.bestStreak >= 10 ? ` Longest streak: ×${this.game.bestStreak}.` : '';
+    $('bannerText').textContent = `${daily ? `Daily #${daily} · ` : ''}${name}, you killed ${score.toLocaleString()} bugs and held to level ${level}${place}. Your best: ${best.toLocaleString()} kills.${streak}`;
     this.renderBoard($('bannerBoard'), scores, { name, score });
     $('banner').hidden = false;
   }
@@ -624,8 +680,24 @@ export class UI {
 
   tip(html) { this.say(html); }
 
-  toast(title, note) {
+  /** A short-lived card above the build dock. Kept to three so the battlefield stays clear. */
+  toast(title, note = '', kind = '', ms = 4500) {
     this.say(`<b>${title}.</b> ${note}`);
+    const box = $('toasts');
+    const el = document.createElement('div');
+    el.className = `toast${kind ? ` toast--${kind}` : ''}`;
+    const head = document.createElement('b'); head.textContent = title;
+    const body = document.createElement('span'); body.textContent = note;
+    el.append(head, body);
+    box.append(el);
+    while (box.children.length > 3) box.firstElementChild.remove();
+    setTimeout(() => el.remove(), ms);
+  }
+
+  syncStreak() {
+    const g = this.game, el = $('rStreak');
+    el.hidden = g.streak < 5;
+    if (!el.hidden) el.textContent = `×${g.streak}`;
   }
 
   setAirArmed(on) {
@@ -657,6 +729,13 @@ export class UI {
     $('btnLaser').textContent = aiming ? 'Cancel laser aim' : g.laserReady ? 'Fire laser (L)' : `Laser · ${Math.floor(g.laserCharge / BASE_LASER.chargeTime * 100)}%`;
     $('btnLaser').disabled = g.paused || !g.laserReady || !['wave', 'raid'].includes(g.state);
     $('laserHint').textContent = aiming ? 'Click a direction from your base · Esc cancels' : g.laserReady ? 'Ready · 600 damage through the enemy line' : `${Math.ceil(BASE_LASER.chargeTime - g.laserCharge)}s to charge · one piercing shot`;
+    const waiting = g.lastArmy?.length || 0;
+    $('redeployBox').hidden = !waiting || !['build', 'brief', 'wave'].includes(g.state);
+    if (waiting) {
+      const cost = g.lastArmy.reduce((sum, u) => sum + u.invested, 0);
+      $('btnRedeploy').textContent = `Redeploy army (Z) · ${waiting} unit${waiting === 1 ? '' : 's'}`;
+      $('redeployHint').textContent = `${cost} minerals · same units and ranks at the new defense line`;
+    }
     $('raidHud').hidden = g.state !== 'raid';
     if (g.state !== 'raid') {
       clearTimeout(this.raidNoticeTimer);
@@ -708,6 +787,7 @@ export class UI {
     $('rCore').style.color = pct > 0.5 ? '' : pct > 0.25 ? '#f0b23c' : '#ff5a4a';
     $('rMinerals').textContent = g.minerals;
     $('rKills').textContent = g.kills;
+    this.syncStreak();
     this.syncAir();
     this.chipT -= dt;
     if (this.chipT <= 0) {

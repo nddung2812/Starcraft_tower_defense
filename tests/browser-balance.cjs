@@ -28,7 +28,9 @@ const assert = require('node:assert/strict');
       } finally { g.stage.render=render; }
       g.reset(12345);
       const volleys = [];
-      for (const kind of Object.keys(UNITS)) {
+      // Specialists unlock by round 4. The Scorcher and Mender fire no projectile; tests/browser-specialists.cjs covers them.
+      g.level = 4;
+      for (const kind of Object.keys(UNITS).filter(k => !UNITS[k].flame && !UNITS[k].heals)) {
         g.wipeUnits(); g.loadLevel(); g.state = 'build'; g.minerals = 10000;
         const [x,y] = g.layout.open.find(([x,y]) => g.grid.buildable(x,y));
         check(g.placeGunner(kind,x,y), `Cannot place ${kind}`);

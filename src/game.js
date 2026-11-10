@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { CELL, BUILD, ECON, ARMORY, UNITS, AIR_STRIKE, TREASURE, TREASURE_RULES, baseUpgradeCost, applyBaseUpgrade, HIVE_RAID, BASE_LASER, wavePlan } from './config.js';
+import { CELL, BUILD, ECON, ARMORY, UNITS, AIR_STRIKE, TREASURE, TREASURE_RULES, baseUpgradeCost, applyBaseUpgrade, HIVE_RAID, BASE_LASER, wavePlan, STREAK, SUPPLY, unlockRound } from './config.js';
 import { Grid } from './grid.js';
 import { carveLevel, MAP_VERSION } from './levels.js';
-import { Marine, Zergling, Wall, Bunker, Scv, Core, Hive, Tracer, Shell, AirBomb } from './entities.js';
+import { Marine, Zergling, Wall, Bunker, Scv, Core, Hive, Tracer, Shell, AirBomb, SupplyCrate } from './entities.js';
 import { buildRock, buildBoulder } from './models.js';
 import { buildTerrain } from './terrain.js';
 import { Fx } from './fx.js';
@@ -42,6 +42,7 @@ export class Game {
     this.acids = [];
     this.shells = [];
     this.bombs = [];
+    this.crates = [];
     this.listeners = {};
     this.assault = new MilestoneAssault(this);
     this.reset();
@@ -65,6 +66,7 @@ export class Game {
       b.mark.material.dispose();
     }
     this.fx.clear();
+    this.clearCrates();
     this.gunners = [];
     this.zerglings = [];
     this.walls = [];
@@ -108,8 +110,18 @@ export class Game {
     this.roundCoreDamaged = false;
     this.pings = [];
     this.lastAlert = null;
+    this.streak = 0;
+    this.bestStreak = 0;
+    this.lastKillT = -99;
+    this.lastArmy = null;
     this.loadLevel();
     this.emit('change');
+  }
+
+  clearCrates() {
+    for (const crate of this.crates || []) this.world.remove(crate.obj);
+    this.crates = [];
+    this.crateT = SUPPLY.first;
   }
 
   loadLevel() {
@@ -131,6 +143,8 @@ export class Game {
     this.shells = [];
     this.bombs = [];
     this.fx.clear();
+    this.clearCrates();
+    this.streak = 0;
 
     const layout = carveLevel(this.level, this.mapSeed, this.mapVersion);
     this.layout = layout;
@@ -276,9 +290,12 @@ export class Game {
     return true;
   }
 
+  /** Specialists join the roster one round at a time. */
+  isUnlocked(id) { return this.level >= unlockRound(id); }
+
   placeGunner(kind, tx, ty) {
     const spec = BUILD[kind];
-    if (!spec || !this.canBuildAt(tx, ty) || !this.canAfford(spec.cost)) return false;
+    if (!spec || !this.isUnlocked(kind) || !this.canBuildAt(tx, ty) || !this.canAfford(spec.cost)) return false;
     const m = new Marine(kind, tx, ty, this.marineUpgrades, this.baseLevel);
     syncEvolutionVisual(m, this);
     const sp = this.grid.spawn;
@@ -477,13 +494,8 @@ export class Game {
   /** Spend the normal starting budget on a small squad, then get straight to play. */
   quickDeploy() {
     if (this.state !== 'build' || this.level !== 1 || this.gunners.length) return false;
-    const c = this.grid.core;
-    const route = this.grid.findPath(this.grid.spawn.x, this.grid.spawn.y, c.x, c.y);
-    if (!route?.length) return false;
-    // Cover the shared approach, rather than placing the whole squad on one branch.
-    const anchor = this.grid.spawns.length > 1
-      ? { x: c.x - 5, y: c.y }
-      : route[Math.max(0, route.length - 9)];
+    const anchor = this.deployAnchor();
+    if (!anchor) return false;
     let placed = 0;
     for (let r = 0; r <= 4 && placed < 3; r++) {
       for (let dy = -r; dy <= r && placed < 3; dy++) {
@@ -495,6 +507,91 @@ export class Game {
     }
     if (!placed) return false;
     this.startWave();
+    return true;
+  }
+
+  /** Where a fresh squad forms up: the shared approach, a few tiles in front of the base. */
+  deployAnchor() {
+    const c = this.grid.core;
+    const route = this.grid.findPath(this.grid.spawn.x, this.grid.spawn.y, c.x, c.y);
+    if (!route?.length) return null;
+    // Cover the shared approach, rather than placing the whole squad on one branch.
+    return this.grid.spawns.length > 1 ? { x: c.x - 5, y: c.y } : route[Math.max(0, route.length - 9)];
+  }
+
+  /**
+   * Put last round's army back on the field at the new defense line, promotions included.
+   * Costs the normal prices, which the round-end refund already covers. Returns units placed.
+   */
+  redeployArmy() {
+    if (!this.lastArmy?.length || !['build', 'brief', 'wave'].includes(this.state)) return 0;
+    const anchor = this.deployAnchor();
+    if (!anchor) return 0;
+    const ax = Math.floor(anchor.x), ay = Math.floor(anchor.y);
+    const spots = [];
+    for (let r = 0; r <= 7; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) === r) spots.push([ax + dx, ay + dy]);
+        }
+      }
+    }
+    const waiting = [];
+    let placed = 0;
+    // Dearest first, so a tight budget keeps the units the player invested most in.
+    for (const want of this.lastArmy.slice().sort((a, b) => b.invested - a.invested)) {
+      const at = spots.findIndex(([x, y]) => this.canBuildAt(x, y));
+      const spot = at < 0 ? null : spots.splice(at, 1)[0];
+      if (!spot || !this.placeGunner(want.kind, spot[0], spot[1])) { waiting.push(want); continue; }
+      const unit = this.gunners[this.gunners.length - 1];
+      while (unit.tier < want.tier && unit.upgradeCost != null && this.canAfford(unit.upgradeCost)) {
+        this.minerals -= unit.upgradeCost;
+        unit.invested += unit.upgradeCost;
+        unit.upgrade(this.marineUpgrades);
+      }
+      placed++;
+    }
+    this.lastArmy = waiting.length ? waiting : null;
+    if (placed) {
+      sfx.upgrade();
+      this.emit('redeployed', { placed, waiting: waiting.length });
+    }
+    this.emit('change');
+    return placed;
+  }
+
+  /* ---------------- supply drops ---------------- */
+
+  spawnCrate() {
+    const c = this.grid.core;
+    for (let attempt = 0; attempt < 40; attempt++) {
+      const a = Math.random() * Math.PI * 2, r = 4 + Math.random() * 9;
+      const tx = Math.floor(c.x + 1 + Math.cos(a) * r), ty = Math.floor(c.y + 1 + Math.sin(a) * r);
+      if (!this.grid.inside(tx, ty) || !this.grid.buildable(tx, ty)) continue;
+      // It has to be worth a click or a detour: never on top of a waiting unit.
+      if (this.gunners.some(u => !u.dead && Math.hypot(u.x - tx - 0.5, u.z - ty - 0.5) < 2.2)) continue;
+      const crate = new SupplyCrate(tx, ty, this.level);
+      this.crates.push(crate);
+      this.world.add(crate.obj);
+      sfx.drop();
+      this.emit('supply', crate);
+      return crate;
+    }
+    return null;
+  }
+
+  collectCrate(crate) {
+    if (!crate || crate.dead || !this.crates.includes(crate) || this.state === 'defeat') return false;
+    crate.dead = true;
+    this.minerals += crate.value;
+    const recharge = this.airStrikeCd > 0 && Math.random() < SUPPLY.strikeChance;
+    if (recharge) this.airStrikeCd = 0;
+    this.fx.ring({ x: crate.x, z: crate.z }, 1.8, 0xffd36a);
+    this.fx.sparks({ x: crate.x, y: 0.5, z: crate.z }, 0, 22, [1, 0.85, 0.4], 5, 6.28);
+    this.fx.label({ x: crate.x, y: 1.1, z: crate.z }, '+' + crate.value + (recharge ? ' · STRIKE READY' : ''), 'cash');
+    sfx.pickup();
+    this.emit('supplyCollected', { crate, recharge });
+    this.emit('change');
     return true;
   }
 
@@ -534,6 +631,15 @@ export class Game {
     this.score = this.kills;   // your score is simply how many bugs you killed
     this.emit('kill', this.kills);
     this.minerals += ECON.perKill * (bug?.breed?.bounty || 1);
+    this.streak = this.time - this.lastKillT <= STREAK.window ? this.streak + 1 : 1;
+    this.lastKillT = this.time;
+    this.bestStreak = Math.max(this.bestStreak, this.streak);
+    const tier = STREAK.tiers.find(t => t.at === this.streak);
+    if (tier) {
+      this.minerals += tier.bonus;
+      sfx.streak(STREAK.tiers.indexOf(tier));
+      this.emit('streak', { ...tier, streak: this.streak });
+    }
     if (this.kills % 6 === 0) voice.say('kill');
     const next = this.nextArmory;
     if (next && this.kills >= next.kills) {
@@ -577,6 +683,8 @@ export class Game {
     const prevName = this.layout.name;
     this.emit('roundCleared', { level: prev, perfect: !this.roundCoreDamaged && this.core.hp === this.core.maxHp });
     // levels never run out: clear one and the next canyon is waiting
+    const army = this.gunners.filter(u => !u.dead).map(u => ({ kind: u.kind, tier: u.tier, invested: u.invested }));
+    this.lastArmy = army.length ? army : null;
     const refund = this.recoverHardware();
     this.minerals += refund + bonus;
     this.level++;
@@ -586,6 +694,7 @@ export class Game {
     this.state = 'build';
     sfx.victory();
     this.emit('level');
+    for (const b of Object.values(BUILD)) if (b.unlock === this.level) this.emit('unitUnlocked', b);
     this.emit('change');
     this.emit('hold', {
       kicker: `Round ${prev} cleared — Round ${this.level} ready`,
@@ -848,7 +957,13 @@ export class Game {
         this.world.add(z.obj);
         this.fx.sparks({ x: z.x, y: 0.3, z: z.z }, 0, 8, [0.7, 0.35, 1], 3, 6.28);
       }
+      this.crateT -= dt;
+      if (this.crateT <= 0) {
+        this.crateT = SUPPLY.interval;
+        this.spawnCrate();
+      }
     }
+    if (this.streak && this.time - this.lastKillT > STREAK.window) this.streak = 0;
 
     for (const m of this.gunners) m.update(dt, this);
     for (const w of this.walls) w.update(dt, this);
@@ -860,6 +975,13 @@ export class Game {
     for (const a of this.acids) a.update(dt, this);
     for (const s of this.shells) s.update(dt, this);
     for (const b of this.bombs) b.update(dt, this);
+    for (const crate of this.crates) crate.update(dt, this);
+    for (let i = this.crates.length - 1; i >= 0; i--) {
+      if (this.crates[i].dead) {
+        this.world.remove(this.crates[i].obj);
+        this.crates.splice(i, 1);
+      }
+    }
 
     for (let i = this.tracers.length - 1; i >= 0; i--) {
       if (this.tracers[i].dead) {

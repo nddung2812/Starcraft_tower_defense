@@ -31,7 +31,7 @@
     <div class="hud__readouts" aria-label="Resources and progress">
       <div class="readout readout--mineral" title="Minerals"><svg class="hud-icon hud-icon--mineral" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 8 6-3 11-5 3-7-6L4 7Z"/><path d="m12 2 2 8 6-2M4 7l10 3-2 12m2-12 3 9"/></svg><span class="sr-only">Minerals </span><span class="readout__v" id="rMinerals">0</span></div>
       <div class="readout" title="Level"><span class="readout__k">RND</span><span class="readout__v" id="rWave">1</span></div>
-      <div class="readout readout--score" title="Score · bugs killed"><svg class="hud-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><path d="M12 1v6m0 10v6M1 12h6m10 0h6"/></svg><span class="sr-only">Score </span><span class="readout__v" id="rKills">0</span></div>
+      <div class="readout readout--score" title="Score · bugs killed"><svg class="hud-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><path d="M12 1v6m0 10v6M1 12h6m10 0h6"/></svg><span class="sr-only">Score </span><span class="readout__v" id="rKills">0</span><span id="rStreak" class="streak" title="Kill streak: keep killing within 2.5 seconds for bonus minerals" hidden></span></div>
       <div class="readout" title="Ridge relay health"><svg class="hud-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 8 3v6c0 6-8 11-8 11S4 17 4 11V5Z"/><path d="M8 12h8m-4-4v8"/></svg><span class="sr-only">Base health </span><span class="readout__v" id="rCore">100%</span></div>
     </div>
 
@@ -63,6 +63,7 @@
   <section id="baseControls" class="base-controls" aria-label="Base upgrades and abilities" hidden>
     <div class="base-research"><button id="btnBaseUpgrade" class="btn btn--gold" type="button">Upgrade base · 200 minerals</button><span id="baseBonus"></span></div>
     <div class="base-laser"><button id="btnLaser" class="btn" type="button" aria-pressed="false">Laser · 0%</button><span id="laserHint">90s charge · one piercing shot</span></div>
+    <div id="redeployBox" class="base-redeploy" hidden><button id="btnRedeploy" class="btn btn--primary" type="button">Redeploy army (Z)</button><span id="redeployHint"></span></div>
     <div id="raidHud" class="raid-hud" hidden>
       <strong id="raidObjective"></strong><span id="raidStatus"></span>
       <button id="btnLocateHive" class="btn" type="button">Locate hive ↗</button>
@@ -74,6 +75,7 @@
     <div class="camera-help">Drag to pan · Right-drag to rotate<br>Scroll to zoom · Shift-drag to select</div>
     <div id="overlay" class="overlay"></div>
     <div id="raidNotice" class="raid-notice" role="status" hidden><strong>Destroy enemy's base</strong><span>Optional · Attack (A) sends your army · Next round starts within 60 seconds</span></div>
+    <div id="callout" class="callout" role="status" aria-live="polite" hidden><strong id="calloutTitle"></strong><span id="calloutNote"></span></div>
     <div id="selbox" class="selbox" hidden></div>
     <canvas id="minimap" class="minimap" title="Minimap — click to look, right-click to send selected units"></canvas>
 
@@ -140,6 +142,8 @@
         <input id="playerName" class="intro__input" maxlength="16" placeholder="Commander" spellcheck="false">
         <button id="introBtn" class="btn btn--primary" type="submit" name="deploy" value="quick">Play →</button>
         <span class="intro__hint">Start with 3 soldiers. They fire automatically.</span>
+        <button id="btnDaily" class="btn btn--gold" type="submit" name="deploy" value="daily">Daily challenge</button>
+        <span id="dailyInfo" class="intro__hint"></span>
         <button class="btn btn--ghost" type="submit" name="deploy" value="build">Build my own defense</button>
         <button id="introCareer" class="career-teaser" type="button" data-career></button>
         <details id="introScores" class="intro__scores">
@@ -179,6 +183,9 @@
       <button class="tab" data-unit="goliath">Anchor Walker</button>
       <button class="tab" data-unit="tank">Crawler</button>
       <button class="tab" data-unit="falcon">Kestrel</button>
+      <button class="tab" data-unit="scorcher">Scorcher</button>
+      <button class="tab" data-unit="deadeye">Deadeye</button>
+      <button class="tab" data-unit="mender">Mender</button>
       <button class="tab" data-unit="zergling">Rift Skitter</button>
     </div>
 

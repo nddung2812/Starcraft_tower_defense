@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { CELL, UNITS, BREEDS, UNIT_SCALE, BUG_SCALE, OVERDRIVE, applyBaseUpgrade, HIVE_RAID, BASE_LASER } from './config.js';
-import { buildWall, buildCore, buildHatchery } from './models.js';
+import { CELL, UNITS, BREEDS, UNIT_SCALE, BUG_SCALE, OVERDRIVE, applyBaseUpgrade, HIVE_RAID, BASE_LASER, SUPPLY } from './config.js';
+import { buildWall, buildCore, buildHatchery, buildCrate } from './models.js';
 import { makeModel } from './assets.js';
 import { EVOLUTION_RULES, evolutionPower } from './config.js';
 import { packSiege, updateUnitEvolution, updateBunkerEvolution, triggerLastStand, chainLightning } from './evolutions.js';
@@ -234,7 +234,7 @@ export class Marine {
 
   /** Shoot this bug. Mobile units close the distance if it is out of range. */
   orderAttack(target, game) {
-    if (this.dead || this.downed || !game.isEnemy(target) || (target.flying && this.spec.targetsAir === false)) return false;
+    if (this.dead || this.downed || this.spec.heals || !game.isEnemy(target) || (target.flying && this.spec.targetsAir === false)) return false;
     this.order = { type: 'attack', target };
     this.chaseT = 0;
     return true;
@@ -333,7 +333,7 @@ export class Marine {
       }
       if (!o.target) { this.stop(game); o = null; }
       else {
-        const nearby = this.acquire(game);
+        const nearby = this.seek(game);
         if (!nearby && this.distTo(o.target) > this.attackRange * 0.9) {
           this.chaseT -= dt;
           if (this.chaseT <= 0) { this.chaseT = 0.6; this.chase(game); }
@@ -351,7 +351,7 @@ export class Marine {
       }
     }
     // attack-move: plant feet while something is in the sights, then carry on
-    const engaged = (o?.type === 'amove' || o?.type === 'advance') && !!this.acquire(game);
+    const engaged = (o?.type === 'amove' || o?.type === 'advance') && !!this.seek(game);
     const driving = this.bunker || engaged ? false : this.stepMove(dt, game);
 
     if (this.bunker) {
@@ -367,7 +367,9 @@ export class Marine {
     this.model.scale.setScalar(grow * this.visualScale);
 
     const ordered = this.order?.type === 'attack' && this.target !== this.order.target;
-    if (ordered || !game.isEnemy(this.target) || this.distTo(this.target) > this.attackRange || !this.inArc(this.target)) {
+    if (this.spec.heals) {
+      if (!this.canHeal(this.target, game)) this.target = this.acquireFriend(game);
+    } else if (ordered || !game.isEnemy(this.target) || this.distTo(this.target) > this.attackRange || !this.inArc(this.target)) {
       this.target = this.acquire(game);
     }
 
@@ -419,7 +421,29 @@ export class Marine {
 
   distTo(e) { return Math.hypot(e.x - this.x, e.z - this.z); }
 
+  /** What this unit wants to act on right now: an enemy to shoot, or an ally to patch up. */
+  seek(game) { return this.spec.heals ? this.acquireFriend(game) : this.acquire(game); }
+
+  canHeal(ally, game) {
+    if (!ally || ally === this || ally.dead || ally.downed || ally.hp >= ally.maxHp) return false;
+    if (ally.kind === 'scv' ? ally !== game.scv : !game.gunners.includes(ally)) return false;
+    return this.distTo(ally) <= this.attackRange;
+  }
+
+  /** The most badly hurt ally in reach. */
+  acquireFriend(game) {
+    let best = null, worst = 1;
+    const allies = game.scv ? [...game.gunners, game.scv] : game.gunners;
+    for (const ally of allies) {
+      if (!this.canHeal(ally, game)) continue;
+      const ratio = ally.hp / ally.maxHp;
+      if (ratio < worst) { worst = ratio; best = ally; }
+    }
+    return best;
+  }
+
   acquire(game) {
+    if (this.spec.heals) return null;
     const mine = this.order?.type === 'attack' ? this.order.target : null;
     if (game.isEnemy(mine) && !(mine.flying && this.spec.targetsAir === false) && this.distTo(mine) <= this.attackRange && this.inArc(mine)) return mine;
     const focus = game.focus;
@@ -428,13 +452,59 @@ export class Marine {
     for (const z of game.combatTargets) {
       if (z.dead || (z.flying && this.spec.targetsAir === false)) continue;
       if (this.distTo(z) > this.attackRange || !this.inArc(z)) continue;
-      const score = (z.kind === 'hive' ? -10000 : 0) - Math.hypot(z.x - game.core.x, z.z - game.core.z) + (z.breedId === 'tanker' ? 2 : z.breedId === 'needler' ? 1.5 : 0);
+      const near = -Math.hypot(z.x - game.core.x, z.z - game.core.z);
+      // Marksmen pick the toughest body in sight; everyone else shoots what is closest to the base.
+      const score = (z.kind === 'hive' ? -1e6 : 0) + (this.spec.prefersBig ? z.maxHp + near * 0.01
+        : near + (z.breedId === 'tanker' ? 2 : z.breedId === 'needler' ? 1.5 : 0));
       if (score > bestScore) { bestScore = score; best = z; }
     }
     return best;
   }
 
+  /** Mender: foam the target ally back toward full health. */
+  heal(game) {
+    const ally = this.target;
+    if (this.silenceT > 0 || !this.canHeal(ally, game)) return;
+    this.recoil = 0.5;
+    const amount = Math.min(ally.maxHp - ally.hp, this.stats.damage);
+    ally.hp += amount;
+    if (ally.hp > ally.maxHp * 0.45) ally.warned = false;
+    const ud = this.model.userData;
+    ud.weapon.updateWorldMatrix(true, false);
+    const from = ud.weapon.userData.muzzle.clone().applyMatrix4(ud.weapon.matrixWorld);
+    const y = (ally.flying ? ally.obj.position.y : 0) + 0.6;
+    game.fx.link(from, { x: ally.x, y, z: ally.z }, 0x7dffb0, 0.22, 0.035);
+    game.fx.sparks({ x: ally.x, y, z: ally.z }, 0, 5, [0.5, 1, 0.7], 2, 6.28);
+    game.fx.label({ x: ally.x, y: y + 0.7, z: ally.z }, '+' + Math.round(amount), 'heal');
+    game.sfx.heal();
+  }
+
+  /** Scorcher: everything on the ground inside the cone burns. */
+  burn(game) {
+    if (this.silenceT > 0 || !game.isEnemy(this.target)) return;
+    this.recoil = 0.6;
+    const ud = this.model.userData;
+    ud.weapon.updateWorldMatrix(true, false);
+    const from = ud.weapon.userData.muzzle.clone().applyMatrix4(ud.weapon.matrixWorld);
+    const reach = this.attackRange, arc = this.spec.flame.arc;
+    game.fx.flame(from, this.yaw, reach, arc);
+    game.sfx.flame();
+    for (const bug of game.combatTargets.slice()) {
+      if (bug.dead || bug.flying) continue;
+      const d = this.distTo(bug) - (bug.kind === 'hive' ? 1 : 0);
+      if (d > reach) continue;
+      const off = Math.abs(normAngle(Math.atan2(bug.z - this.z, bug.x - this.x) - this.yaw));
+      if (off > arc && bug !== this.target && d > 0.9) continue;
+      game.fx.spawn(bug.x, 0.35, bug.z, 0, 1.4, 0, 0.3, 0.16, [1, 0.6, 0.2], { drag: 1, grow: 0.5 });
+      bug.takeDamage(this.stats.damage, game, this.yaw, true);
+    }
+    if (Math.random() < 0.25) game.fx.decal(this.x + Math.cos(this.yaw) * reach * 0.6, this.z + Math.sin(this.yaw) * reach * 0.6, 0.5, 0x1c120c, 0.4);
+    if (!game.called) { game.called = true; game.voice.say('acquired'); }
+  }
+
   fire(game) {
+    if (this.spec.heals) { this.heal(game); return; }
+    if (this.spec.flame) { this.burn(game); return; }
     if (this.silenceT > 0 || !game.isEnemy(this.target)) return;
     this.recoil = 1;
     const ud = this.model.userData;
@@ -460,6 +530,11 @@ export class Marine {
     }
     game.stage.kick(this.spec.shell ? 1.3 : 0.45);
     if (this.spec.shell) game.sfx.cannon();
+    else if (this.spec.pierce) {
+      game.sfx.snipe();
+      const t = this.target;
+      game.fx.link(locals[0], { x: t.x, y: (t.flying ? t.obj.position.y : 0) + 0.4, z: t.z }, 0xe6d4ff, 0.2, 0.022);
+    }
     else game.sfx.gauss();
     if (!game.called) { game.called = true; game.voice.say('acquired'); }
   }
@@ -1073,13 +1148,16 @@ export class Zergling {
     for (const a of ud.arms) a.rotation.z = Math.sin(game.time * 3 + a.userData.side) * 0.12 + sw * 0.4;
   }
 
-  takeDamage(amount, game, fromAngle) {
+  /** `quiet` skips the per-hit splatter, number and sound, for rapid area damage. */
+  takeDamage(amount, game, fromAngle, quiet = false) {
     const dealt = mitigate(amount, this.armor);
     this.hp -= dealt;
     this.hurt = 1;
-    game.fx.blood({ x: this.x, y: 0.3, z: this.z }, fromAngle, 7);
-    game.fx.label({ x: this.x, y: 0.9, z: this.z }, '-' + dealt, 'dmg');
-    game.sfx.hitFlesh();
+    if (!quiet) {
+      game.fx.blood({ x: this.x, y: 0.3, z: this.z }, fromAngle, 7);
+      game.fx.label({ x: this.x, y: 0.9, z: this.z }, '-' + dealt, 'dmg');
+      game.sfx.hitFlesh();
+    }
     if (this.hp <= 0 && !this.dead) {
       this.hp = 0;
       this.dead = true;
@@ -1427,6 +1505,9 @@ export class Tracer {
     this.dead = false;
     this.mesh = new THREE.Mesh(TRACER_GEO, TRACER_MAT);
     this.mesh.scale.x = 0.55;
+    // Deadeye rounds are fast, heavy, and ignore armour.
+    this.pierce = !!owner?.spec?.pierce;
+    if (this.pierce) { this.speed = 110; this.mesh.scale.set(1.6, 2, 2); }
   }
 
   update(dt, game) {
@@ -1438,7 +1519,7 @@ export class Tracer {
     if (d <= step) {
       this.dead = true;
       game.fx.impact({ x: this.target.x, y: ty, z: this.target.z }, Math.atan2(dz, dx));
-      this.target.takeDamage(this.damage, game, Math.atan2(dz, dx));
+      this.target.takeDamage(this.damage + (this.pierce ? this.target.armor || 0 : 0), game, Math.atan2(dz, dx));
       chainLightning(this, game);
       return;
     }
@@ -1448,5 +1529,43 @@ export class Tracer {
     this.mesh.position.set(this.x, this.y, this.z);
     this.mesh.rotation.y = -Math.atan2(dz, dx);
     this.mesh.rotation.z = Math.asin(Math.max(-1, Math.min(1, dy / d)));
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  SUPPLY DROP                                                        */
+/* ------------------------------------------------------------------ */
+
+export class SupplyCrate {
+  constructor(tx, ty, level) {
+    this.kind = 'crate';
+    this.tx = tx; this.ty = ty;
+    this.x = tx + 0.5; this.z = ty + 0.5;
+    this.value = SUPPLY.minerals + (level - 1) * SUPPLY.mineralsPerLevel;
+    this.life = SUPPLY.life;
+    this.dead = false;
+    this.t = 0;
+    this.obj = buildCrate();
+    this.obj.position.set(this.x, 6, this.z);
+  }
+
+  update(dt, game) {
+    this.t += dt;
+    this.life -= dt;
+    const ud = this.obj.userData;
+    // parachute in, then sit and pulse; blink when about to expire
+    this.obj.position.y = Math.max(0, 6 - this.t * 9);
+    ud.crate.rotation.y += dt * 0.9;
+    ud.ring.scale.setScalar(1 + Math.sin(this.t * 5) * 0.12);
+    const fading = this.life < 5 && Math.sin(this.t * 14) < 0;
+    ud.beam.material.opacity = fading ? 0.12 : 0.4;
+    if (this.life <= 0) { this.dead = true; return; }
+    if (this.obj.position.y > 0) return;
+    for (const unit of game.gunners) {
+      if (unit.dead || unit.downed || unit.flying || unit.bunker) continue;
+      if (Math.hypot(unit.x - this.x, unit.z - this.z) <= SUPPLY.pickup) { game.collectCrate(this); return; }
+    }
+    const rig = game.scv;
+    if (rig && !rig.dead && Math.hypot(rig.x - this.x, rig.z - this.z) <= SUPPLY.pickup) game.collectCrate(this);
   }
 }

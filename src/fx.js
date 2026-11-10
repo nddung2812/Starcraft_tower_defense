@@ -109,6 +109,35 @@ export class Fx {
     this.beams.push({ group, life: 0.18, max: 0.18 });
   }
 
+  /** A thin straight line between two points: Deadeye shots and Mender foam. */
+  link(from, to, color, life = 0.16, width = 0.03) {
+    const start = new THREE.Vector3(from.x, from.y, from.z), end = new THREE.Vector3(to.x, to.y, to.z);
+    const direction = end.clone().sub(start);
+    const length = direction.length();
+    if (length < 0.01) return;
+    const bolt = new THREE.Mesh(new THREE.CylinderGeometry(width, width, length, 5),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending }));
+    bolt.userData.opacity = 0.9;
+    bolt.position.copy(start).add(end).multiplyScalar(0.5);
+    bolt.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize());
+    const group = new THREE.Group();
+    group.add(bolt);
+    this.scene.add(group);
+    this.beams.push({ group, life, max: life });
+  }
+
+  /** A burst of burning fuel thrown forward in a cone. */
+  flame(p, dir, reach, arc) {
+    for (let i = 0; i < 12; i++) {
+      const a = dir + (Math.random() - 0.5) * arc * 1.7;
+      const speed = reach * (1.6 + Math.random() * 2.2);
+      const hot = Math.random() < 0.5;
+      this.spawn(p.x, p.y, p.z, Math.cos(a) * speed, 0.3 + Math.random() * 0.9, Math.sin(a) * speed,
+        0.28 + Math.random() * 0.2, 0.12 + Math.random() * 0.1, hot ? [1, 0.86, 0.4] : [1, 0.45, 0.12],
+        { drag: 2.6, gravity: 1.2, grow: 0.7 });
+    }
+  }
+
   clearBeam(beam) {
     this.scene.remove(beam.group);
     for (const mesh of beam.group.children) { mesh.geometry.dispose(); mesh.material.dispose(); }

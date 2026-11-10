@@ -946,3 +946,54 @@ button:focus-visible { outline: 2px solid var(--compact); outline-offset: 3px; }
   .evolution-card__flavor { display: none; }
   .evolution-card__choose { margin-top: 12px; padding-top: 10px; }
 }
+
+/* ---- Specialists, streaks, supply drops, redeploy and daily challenge ---- */
+.panel[data-faction="scorcher"] { --accent: #ff8a3c; }
+.panel[data-faction="deadeye"] { --accent: #c9a8ff; }
+.panel[data-faction="mender"] { --accent: #7dffb0; }
+.panel__tabs { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.panel__tabs .tab { font-size: 8px; letter-spacing: .02em; padding: 7px 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tab[hidden], .card[hidden] { display: none; }
+
+/* The build bar grows as specialists unlock: one long row on desktop, two rows elsewhere. */
+@media (min-width: 1101px) {
+  .dock .buildbar[data-cols] { grid-template-columns: repeat(var(--cards, 6), minmax(0, 1fr)); }
+}
+@media (max-width: 1100px) {
+  .dock .buildbar[data-cols="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .dock .buildbar[data-cols="5"] { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .dock:has(.buildbar[data-cols="4"]) { width: min(500px, calc(100% - 166px)); }
+  .dock:has(.buildbar[data-cols="5"]) { width: min(560px, calc(100% - 166px)); }
+}
+.card--new { border-color: var(--gold); box-shadow: 0 0 14px rgba(240, 178, 60, .45); }
+.card--new::after { content: 'NEW'; position: absolute; left: 3px; top: 2px; font-size: 7px; font-weight: 700; letter-spacing: .08em; color: var(--gold); }
+@media (max-width: 560px) {
+  .dock:has(.buildbar[data-cols="4"]), .dock:has(.buildbar[data-cols="5"]) { width: calc(100% - 124px); }
+  .dock .buildbar[data-cols="5"] .card__key { display: none; }
+}
+
+.dock .toasts { bottom: calc(100% + 8px); gap: 5px; max-width: min(300px, 100%); }
+.toast { border-radius: 9px; }
+.toast--supply { border-left-color: var(--gold); }
+
+.ftext.heal { color: #7dffb0; }
+
+.streak { margin-left: 6px; font-size: 11px; font-weight: 700; color: #ff9a4a; font-variant-numeric: tabular-nums; }
+.streak[hidden] { display: none; }
+
+.callout { position: absolute; z-index: 3; left: 50%; top: 16%; transform: translateX(-50%); width: min(560px, calc(100% - 32px)); display: grid; gap: 6px; text-align: center; pointer-events: none; }
+.callout[hidden] { display: none; }
+.callout strong { font-size: clamp(22px, 4.2vw, 42px); line-height: 1.05; letter-spacing: .12em; color: var(--gold); text-shadow: 0 0 26px rgba(240, 178, 60, .55), 0 3px 0 #000a; animation: callout-pop .3s ease-out; }
+.callout span { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: #eaf5ff; text-shadow: 0 2px 5px #000; }
+.callout--unit strong { color: var(--compact); text-shadow: 0 0 26px rgba(90, 215, 255, .55), 0 3px 0 #000a; }
+.callout--supply strong { color: var(--ok); text-shadow: 0 0 26px rgba(94, 240, 138, .5), 0 3px 0 #000a; }
+@keyframes callout-pop { from { opacity: 0; transform: scale(1.5); } }
+@media (prefers-reduced-motion: reduce) { .callout strong { animation: none; } }
+
+.base-redeploy { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.base-redeploy[hidden] { display: none; }
+#dailyInfo:empty { display: none; }
+
+@media (max-width: 760px) { #redeployHint { display: none; } }

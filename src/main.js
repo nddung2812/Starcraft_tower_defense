@@ -10,6 +10,7 @@ import { sfx } from './audio.js';
 import { voice } from './voice.js';
 import { readChallenge, challengeUrl, makeRunCard } from './challenge.js';
 import { Retention } from './retention.js';
+import { dailyStatus, recordDaily, dailyShareText } from './daily.js';
 
 // any .glb files in assets/models/ replace the built-in unit models
 await loadModels();
@@ -326,6 +327,11 @@ function setLaserAim(on) {
 }
 
 function setPlacing(id) {
+  if (id && !game.isUnlocked(id)) {
+    sfx.deny();
+    ui.toast(`${BUILD[id].name} is locked`, `Clear Round ${BUILD[id].unlock - 1} to unlock it.`, 'warn', 2600);
+    return;
+  }
   placing = placing === id ? null : id;
   if (placing) { setLaserAim(false); airAim = false; ui.setAirArmed(false); setTargeting(null); }
   ui.setPlacing(placing);
@@ -380,7 +386,10 @@ const PLACE_TIP = {
   goliath: 'Anchor Walker. Twin autocannons, long reach. Advances with the army; too big for a bunker.',
   falcon: 'Kestrel. Attacks ground and air. Right-click to fly over any terrain. V to deploy another.',
   tank: 'Cinder Crawler. Twin cannons, wide blast. Right-click the ground to drive it.',
-  bunker: 'Bunker faces the bugs. Select Lineguards and right-click it to garrison.'
+  bunker: 'Bunker faces the bugs. Select Lineguards and right-click it to garrison.',
+  scorcher: 'Scorcher. Burns every ground bug in a short cone. Put it where the swarm bunches up.',
+  deadeye: 'Deadeye. Very long range, ignores armour, shoots the biggest target. Keep it behind the line.',
+  mender: 'Mender. Heals the most injured unit nearby. Place it just behind your fighters.'
 };
 
 function updateTip() {
@@ -491,6 +500,11 @@ function runCommand(id) {
   else if (id === 'salvage') { if (game.selected && game.selected.kind !== 'core' && game.selected.kind !== 'zergling' && game.selected.kind !== 'hive') game.sell(game.selected); }
   else if (id === 'army') setSelection(candidates().filter(isGun));
   else if (id === 'scv') { if (isUnit(game.scv)) { select(game.scv); centerOn([game.scv]); } }
+  else if (id === 'redeploy') {
+    cancelModes();
+    if (game.redeployArmy()) setSelection(game.gunners.filter(isUnit));
+    else sfx.deny();
+  }
   else if (id === 'wave') {
     if (game.lastAlert) stage.focus.set(game.lastAlert.x, 0, game.lastAlert.z);
   }
@@ -665,9 +679,16 @@ canvas.addEventListener('pointerup', (ev) => {
     else smartCommand(tileAt(ev));
   } else if (mode === 'box' || mode === 'left') {
     if (mode === 'box' && drag.moved > 6) boxSelect(ev);
-    else clickSelect(tileAt(ev), ev);
+    else if (!grabCrate(tileAt(ev))) clickSelect(tileAt(ev), ev);
   }
 });
+
+/** A click on a supply drop collects it instead of changing the selection. */
+function grabCrate(t) {
+  if (!t) return false;
+  const crate = game.crates.find(c => !c.dead && Math.hypot(c.x - t.world.x, c.z - t.world.z) < 0.95);
+  return !!crate && game.collectCrate(crate);
+}
 
 canvas.addEventListener('pointercancel', endDrag);
 canvas.addEventListener('lostpointercapture', endDrag);
@@ -748,6 +769,7 @@ window.addEventListener('keydown', (ev) => {
   else if (k === 'l') setLaserAim(!laserAim);
   else if (k === 'u') runCommand('promote');
   else if (k === 'x') runCommand('salvage');
+  else if (k === 'z') runCommand('redeploy');
   else if (k === 'q') stage.spin(-0.35);
   else if (k === 'e') stage.spin(0.35);
   else if (k === '-' || k === '_') stage.zoomBy(1.1);
@@ -774,6 +796,7 @@ let player = savedName();
 let completedRun = null;
 let runGeneration = 0;
 let guideDismissed = false;
+let guideDismissTimer = null;
 let quickDeployment = true;
 const guide = document.getElementById('fieldGuide');
 const challengeHud = document.getElementById('challengeHud');
@@ -814,7 +837,12 @@ function updateChallenge() {
 }
 function updateGuide() {
   guide.hidden = guideDismissed || !intro.hidden || ['defeat', 'raid'].includes(game.state) || game.level > 1;
-  if (guide.hidden) return;
+  if (guide.hidden) {
+    clearTimeout(guideDismissTimer);
+    guideDismissTimer = null;
+    return;
+  }
+  if (guideDismissTimer === null) guideDismissTimer = setTimeout(dismissGuide, 5000);
   const hasSquad = game.gunners.length > 0;
   const fighting = game.state === 'brief' || game.state === 'wave';
   document.getElementById('guideTitle').textContent = !hasSquad ? 'Build your first line.'
@@ -824,7 +852,11 @@ function updateGuide() {
     : fighting ? 'Drag to pan · right-drag to rotate · Shift-drag to select your squad. Right-click to move.'
     : 'Add walls with W. Press Space to pause or resume.';
 }
-document.getElementById('guideDismiss').addEventListener('click', () => { guideDismissed = true; updateGuide(); });
+function dismissGuide() {
+  guideDismissed = true;
+  updateGuide();
+}
+document.getElementById('guideDismiss').addEventListener('click', dismissGuide);
 game.on('change', () => { updateGuide(); updateChallenge(); });
 
 const shareStatus = document.getElementById('shareStatus');
@@ -832,7 +864,8 @@ async function copyChallenge() {
   if (!completedRun) return;
   const url = challengeUrl(completedRun);
   try {
-    await navigator.clipboard.writeText(url);
+    // Daily runs copy a ready-to-post line; ordinary runs keep the bare link.
+    await navigator.clipboard.writeText(completedRun.daily ? `${dailyShareText(completedRun, completedRun.daily)} ${url}` : url);
     shareStatus.textContent = 'Challenge link copied. Send it to your squad.';
   } catch {
     shareStatus.textContent = 'Copy your challenge link:';
@@ -847,7 +880,8 @@ document.getElementById('btnChallenge').addEventListener('click', async () => {
   if (!completedRun) return;
   if (!navigator.share) { await copyChallenge(); return; }
   try {
-    await navigator.share({ title: 'Beat my last stand', text: `I stopped ${completedRun.score} bugs. Can you beat me on the same maps?`, url: challengeUrl(completedRun) });
+    const text = completedRun.daily ? dailyShareText(completedRun, completedRun.daily) : `I stopped ${completedRun.score} bugs. Can you beat me on the same maps?`;
+    await navigator.share({ title: 'Beat my last stand', text, url: challengeUrl(completedRun) });
     shareStatus.textContent = 'Challenge sent. The line is drawn.';
   } catch (error) {
     if (error.name !== 'AbortError') await copyChallenge();
@@ -862,8 +896,18 @@ document.getElementById('btnSaveCard').addEventListener('click', () => {
   shareStatus.textContent = 'Card saved. Pair it with your challenge link.';
 });
 
+function refreshDaily() {
+  const d = dailyStatus();
+  document.getElementById('btnDaily').textContent = `Daily challenge #${d.number}`;
+  const streak = d.streak > 1 ? ` · ${d.streak}-day streak` : '';
+  document.getElementById('dailyInfo').textContent = d.played
+    ? `Today's best: ${d.best.toLocaleString()} kills, round ${d.level}${streak}. New canyons in ${d.hoursLeft}h.`
+    : `Same canyons for everyone today${streak}. New ones in ${d.hoursLeft}h.`;
+}
+
 async function showIntro() {
   intro.hidden = false;
+  refreshDaily();
   document.getElementById('introScores').open = false;
   nameInput.value = player;
   retention.refresh();
@@ -874,6 +918,8 @@ async function showIntro() {
 }
 
 function launchNewRun(name, quick, seed = challenge?.seed ?? null) {
+  clearTimeout(guideDismissTimer);
+  guideDismissTimer = null;
   retention.active = false;
   runGeneration++; completedRun = null;
   player = name; quickDeployment = quick; guideDismissed = false;
@@ -899,7 +945,9 @@ function launchNewRun(name, quick, seed = challenge?.seed ?? null) {
 document.getElementById('introForm').addEventListener('submit', (ev) => {
   ev.preventDefault();
   const name = cleanName(nameInput.value) || 'Commander';
-  const quick = ev.submitter?.value !== 'build';
+  const mode = ev.submitter?.value;
+  if (mode === 'daily') { retention.requestNewRun(() => launchNewRun(name, true, dailyStatus().seed)); return; }
+  const quick = mode !== 'build';
   retention.requestNewRun(() => launchNewRun(name, quick));
 });
 
@@ -908,6 +956,8 @@ game.on('over', async () => {
   const previousBest = localBest();
   const run = { name: player || 'Commander', score: game.score, level: game.level, kills: game.kills,
     seconds: game.time, seed: game.mapSeed };
+  const daily = recordDaily(run);
+  run.daily = daily?.number || 0;
   completedRun = run;
   const card = document.getElementById('runCard');
   try {
@@ -916,7 +966,8 @@ game.on('over', async () => {
     card.hidden = false;
   } catch { card.hidden = true; }
   document.getElementById('btnSaveCard').disabled = card.hidden;
-  shareStatus.textContent = run.score > previousBest ? 'NEW PERSONAL BEST. Make this the score to beat.' : 'Your last stand. Their next challenge.';
+  shareStatus.textContent = daily ? `Daily #${daily.number}${daily.improved ? ' · new best today' : ` · today's best ${daily.best.toLocaleString()}`}${daily.streak > 1 ? ` · ${daily.streak}-day streak` : ''}. Share it: everyone has the same canyons today.`
+    : run.score > previousBest ? 'NEW PERSONAL BEST. Make this the score to beat.' : 'Your last stand. Their next challenge.';
   // Show the result immediately; a slow leaderboard must never hold up a rematch.
   ui.showBanner({ ...run, scores: [], best: Math.max(previousBest, run.score) });
   const result = await submitScore(run);

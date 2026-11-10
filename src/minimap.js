@@ -154,6 +154,12 @@ export class Minimap {
     }
 
     for (const hive of g.hives) if (!hive.dead) dot(hive.x, hive.z, 4, g.state === 'raid' ? '#ffd36a' : '#a44be0');
+    // supply drops: a blinking gold square
+    for (const crate of g.crates || []) {
+      if (crate.dead || Math.sin(crate.t * 8) < -0.3) continue;
+      ctx.fillStyle = '#ffd36a';
+      ctx.fillRect(crate.x * s - 3 * this.dpr, crate.z * s - 3 * this.dpr, 6 * this.dpr, 6 * this.dpr);
+    }
 
     // attack pings: expanding red rings that fade out
     ctx.lineWidth = 1.5 * this.dpr;

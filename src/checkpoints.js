@@ -21,6 +21,7 @@ export function captureCheckpoint(g, meta) {
     airStrikeCd: g.airStrikeCd, phase: g.state, coreHp: g.core.hp,
     armory: g.armory.map(a => a.id),
     evolutions: { ...g.evolutions },
+    lastArmy: (g.lastArmy || []).map(({ kind, tier, invested }) => ({ kind, tier, invested })),
     treasure: g.treasureLoot.map(({ id, boxType, earnedLevel, expiresAfterLevel }) =>
       ({ id, boxType, earnedLevel, expiresAfterLevel })),
     walls: g.walls.map(w => ({ tx: w.tx, ty: w.ty, hp: w.hp })),
@@ -50,6 +51,8 @@ export function validateCheckpoint(s) {
     if (s.evolutions !== undefined && (!s.evolutions || Array.isArray(s.evolutions) || typeof s.evolutions !== 'object' ||
       !Object.entries(s.evolutions).every(([id, rank]) => EVOLUTIONS.some(e => e.id === id) && integer(rank, 1, 20000)) ||
       Object.values(s.evolutions).reduce((sum, rank) => sum + rank, 0) > Math.floor((s.level - 1) / 5))) return false;
+    if (s.lastArmy !== undefined && (!Array.isArray(s.lastArmy) || s.lastArmy.length > 5000 || !s.lastArmy.every(u =>
+      u && Object.hasOwn(UNITS, u.kind) && integer(u.tier, 0, UNITS[u.kind].tiers.length - 1) && number(u.invested)))) return false;
     if (!Array.isArray(s.armory) || s.armory.length > ARMORY.length || new Set(s.armory).size !== s.armory.length ||
       !s.armory.every(id => ARMORY.some(a => a.id === id))) return false;
     if (!Array.isArray(s.treasure) || s.treasure.length > 10000 || !s.treasure.every(t =>
@@ -120,6 +123,7 @@ export function restoreCheckpoint(g, s) {
     time: s.time, airStrikeCd: s.airStrikeCd, state: 'build', paused: true, queue: [],
     armory: s.armory.map(id => ARMORY.find(a => a.id === id)),
     evolutions: { ...(s.evolutions || {}) }, pendingEvolution: null,
+    lastArmy: s.lastArmy?.length ? s.lastArmy.map(u => ({ ...u })) : null, streak: 0, bestStreak: 0, lastKillT: -99,
     treasureLoot: s.treasure.map(({ id, boxType, earnedLevel, expiresAfterLevel }) =>
       ({ ...TREASURE.find(a => a.id === id), boxType, earnedLevel, expiresAfterLevel })),
     stimUnlocked: s.armory.includes('stim'), selected: null, focus: null, speed: 1, drama: 1,

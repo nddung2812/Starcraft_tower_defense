@@ -178,3 +178,44 @@ balance as permanent treasure stacks and enemy HP grow.
 - Map version 3 preserves exact version-1/2 checkpoint terrain until the next round.
   Route/width/variation checks, live spawning and checkpoint restoration, and opening
   combat simulations cover the progression. Late-game difficulty still needs playtesting.
+
+
+## Specialists, streaks and supply drops (Nov 11, 2026)
+
+Three specialists join the build bar one round at a time, so the opening roster stays at six.
+
+| Unit | Unlock | Cost | HP | Armor | Effect per pulse | Interval | Range | Speed |
+| --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: |
+| Scorcher | Round 2 | 110 | 130 | 2 | 7 to every ground enemy in the cone | 0.35 s | 2.7 | 2.0 |
+| Deadeye | Round 3 | 150 | 60 | 0 | 64, ignores armor | 2.5 s | 9.5 | 2.0 |
+| Mender | Round 4 | 100 | 80 | 1 | Heals 12 | 0.8 s | 4.2 | 2.05 |
+
+| Promotion | Price | Total | HP | Effect | Interval | Range |
+| --- | ---: | ---: | ---: | --- | ---: | ---: |
+| Scorcher / Inferno | 130 | 240 | 185 | 11 per enemy | 0.32 s | 3.1 |
+| Deadeye / Marksman | 170 | 320 | 85 | 100 | 2.1 s | 10.5 |
+| Mender / Chief Mender | 120 | 220 | 115 | Heals 20 | 0.7 s | 4.8 |
+
+- **Scorcher:** 20 DPS against each unarmored ground enemy in a 63° cone, so it multiplies with
+  pack size. Armor applies to every tick (4 per tick into an Ironback), it cannot hit aircraft, and
+  its reach is shorter than a Thornspitter's.
+- **Deadeye:** 25.6 DPS with armor ignored, at the longest range in the roster, against ground
+  and air. It always picks the highest max-HP target in reach, so it wastes shots when only
+  Skitters are present, and it dies quickly to anything that reaches it.
+- **Mender:** 15 HP/s to the most injured soldier, walker, crawler, aircraft or Patch Rig in
+  reach. It has no weapon, cannot be given attack orders, cannot overheal, and cannot revive downed
+  units. Base research scales healing like damage.
+- None of the three can garrison, use Overdrive, or receive armory and treasure bonuses.
+
+Kill streaks: kills within 2.5 s of each other chain. Reaching 10 / 25 / 50 / 100 pays
++20 / +50 / +100 / +250 minerals, once each per streak.
+
+Supply drops: first at 14 s into a wave, then every 26 s, near the base. Worth
+30 + 6 × (round − 1) minerals, with a 20% chance to also recharge a cooling air strike. A crate
+lasts 18 s and is collected by a click or by a ground unit or Patch Rig within 0.9 tiles.
+
+Redeploy (Z) rebuilds last round's units and promotions at the normal prices, which the
+round-end refund already paid back; it is a convenience and does not change the economy.
+
+These numbers are a first pass: the unit contracts are tested, but late-round balance with the
+new units has not been playtested.

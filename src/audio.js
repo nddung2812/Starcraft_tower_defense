@@ -66,6 +66,12 @@ export const sfx = {
     noise(0.4, 'bandpass', 900, 0.7, 0.35, 2);
   },
   airstrikeDrop() { tone('triangle', 420, 90, 0.22, 0.08); noise(0.18, 'highpass', 1200, 0.5, 0.18, 2); },
+  flame() { noise(0.3, 'bandpass', 520, 0.5, 0.26, 1.6); },
+  snipe() { noise(0.07, 'highpass', 3200, 0.8, 0.5, 3); tone('square', 1500, 120, 0.16, 0.11); tone('sine', 90, 40, 0.3, 0.12); },
+  heal() { tone('sine', 660, 990, 0.16, 0.05); },
+  streak(step = 0) { [0, 4, 7].forEach((n, i) => tone('square', 440 * 2 ** ((n + step * 2) / 12), 440 * 2 ** ((n + step * 2) / 12), 0.12, 0.08, i * 0.06)); },
+  drop() { tone('triangle', 1200, 300, 0.4, 0.09); tone('square', 880, 880, 0.08, 0.06, 0.42); },
+  pickup() { [784, 1046, 1318].forEach((f, i) => tone('triangle', f, f, 0.1, 0.1, i * 0.05)); },
   spine() { noise(0.08, 'highpass', 2400, 0.9, 0.22, 4); tone('triangle', 900, 280, 0.07, 0.05); },
   impact() { noise(0.09, 'lowpass', 1400, 0.7, 0.3, 3); },
   hitFlesh() { noise(0.14, 'lowpass', 700, 0.9, 0.42, 2.5); tone('triangle', 180, 70, 0.1, 0.09); },
