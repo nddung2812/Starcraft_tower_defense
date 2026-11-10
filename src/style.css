@@ -902,3 +902,33 @@ button:focus-visible { outline: 2px solid var(--compact); outline-offset: 3px; }
   .base-controls span { font-size: 10px; }
   .raid-hud { border-top: 1px solid var(--line); padding-top: 6px; width: 100%; }
 }
+.evolution-dialog { box-sizing: border-box; width: min(950px, calc(100vw - 28px)); max-height: calc(100dvh - 28px); margin: auto; padding: 32px; border: 1px solid #f0b23c66; border-radius: 20px; color: #edf5fc; background: radial-gradient(ellipse at top, #29323c, #101a25 65%); font-family: inherit; overflow-y: auto; box-shadow: 0 24px 100px #000a; }
+.evolution-dialog::backdrop { background: #040a13d9; backdrop-filter: blur(6px); }
+.evolution-eyebrow { color: #f0b23c; font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; }
+.evolution-dialog h2 { margin: 12px 0 8px; font-size: clamp(28px, 4vw, 42px); letter-spacing: -1.2px; }
+.evolution-dialog > p { color: #aebdca; font-size: 13px; line-height: 1.5; }
+.evolution-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 26px 0 20px; }
+.evolution-card { display: flex; flex-direction: column; align-items: stretch; min-width: 0; padding: 20px; text-align: left; font-family: inherit; color: #edf5fc; background: #0b1521; border: 1px solid #344150; border-radius: 12px; cursor: pointer; transition: border-color .15s, background .15s, transform .15s; }
+.evolution-card:hover, .evolution-card:focus-visible { outline: 2px solid var(--evolution-color); outline-offset: 3px; border-color: var(--evolution-color); background: #192735; transform: translateY(-3px); }
+.evolution-card__art { display: grid; place-items: center; height: 88px; margin-bottom: 18px; color: var(--evolution-color); font-size: 62px; line-height: 1; background: repeating-linear-gradient(0deg, transparent, transparent 14px, #ffffff05 15px), radial-gradient(ellipse, #ffffff0d, transparent 70%); border-bottom: 1px solid #ffffff12; }
+.evolution-card__rank { font-size: 9px; font-weight: 800; letter-spacing: 1.5px; color: var(--evolution-color); }
+.evolution-card strong { margin: 10px 0 5px; font-size: 21px; line-height: 1.15; }
+.evolution-card__unit { font-size: 11px; color: #a5b4c4; }
+.evolution-card__description { margin-top: 19px; font-size: 13px; line-height: 1.65; }
+.evolution-card__flavor { margin: 15px 0 22px; font-size: 11px; color: #8fa1b5; font-style: italic; line-height: 1.5; }
+.evolution-card__choose { margin-top: auto; padding-top: 15px; border-top: 1px solid #ffffff16; font-weight: 700; font-size: 12px; color: var(--evolution-color); }
+.evolution-dialog .evolution-footer { margin-bottom: 0; font-size: 10px; letter-spacing: 1.2px; text-align: center; }
+.evolution-list p { margin: 10px 0; font-size: 11px; line-height: 1.5; }
+.evolution-list strong, .evolution-list span { display: block; }
+.evolution-list span { color: #acbed0; margin-top: 4px; }
+.ftext.evolution { color: #f0cf87; font-weight: 800; }
+@media (max-width: 650px) {
+  .evolution-dialog { padding: 22px 18px; }
+  .evolution-choices { grid-template-columns: 1fr; gap: 12px; margin-top: 18px; }
+  .evolution-card { padding: 16px; }
+  .evolution-card__art { display: none; }
+  .evolution-card strong { font-size: 20px; }
+  .evolution-card__description { margin-top: 10px; }
+  .evolution-card__flavor { display: none; }
+  .evolution-card__choose { margin-top: 12px; padding-top: 10px; }
+}

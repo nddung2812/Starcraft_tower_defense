@@ -37,6 +37,7 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 | `src/main.js` | Entry point. Loads models, then owns all input: selection, orders, control groups, hotkeys, camera, minimap wiring, start screen and game-over flow, the frame loop. |
 | `src/game.js` | Game state and rules: placing and selling, levels, waves, kills and score, group commands (`commandMove/Attack/Garrison/Stop`), alerts, terrain rebuild. |
 | `src/entities.js` | `Marine` (all player gun units: marine/goliath/tank/falcon), `Zergling` (all bug strains), `Wall`, `Bunker`, `Scv`, `Core`, projectiles. |
+| `src/evolutions.js` | Boss reward abilities: automatic tank siege, walker chain lightning, bunker Last Stand, descriptions and model additions. Tuning lives in config. |
 | `src/grid.js` | Tile grid, A* for player units, the shared bug route field, line-of-sight helpers. |
 | `src/levels.js` | Generates 1–3 difficulty-based seeded approaches between west/east bases, with boulders, rock depth and spires. Early level names come from `LEVELS`. |
 | `src/terrain.js` | The mountain heightfield mesh built from the per-cell rock depth. |

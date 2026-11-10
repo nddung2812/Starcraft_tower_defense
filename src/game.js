@@ -9,6 +9,8 @@ import { Fx } from './fx.js';
 import { sfx } from './audio.js';
 import { voice } from './voice.js';
 import { MilestoneAssault } from './milestones.js';
+import { EVOLUTIONS } from './config.js';
+import { syncEvolutionVisual } from './evolutions.js';
 
 const GUN = new Set(Object.keys(UNITS));
 
@@ -92,6 +94,8 @@ export class Game {
     this.spawnTimer = 0;
     this.armory = [];
     this.treasureLoot = [];
+    this.evolutions = {};
+    this.pendingEvolution = null;
     this.stimUnlocked = false;
     this.selected = null;
     this.placing = null;
@@ -263,6 +267,7 @@ export class Game {
     const spec = BUILD[kind];
     if (!spec || !this.canBuildAt(tx, ty) || !this.canAfford(spec.cost)) return false;
     const m = new Marine(kind, tx, ty, this.marineUpgrades, this.baseLevel);
+    syncEvolutionVisual(m, this);
     const sp = this.grid.spawn;
     m.restYaw = Math.atan2((sp.y + 1) - m.z, (sp.x + 0.5) - m.x);
     m.yaw = m.restYaw;
@@ -282,6 +287,7 @@ export class Game {
     const sp = this.grid.spawn;
     const facing = Math.atan2((sp.y + 1) - (ty + 0.5), (sp.x + 0.5) - (tx + 0.5));
     const b = new Bunker(tx, ty, BUILD.bunker.hp, facing);
+    syncEvolutionVisual(b, this);
     this.grid.set(tx, ty, CELL.BUNKER, b);
     this.bunkers.push(b);
     this.world.add(b.obj);
@@ -398,6 +404,23 @@ export class Game {
     return rewards;
   }
 
+  offerEvolution(bossName) {
+    if (this.pendingEvolution || this.state === 'defeat') return;
+    this.pendingEvolution = { level: this.level, bossName };
+    this.emit('change');
+  }
+
+  chooseEvolution(id) {
+    if (!this.pendingEvolution || this.state === 'defeat' || !EVOLUTIONS.some(e => e.id === id)) return false;
+    this.evolutions[id] = (this.evolutions[id] || 0) + 1;
+    this.pendingEvolution = null;
+    for (const unit of [...this.gunners, ...this.bunkers]) syncEvolutionVisual(unit, this);
+    sfx.unlock();
+    this.emit('evolved', { id, rank: this.evolutions[id] });
+    this.emit('change');
+    return true;
+  }
+
   expireTreasureBoosts() {
     this.treasureLoot = this.treasureLoot.filter(item => item.expiresAfterLevel == null || this.level <= item.expiresAfterLevel);
     for (const m of this.gunners) if (m.spec.armory) m.applyStats(this.marineUpgrades);
@@ -463,7 +486,7 @@ export class Game {
   }
 
   togglePause() {
-    if (this.state === 'defeat') return;
+    if (this.state === 'defeat' || this.pendingEvolution) return;
     this.paused = !this.paused;
     this.emit('change');
   }
@@ -512,6 +535,7 @@ export class Game {
 
   onCoreDestroyed() {
     this.state = 'defeat';
+    this.pendingEvolution = null;
     this.assault.clearMarks();
     this.emit('change');
     this.fx.explosion({ x: this.core.x, y: 1, z: this.core.z }, 3);
@@ -735,7 +759,7 @@ export class Game {
   /* ---------------- tick ---------------- */
 
   update(dt) {
-    if (this.paused || this.state === 'defeat') return;
+    if (this.paused || this.pendingEvolution || this.state === 'defeat') return;
     this.laserCharge = Math.min(BASE_LASER.chargeTime, this.laserCharge + dt);
     if (this.laserCharge >= BASE_LASER.chargeTime - 1e-9) this.laserCharge = BASE_LASER.chargeTime;
     this.time += dt;

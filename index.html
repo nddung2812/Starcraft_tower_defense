@@ -169,6 +169,11 @@
       <p class="treasure__help">All current and future Lineguards. Silver: next 3 rounds. Gold: permanent this run.</p>
       <div id="treasureNote" class="treasure__list"></div>
     </details>
+    <details id="evolutionLoadout" class="treasure" hidden>
+      <summary id="evolutionSummary">Army evolutions</summary>
+      <p class="treasure__help">Permanent this run · current and future units</p>
+      <div id="evolutionList" class="evolution-list"></div>
+    </details>
   </section>
 
     <div class="panel__tabs">
@@ -217,6 +222,14 @@
   </aside>
 
 </div>
+
+<dialog id="evolutionDialog" class="evolution-dialog" aria-labelledby="evolutionTitle" aria-describedby="evolutionHelp">
+  <span class="evolution-eyebrow" id="evolutionBoss">BOSS DEFEATED</span>
+  <h2 id="evolutionTitle">Evolve your army.</h2>
+  <p id="evolutionHelp">Choose one. Change the way you fight for the rest of this run.</p>
+  <div id="evolutionChoices" class="evolution-choices"></div>
+  <p class="evolution-footer">BATTLE PAUSED · Treasure collected · Choose to resume</p>
+</dialog>
 
 <dialog id="careerDialog" class="career-dialog" aria-labelledby="careerTitle">
   <div class="career-heading"><div><span class="intro__eyebrow">COMMANDER RECORD</span><h2 id="careerTitle">Make every stand count</h2></div><button id="closeCareer" class="btn" type="button" aria-label="Close achievements">×</button></div>

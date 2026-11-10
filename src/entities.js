@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { CELL, UNITS, BREEDS, UNIT_SCALE, BUG_SCALE, OVERDRIVE, applyBaseUpgrade, HIVE_RAID, BASE_LASER } from './config.js';
 import { buildWall, buildCore, buildHatchery } from './models.js';
 import { makeModel } from './assets.js';
+import { EVOLUTION_RULES, evolutionPower } from './config.js';
+import { packSiege, updateUnitEvolution, updateBunkerEvolution, triggerLastStand, chainLightning } from './evolutions.js';
 
 const TAU = Math.PI * 2;
 const _v = new THREE.Vector3();
@@ -132,7 +134,10 @@ export class Marine {
     this.hp = Math.min(s.hp, s.hp * ratio);
   }
 
-  get attackRange() { return this.stats.range * (this.blindT > 0 ? 0.5 : 1); }
+  get attackRange() {
+    const siege = this.siegeDeployed ? EVOLUTION_RULES.siegeRange + EVOLUTION_RULES.siegeRangeStep * evolutionPower(this.evolutionRank) : 0;
+    return (this.stats.range + siege) * (this.blindT > 0 ? 0.5 : 1);
+  }
 
   get maxHp() { return this.stats.hp; }
   get upgradeCost() { return this.tiers[this.tier].upgradeCost; }
@@ -166,6 +171,7 @@ export class Marine {
     const sy = Math.max(0, Math.min(game.grid.ROWS - 1, Math.floor(this.z)));
     const path = game.grid.walkRoute(sx, sy, tx, ty);
     if (!path || path.length < 2) return false;
+    packSiege(this);
     if (game.grid.occupant(this.tx, this.ty) === this) game.grid.clear(this.tx, this.ty);
     this.waypoints = path;
     this.wp = 1;
@@ -276,6 +282,7 @@ export class Marine {
   }
 
   update(dt, game) {
+    updateUnitEvolution(this, dt, game);
     this.blindT = Math.max(0, this.blindT - dt);
     this.silenceT = Math.max(0, this.silenceT - dt);
     this.ring.material.color.set(this.silenceT > 0 ? 0xc06bff : this.blindT > 0 ? 0x8296ff : (game.armyColour || this.spec.accent));
@@ -363,7 +370,8 @@ export class Marine {
       const aligned = Math.abs(normAngle(want - this.yaw)) < 0.3;
       if (this.cooldown <= 0 && aligned && this.silenceT <= 0) {
         this.fire(game);
-        this.cooldown = this.stats.attackSpeed * (this.stimT > 0 ? 1 / OVERDRIVE.fireRate : 1);
+        this.cooldown = this.stats.attackSpeed * (this.stimT > 0 ? 1 / OVERDRIVE.fireRate : 1)
+          / (this.bunker?.lastStandT > 0 ? EVOLUTION_RULES.standFireRate : 1);
       }
     } else {
       this.yaw = angleLerp(this.yaw, rest, Math.min(1, dt * 2));
@@ -427,7 +435,11 @@ export class Marine {
     for (let shot = 0; shot < this.spec.shots; shot++) {
       const muzzle = locals[shot % locals.length];
       game.fx.muzzleFlash(muzzle, -this.yaw);
-      if (this.spec.shell) game.spawnShell(muzzle, this.target.x, this.target.z, this.stats.damage, this.spec.splash);
+      if (this.spec.shell) {
+        const splash = this.spec.splash + (this.siegeDeployed ? EVOLUTION_RULES.siegeSplash : 0);
+        game.spawnShell(muzzle, this.target.x, this.target.z, this.stats.damage, splash);
+        if (this.siegeDeployed) game.fx.ring(this, 1.1, 0xf0b23c);
+      }
       else game.spawnTracer(muzzle, this.target, this.stats.damage, this);
     }
     game.stage.kick(this.spec.shell ? 1.3 : 0.45);
@@ -1087,6 +1099,7 @@ export class Bunker {
   }
 
   update(dt, game) {
+    updateBunkerEvolution(this, dt, game);
     this.spawnT = Math.min(1, this.spawnT + dt * 3);
     this.model.scale.y = this.spawnT;
     if (this.shake > 0) {
@@ -1105,6 +1118,7 @@ export class Bunker {
   takeDamage(amount, game, fromAngle) {
     game.alert(this);
     this.hp -= amount;
+    triggerLastStand(this, game);
     this.shake = 1;
     game.fx.sparks({ x: this.x, y: 0.4, z: this.z }, fromAngle + Math.PI, 6, [0.9, 0.85, 0.7], 4);
     game.sfx.impact();
@@ -1407,6 +1421,7 @@ export class Tracer {
       this.dead = true;
       game.fx.impact({ x: this.target.x, y: ty, z: this.target.z }, Math.atan2(dz, dx));
       this.target.takeDamage(this.damage, game, Math.atan2(dz, dx));
+      chainLightning(this, game);
       return;
     }
     this.x += dx / d * step;

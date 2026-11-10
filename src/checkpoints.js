@@ -2,6 +2,8 @@ import { ARMORY, TREASURE, TREASURE_RULES, BUILD, UNITS, CELL, applyBaseUpgrade,
 import { Grid } from './grid.js';
 import { carveLevel, SUPPORTED_MAP_VERSIONS } from './levels.js';
 import { Marine, Wall, Bunker } from './entities.js';
+import { EVOLUTIONS, EVOLUTION_RULES, evolutionPower } from './config.js';
+import { syncEvolutionVisual } from './evolutions.js';
 
 export const SAVE_KEY = 'td.checkpoint.v1';
 const number = (v, min = 0, max = 1e12) => Number.isFinite(v) && v >= min && v <= max;
@@ -18,10 +20,12 @@ export function captureCheckpoint(g, meta) {
     mapVersion: g.mapVersion, baseLevel: g.baseLevel, laserCharge: g.laserCharge,
     airStrikeCd: g.airStrikeCd, phase: g.state, coreHp: g.core.hp,
     armory: g.armory.map(a => a.id),
+    evolutions: { ...g.evolutions },
     treasure: g.treasureLoot.map(({ id, boxType, earnedLevel, expiresAfterLevel }) =>
       ({ id, boxType, earnedLevel, expiresAfterLevel })),
     walls: g.walls.map(w => ({ tx: w.tx, ty: w.ty, hp: w.hp })),
-    bunkers: g.bunkers.map(b => ({ tx: b.tx, ty: b.ty, hp: b.hp, facing: b.facing })),
+    bunkers: g.bunkers.map(b => ({ tx: b.tx, ty: b.ty, hp: b.hp, facing: b.facing,
+      lastStandT: b.lastStandT || 0, lastStandCd: b.lastStandCd || 0 })),
     units: g.gunners.map(m => ({ kind: m.kind, ...Object.fromEntries(fields.map(k => [k, m[k]])),
       placed: m.isPlaced(g), bunker: g.bunkers.indexOf(m.bunker),
       garrisonOrder: m.order?.type === 'garrison' ? g.bunkers.indexOf(m.order.bunker) : -1,
@@ -43,6 +47,9 @@ export function validateCheckpoint(s) {
     if (s.laserCharge !== undefined && !number(s.laserCharge, 0, BASE_LASER.chargeTime)) return false;
     if (s.baseLevel !== undefined && !integer(s.baseLevel, 0, 100000)) return false;
     if (s.mapVersion !== undefined && !SUPPORTED_MAP_VERSIONS.includes(s.mapVersion)) return false;
+    if (s.evolutions !== undefined && (!s.evolutions || Array.isArray(s.evolutions) || typeof s.evolutions !== 'object' ||
+      !Object.entries(s.evolutions).every(([id, rank]) => EVOLUTIONS.some(e => e.id === id) && integer(rank, 1, 20000)) ||
+      Object.values(s.evolutions).reduce((sum, rank) => sum + rank, 0) > Math.floor((s.level - 1) / 5))) return false;
     if (!Array.isArray(s.armory) || s.armory.length > ARMORY.length || new Set(s.armory).size !== s.armory.length ||
       !s.armory.every(id => ARMORY.some(a => a.id === id))) return false;
     if (!Array.isArray(s.treasure) || s.treasure.length > 10000 || !s.treasure.every(t =>
@@ -63,6 +70,9 @@ export function validateCheckpoint(s) {
         !list.every(e => ownTile(e) && number(e.hp, 0.001, BUILD[kind].hp) && (kind !== 'bunker' || number(e.facing, -100, 100)))) return false;
     }
     const slots = new Map();
+    if (!s.bunkers.every(b => (b.lastStandT === undefined || number(b.lastStandT, 0,
+      s.evolutions?.stand ? EVOLUTION_RULES.standDuration + EVOLUTION_RULES.standDurationStep * evolutionPower(s.evolutions.stand) : 0)) &&
+      (b.lastStandCd === undefined || number(b.lastStandCd, 0, EVOLUTION_RULES.standCooldown)))) return false;
     if (!Array.isArray(s.units) || s.units.length > 5000 || !s.units.every(u => {
       if (!u || !Object.hasOwn(UNITS, u.kind) || !pos(u) || !tile(u) ||
         !integer(u.tier, 0, UNITS[u.kind].tiers.length - 1) || !number(u.hp, 0.001, 1e7) ||
@@ -108,6 +118,7 @@ export function restoreCheckpoint(g, s) {
     mapVersion: s.mapVersion ?? 1, baseLevel: s.baseLevel ?? 0, laserCharge: s.laserCharge ?? 0,
     time: s.time, airStrikeCd: s.airStrikeCd, state: 'build', paused: true, queue: [],
     armory: s.armory.map(id => ARMORY.find(a => a.id === id)),
+    evolutions: { ...(s.evolutions || {}) }, pendingEvolution: null,
     treasureLoot: s.treasure.map(({ id, boxType, earnedLevel, expiresAfterLevel }) =>
       ({ ...TREASURE.find(a => a.id === id), boxType, earnedLevel, expiresAfterLevel })),
     stimUnlocked: s.armory.includes('stim'), selected: null, focus: null, speed: 1, drama: 1,
@@ -122,10 +133,13 @@ export function restoreCheckpoint(g, s) {
   }
   for (const b of s.bunkers) {
     const e = new Bunker(b.tx, b.ty, BUILD.bunker.hp, b.facing); e.hp = b.hp;
+    e.lastStandT = b.lastStandT || 0; e.lastStandCd = b.lastStandCd || 0;
+    syncEvolutionVisual(e, g);
     g.bunkers.push(e); g.world.add(e.obj); g.grid.set(e.tx, e.ty, CELL.BUNKER, e);
   }
   for (const u of s.units) {
     const e = new Marine(u.kind, u.tx, u.ty, g.marineUpgrades, g.baseLevel);
+    syncEvolutionVisual(e, g);
     while (e.tier < u.tier) e.upgrade(g.marineUpgrades);
     for (const k of fields) if (u[k] != null) e[k] = u[k];
     e.hp = Math.min(e.maxHp, u.hp);

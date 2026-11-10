@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { BUILD, ZERG_INFO, BREEDS, ECON, UNITS, AIR_STRIKE, OVERDRIVE, BASE_UPGRADE, BASE_LASER, applyBaseUpgrade } from './config.js';
 import { buildZergling, buildWall, buildCore, buildHatchery } from './models.js';
 import { makeModel, loadedModels } from './assets.js';
+import { EVOLUTIONS, EVOLUTION_RULES } from './config.js';
+import { evolutionDescription } from './evolutions.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -292,12 +294,52 @@ export class UI {
       const gold = rewards.length - silver;
       this.toast('Upgrades automatically applied', `${silver} silver (next 3 rounds) · ${gold} gold (permanent this run) · all Lineguards`);
     });
+    $('evolutionDialog').addEventListener('cancel', event => event.preventDefault());
+    $('evolutionChoices').addEventListener('click', event => {
+      const button = event.target.closest('[data-evolution]');
+      if (button) game.chooseEvolution(button.dataset.evolution);
+    });
+    game.on('change', () => this.syncEvolutions());
+    game.on('evolved', ({ id, rank }) => this.toast(`${EVOLUTIONS.find(e => e.id === id).name} · Rank ${rank}`,
+      'Active for the rest of this run. Current and future units inherit this evolution.', 'unlock'));
     game.on('change', () => this.sync());
     game.on('unlock', (u) => this.toast(`Armory unlocked — ${u.name}`, u.effect, 'unlock'));
     game.on('brief', (card) => this.say(`<b>${card.title}.</b> ${card.body}`));
     game.on('hold', (card) => this.say(`<b>${card.kicker}.</b> ${card.body}`));
 
     this.showUnit('marine', 0, null);
+  }
+
+  syncEvolutions() {
+    const g = this.game, dialog = $('evolutionDialog');
+    if (g.pendingEvolution && !dialog.open) {
+      $('evolutionBoss').textContent = `${g.pendingEvolution.bossName} defeated · Round ${g.pendingEvolution.level}`;
+      $('evolutionChoices').replaceChildren(...EVOLUTIONS.map(e => {
+        const rank = (g.evolutions[e.id] || 0) + 1;
+        const button = document.createElement('button');
+        button.type = 'button'; button.className = 'evolution-card'; button.dataset.evolution = e.id;
+        button.style.setProperty('--evolution-color', e.color);
+        button.innerHTML = `<span class="evolution-card__art" aria-hidden="true">${e.icon}</span>
+          <span class="evolution-card__rank">${rank === 1 ? 'UNLOCK EVOLUTION' : `UPGRADE TO RANK ${rank}`}</span>
+          <strong>${e.name}</strong><span class="evolution-card__unit">${e.unit}</span>
+          <span class="evolution-card__description">${evolutionDescription(e.id, rank)}</span>
+          <span class="evolution-card__flavor">${e.flavor}</span>
+          <span class="evolution-card__choose">${rank === 1 ? 'Choose evolution' : 'Strengthen evolution'} →</span>`;
+        return button;
+      }));
+      dialog.showModal();
+    } else if (!g.pendingEvolution && dialog.open) dialog.close();
+    const owned = EVOLUTIONS.filter(e => g.evolutions[e.id]);
+    $('evolutionLoadout').hidden = !owned.length;
+    $('evolutionSummary').textContent = `Army evolutions · ${owned.reduce((sum, e) => sum + g.evolutions[e.id], 0)} chosen`;
+    $('evolutionList').replaceChildren(...owned.map(e => {
+      const row = document.createElement('p');
+      const title = document.createElement('strong');
+      title.style.color = e.color; title.textContent = `${e.name} · Rank ${g.evolutions[e.id]}`;
+      const description = document.createElement('span');
+      description.textContent = evolutionDescription(e.id, g.evolutions[e.id]);
+      row.append(title, description); return row;
+    }));
   }
 
   setPlacing(id) {
@@ -339,7 +381,11 @@ export class UI {
       const spec = UNITS[kind];
       const base = spec.tiers[tier];
       const s = { hp: base.hp, damage: base.damage, attackSpeed: base.attackSpeed, range: base.range, armor: spec.info.armor, moveSpeed: spec.speed };
-      if (entity) Object.assign(s, entity.stats);
+      if (entity) {
+        Object.assign(s, entity.stats);
+        s.range = entity.attackRange;
+        if (entity.bunker?.lastStandT > 0) s.attackSpeed /= EVOLUTION_RULES.standFireRate;
+      }
       else {
         if (spec.armory) for (const u of g.marineUpgrades) u.apply(s);
         applyBaseUpgrade(s, g.baseLevel);
@@ -352,6 +398,11 @@ export class UI {
         : spec.info.role;
       $('pFaction').textContent = spec.info.faction;
       $('pBio').textContent = spec.info.bio;
+      const evolution = kind === 'tank' ? 'siege' : kind === 'goliath' ? 'chain' : null;
+      if (evolution && g.evolutions[evolution]) {
+        $('pBio').textContent += ` ${EVOLUTIONS.find(e => e.id === evolution).name} · Rank ${g.evolutions[evolution]}. ${evolutionDescription(evolution, g.evolutions[evolution])}`;
+        if (kind === 'tank' && entity) $('pRole').textContent += entity.siegeDeployed ? ' · SIEGE DEPLOYED' : ' · MOBILE';
+      }
       $('pQuote').textContent = spec.info.quote;
       const accent = spec.info.accent;
       $('stats').innerHTML =
@@ -360,7 +411,7 @@ export class UI {
         statRow('Armour', s.armor, s.armor / 4, '#9aa3a8') +
         statRow('Fire Rate', (1 / s.attackSpeed).toFixed(2) + '/s', (1 / s.attackSpeed) / 3.5, '#f0b23c') +
         statRow('Range', s.range.toFixed(1) + ' tiles', s.range / 8, accent) +
-        (spec.splash ? statRow('Blast', spec.splash.toFixed(1) + ' tiles', spec.splash / 2, accent) : '') +
+        (spec.splash ? statRow('Blast', (spec.splash + (entity?.siegeDeployed ? EVOLUTION_RULES.siegeSplash : 0)).toFixed(2) + ' tiles', spec.splash / 2, accent) : '') +
         statRow('Targets', spec.targetsAir === false ? 'Ground' : 'Ground + Air', 1, accent) +
         statRow('Move Speed', spec.mobile ? s.moveSpeed.toFixed(1) + ' t/s' : 'Emplaced', s.moveSpeed / 3, accent);
     } else {
@@ -609,7 +660,7 @@ export class UI {
   updateAssault() {
     const g = this.game, a = g.assault;
     const playing = $('intro').hidden && g.state !== 'defeat';
-    $('battleReadouts').hidden = !playing || (!a.plan && !g.treasureLoot.length);
+    $('battleReadouts').hidden = !playing || (!a.plan && !g.treasureLoot.length && !Object.keys(g.evolutions).length);
     $('assaultHud').hidden = !playing || !a.plan;
     if (!a.plan || !playing) return;
     const ratio = a.boss ? Math.max(0, a.boss.hp / a.boss.maxHp) : 1;
@@ -650,6 +701,7 @@ export class UI {
       this.chipT = 0.2;
       this.paintChips();
       this.syncCommands();
+      if (this.inspect.entity && (this.inspect.entity.evolutionRank || this.inspect.entity.bunker?.evolutionRank)) this.renderStats();
     }
   }
 }

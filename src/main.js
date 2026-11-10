@@ -225,7 +225,7 @@ function inspect(e) {
   ui.inspect.entity = e;
   selRange.visible = selection.length === 1 && isGun(e) && !e.bunker && !e.downed;
   if (selRange.visible) {
-    selRange.scale.setScalar(e.stats.range);
+    selRange.scale.setScalar(e.attackRange);
     selRange.material.color.setHex(UNITS[e.kind].accent);
   }
   if (!e) { ui.showUnit(ui.inspect.kind, ui.inspect.tier, null); return; }
@@ -254,7 +254,7 @@ function syncDecals(raw) {
   const e = selection[0];
   if (selRange.visible && e) {
     selRange.position.set(e.x, 0.04, e.z);
-    selRange.scale.setScalar(e.stats.range);
+    selRange.scale.setScalar(e.attackRange);
   }
 }
 
@@ -931,7 +931,7 @@ game.on('alert', (e) => {
 });
 game.on('change', () => {
   pruneSelection();
-  if (selRange.visible && isGun(game.selected)) selRange.scale.setScalar(game.selected.stats.range);
+  if (selRange.visible && isGun(game.selected)) selRange.scale.setScalar(game.selected.attackRange);
 });
 
 /* ---------------- audio + speed toggles ---------------- */

@@ -89,6 +89,26 @@ export class Fx {
     this.beams.push({ group, life: duration, max: duration });
   }
 
+  lightning(from, to) {
+    const start = new THREE.Vector3(from.x, (from.flying ? from.obj.position.y : 0) + 0.6, from.z);
+    const end = new THREE.Vector3(to.x, (to.flying ? to.obj.position.y : 0) + 0.6, to.z);
+    const group = new THREE.Group();
+    let previous = start;
+    for (let i = 1; i <= 5; i++) {
+      const next = start.clone().lerp(end, i / 5);
+      if (i < 5) { next.y += (i % 2 ? 0.22 : -0.22); next.z += (Math.random() - 0.5) * 0.25; }
+      const direction = next.clone().sub(previous);
+      const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, direction.length(), 4),
+        new THREE.MeshBasicMaterial({ color: 0x8ffff0, transparent: true, opacity: 1, depthWrite: false }));
+      bolt.userData.opacity = 1;
+      bolt.position.copy(previous).add(next).multiplyScalar(0.5);
+      bolt.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize());
+      group.add(bolt); previous = next;
+    }
+    this.scene.add(group);
+    this.beams.push({ group, life: 0.18, max: 0.18 });
+  }
+
   clearBeam(beam) {
     this.scene.remove(beam.group);
     for (const mesh of beam.group.children) { mesh.geometry.dispose(); mesh.material.dispose(); }

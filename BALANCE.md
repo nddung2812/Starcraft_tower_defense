@@ -40,6 +40,32 @@ The Patch Rig's existing repair and revive behavior is unchanged.
   Volley size now comes from the unit specification, so model replacements cannot
   silently halve or double damage.
 
+## Boss evolutions (10 November 2026)
+
+Every defeated boss offers one of three evolutions, alongside existing treasure and
+minerals. Combat freezes until a card is chosen. Choices affect existing and future
+units for the rest of the run; later picks can unlock another branch or rank up one
+already owned. Rank scaling uses log2(rank), so repeat picks have diminishing gains.
+
+- Walking Fortress: Cinder Crawlers deploy after 1.2 seconds stationary, gaining
+  +5 range and +0.6 splash radius. Additional ranks add 0.75 × log2(rank) range.
+  Valid move orders immediately retract the gold stabilizers and remove the bonuses.
+- Chain Lightning: each Anchor Walker projectile jumps to two distinct nearby
+  enemies, within 3.5 tiles of the previous target. Each jump deals 50% of the
+  projectile damage, plus 10 percentage points × log2(rank), before target armor.
+  Both ground and air enemies can be hit. Cyan coils and arc effects mark the upgrade.
+- Last Stand: damage taken below 30% bunker health triggers 3× garrison firing rate
+  for 6 + log2(rank) seconds, with a 20-second cooldown from activation. It stacks
+  with Overdrive, respects silence, and does not prevent destruction. A coral perimeter
+  pulses during the burst. Further damage can trigger another burst after cooldown.
+
+Choices persist in the next round checkpoint. Quitting mid-combat uses the existing
+start-of-round replay rule, including replaying that round's boss and reward choice.
+Older saves default to no evolutions; new runs clear every choice.
+
+`tests/browser-evolutions.cjs` covers choices, pause, combat effects, repeat ranks,
+mobile layout, save compatibility and reset.
+
 ## Promotions
 
 Prices are incremental; total includes purchase and all preceding promotions.

@@ -110,6 +110,7 @@ const os = require('node:os');
       const rewarded = g.minerals;
       a.defeated(a.boss);
       if (g.minerals !== rewarded || rewarded - beforeReward < plan.reward) throw Error('Boss reward was duplicated or missing');
+      if (!g.chooseEvolution('siege')) throw Error('Boss evolution choice missing');
       results.push({ level, hp: plan.hp, circles, damage: beforeHp - unit.hp, reward: plan.reward });
     }
     // A live movement order can escape the telegraphed blast before it lands.

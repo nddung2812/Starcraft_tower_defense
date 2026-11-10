@@ -187,6 +187,7 @@ export class MilestoneAssault {
     g.fx.explosion({ x: bug.x, y: 0.8, z: bug.z }, 3);
     g.stage.kick(7);
     g.sfx.victory();
+    g.offerEvolution(this.plan.name);
     g.emit('bossDown', { level: g.level, name: this.plan.name, boxes, rewards });
     g.emit('change');
   }
