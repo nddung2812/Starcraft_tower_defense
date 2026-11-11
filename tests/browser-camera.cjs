@@ -62,16 +62,27 @@ const assert = require('node:assert/strict');
       game.commandMove = (...args) => { window.commandCount++; return original(...args); };
     });
     await page.keyboard.press('F2');
-    const beforeOrbit = await state();
+    const beforeRight = await state();
     await gesture('right', 120, 70);
+    assert.deepEqual(await state(), beforeRight);
+    // Holding the wheel rotates and tilts without moving the camera focus or issuing orders.
+    await page.evaluate(() => { window.commandCount = 0; });
+    const beforeOrbit = await state();
+    await gesture('middle', 120, 70);
     const afterOrbit = await state();
     assert.ok(afterOrbit.yaw > beforeOrbit.yaw && afterOrbit.pitch > beforeOrbit.pitch);
     assert.equal(afterOrbit.x, beforeOrbit.x); assert.equal(afterOrbit.z, beforeOrbit.z);
     assert.equal(await page.evaluate(() => window.commandCount), 0);
     await gesture('left', -80, -40, 'Alt');
     assert.ok((await state()).yaw < afterOrbit.yaw);
-    await gesture('middle', 60, 30);
-    assert.notEqual((await state()).x, afterOrbit.x);
+    await gesture('middle', 60, 30, 'Alt');
+    assert.equal((await state()).x, afterOrbit.x);
+    assert.equal((await state()).z, afterOrbit.z);
+    const beforeButtons = await state();
+    await page.locator('#camLeft').click();
+    assert.ok((await state()).yaw < beforeButtons.yaw);
+    await page.locator('#camRight').click();
+    assert.ok(Math.abs((await state()).yaw - beforeButtons.yaw) < 1e-10);
 
     // Reset returns home; a slightly shaky click still selects a unit.
     await page.locator('#camReset').click();

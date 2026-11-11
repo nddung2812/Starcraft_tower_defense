@@ -419,7 +419,7 @@ function updateTip() {
     return;
   }
   modeTip = false;
-  ui.tip(`<b>${game.layout?.name || 'Canyon'}.</b> Drag to pan · right-drag to rotate · Shift-drag to select · right-click to order · Ctrl+1–9 groups.`);
+  ui.tip(`<b>${game.layout?.name || 'Canyon'}.</b> Drag to pan · middle-drag to rotate · Shift-drag to select · right-click to order · Ctrl+1–9 groups.`);
 }
 
 /* ---------------- orders ---------------- */
@@ -563,7 +563,6 @@ canvas.addEventListener('pointermove', (ev) => {
     // Measure displacement, so tiny mouse jitter never turns a click into a drag.
     drag.moved = Math.max(drag.moved, Math.hypot(ev.clientX - drag.sx, ev.clientY - drag.sy));
     if (drag.moved > 6) {
-      if (drag.mode === 'right') drag.mode = 'orbit';
       if (drag.mode === 'left') drag.mode = 'pan';
     }
     if (drag.mode === 'orbit') {
@@ -642,7 +641,7 @@ canvas.addEventListener('pointerdown', (ev) => {
   stage.updateCamera();
   drag.anchor = groundAt(ev);
   if (ev.button === 2) { drag.mode = 'right'; return; }
-  if (ev.button === 1) { drag.mode = ev.altKey ? 'orbit' : 'pan'; return; }
+  if (ev.button === 1) { drag.mode = 'orbit'; return; }
   if (ev.altKey) { drag.mode = 'orbit'; return; }
 
   const t = tileAt(ev);
@@ -857,7 +856,7 @@ function updateGuide() {
     : fighting ? 'Your squad fires automatically.' : 'Ready? Launch the swarm.';
   document.getElementById('guideText').textContent = !hasSquad
     ? 'Press M, then click open ground near your base to place a soldier.'
-    : fighting ? 'Drag to pan · right-drag to rotate · Shift-drag to select your squad. Right-click to move.'
+    : fighting ? 'Drag to pan · middle-drag to rotate · Shift-drag to select your squad. Right-click to move.'
     : 'Add walls with W. Press Space to pause or resume.';
 }
 function dismissGuide() {

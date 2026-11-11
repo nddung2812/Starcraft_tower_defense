@@ -253,7 +253,7 @@ the balance suite checks the starting squad can clear both opening approaches.
 ## Controls (as shipped)
 
 Left-drag pan · Shift-drag box-select · click / Shift-click / double-click or Ctrl-click (all of a type on screen) ·
-right-click = smart order (move, attack, garrison, repair, revive) · right-drag = rotate/tilt · ⌥ + left-drag = rotate/tilt · middle-drag = pan · wheel = zoom · arrows =
+right-click = smart order (move, attack, garrison, repair, revive; never rotates the camera) · middle-drag = rotate/tilt · ⌥ + left-drag = rotate/tilt · wheel = zoom · arrows =
 scroll (no automatic edge scrolling) · Ctrl+1–9 set group, Shift+1–9 add, 1–9 select, double-tap to jump · A whole-army advance · Shift+A selected attack-move · S stop ·
 F stim · R air strike · U promote · X salvage · F1 SCV · F2 all army · Space launch wave / jump to
 last alert · Esc cancel · Z redeploy last round's army · click a supply drop to collect it.
