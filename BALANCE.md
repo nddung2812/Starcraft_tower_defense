@@ -237,3 +237,17 @@ preserves a pre-existing pause. No damage, economy, wave, or save-format tuning 
 Validation: `node tests/browser-scouting.cjs [path/to/playwright-core]` checks composition
 and unlocked counters across 100 rounds, pause semantics, placement selection, boss
 warnings, and mobile dialog bounds.
+
+## Animal-like swarm movement
+
+Enemies now use individual, smoothly changing movement rhythms and local avoidance.
+Packs fan out across open ground, pass beside neighbours, and compress at narrow bends;
+air enemies use the same spacing without interacting with ground packs. Drift fades near
+waypoints so bugs still follow the canyon and approach defenders. A spatial index limits
+neighbour searches to nearby creatures. Ground steps sweep every crossed tile, preventing
+corner cuts and tunnelling through rocks, walls, bunkers or defenders. Blocked creatures
+refresh their shared route. Existing aggro, attacks, wall vaults and breed roles remain.
+
+The movement rhythm runs at 88–100% of breed speed, so arrival timing can be slightly
+later than before. `tests/browser-swarm.cjs` checks visible pack spread, forward progress,
+terrain and building collision, flight, and 144 arrivals across eight seeded maps.

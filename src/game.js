@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { indexSwarm } from './swarm.js';
 import { CELL, BUILD, ECON, ARMORY, UNITS, AIR_STRIKE, TREASURE, TREASURE_RULES, baseUpgradeCost, applyBaseUpgrade, HIVE_RAID, BASE_LASER, wavePlan, STREAK, SUPPLY, unlockRound } from './config.js';
 import { Grid } from './grid.js';
 import { carveLevel, MAP_VERSION } from './levels.js';
@@ -970,6 +971,7 @@ export class Game {
     for (const m of this.gunners) m.update(dt, this);
     for (const w of this.walls) w.update(dt, this);
     for (const b of this.bunkers) b.update(dt, this);
+    this.swarmIndex = indexSwarm(this.zerglings);
     for (const z of this.zerglings) z.update(dt, this);
     if (this.scv) this.scv.update(dt, this);
     this.core.update(dt, this);

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { packHeading, swarmStepClear } from './swarm.js';
 import { CELL, UNITS, BREEDS, UNIT_SCALE, BUG_SCALE, OVERDRIVE, applyBaseUpgrade, HIVE_RAID, BASE_LASER, SUPPLY } from './config.js';
 import { buildWall, buildCore, buildHatchery, buildCrate } from './models.js';
 import { makeModel } from './assets.js';
@@ -803,6 +804,9 @@ export class Zergling {
     this.deathT = 0;
     this.spawnT = 0;
     this.gait = Math.random() * TAU;
+    this.packPhase = this.gait;
+    this.packTime = 0;
+    this.stuckT = 0;
     this.attackCd = 0;
     this.swing = 0;
     this.hurt = 0;
@@ -849,12 +853,7 @@ export class Zergling {
       const prey = this.rangedPrey(game);
       if (prey) this.spit(prey, dt, game);
       else {
-        const dx = game.core.x - this.x, dz = game.core.z - this.z;
-        const d = Math.hypot(dx, dz) || 1;
-        const step = Math.min(d, this.speed * dt);
-        this.x += dx / d * step; this.z += dz / d * step;
-        this.yaw = angleLerp(this.yaw, Math.atan2(dz, dx), Math.min(1, dt * 8));
-        this.moving = 1;
+        this.steer(game.core.x, game.core.z, dt, game);
       }
       this.animate(dt, game);
       this.bar.set(this.hp / this.maxHp, game.camera);
@@ -884,7 +883,7 @@ export class Zergling {
       const blocker = prey ? null : this.blockerAhead(game);
       if (prey) {
         if (Math.hypot(prey.x - this.x, prey.z - this.z) <= this.breed.range + 0.15) this.attack(prey, dt, game);
-        else this.steer(prey.x, prey.z, dt, game, true);
+        else this.steer(prey.x, prey.z, dt, game);
       } else if (blocker && this.breed.jump && blocker.kind === 'wall' && this.tryJump(blocker, game)) {
         /* airborne next frame */
       } else if (blocker) this.attack(blocker, dt, game);
@@ -1062,55 +1061,44 @@ export class Zergling {
       if (this.wp >= this.path.length) this.repath(game);
       return;
     }
-    this.steer(node.x, node.y, dt, game, false);
+    this.steer(node.x, node.y, dt, game);
   }
 
-  /** Run toward a point with the swarm's spacing. `solid` also keeps out of walls and bunkers (off-route chases). */
-  steer(px, pz, dt, game, solid) {
-    const dx = px - this.x, dz = pz - this.z;
-    const d = Math.hypot(dx, dz) || 1;
-
-    // separation keeps the swarm from collapsing into one point
-    let sx = 0, sz = 0;
-    for (const o of game.zerglings) {
-      if (o === this || o.dead) continue;
-      const ox = this.x - o.x, oz = this.z - o.z;
-      const od = ox * ox + oz * oz;
-      if (od < 0.36 && od > 0.0001) {
-        const w = (0.36 - od) / 0.36;
-        const inv = 1 / Math.sqrt(od);
-        sx += ox * inv * w; sz += oz * inv * w;
-      }
+  /** Run as a loose pack; personal drift yields to terrain and the shared route. */
+  steer(px, pz, dt, game) {
+    const heading = packHeading(this, px, pz, dt, game);
+    if (heading.distance < 0.001 || this.speed <= 0) { this.moving = 0; return; }
+    const direct = Math.atan2(pz - this.z, px - this.x);
+    const want = Math.atan2(heading.z, heading.x);
+    const turned = angleLerp(this.yaw, want, Math.min(1, dt * 7));
+    // Each creature surges at its own rhythm, with a small speed variation around its breed speed.
+    const rhythm = 0.94 + 0.06 * Math.sin(this.packTime * 3 + this.packPhase);
+    const step = Math.min(heading.distance, this.speed * rhythm * dt);
+    const oldX = this.x, oldZ = this.z;
+    // Personal drift yields to obstacles. Try the route direction before sliding around a corner.
+    for (const angle of [turned, want, direct, direct + 0.55, direct - 0.55, direct + 1.05, direct - 1.05]) {
+      const nx = oldX + Math.cos(angle) * step, nz = oldZ + Math.sin(angle) * step;
+      if (!swarmStepClear(this, nx, nz, game.grid)) continue;
+      this.x = nx; this.z = nz;
+      this.yaw = angleLerp(this.yaw, angle, Math.min(1, dt * 9));
+      break;
+    }
+    const moved = Math.hypot(this.x - oldX, this.z - oldZ);
+    this.moving = dt > 0 ? moved / (this.speed * dt) : 0;
+    this.gait += moved * 6.5;
+    this.stuckT = moved < step * 0.1 ? this.stuckT + dt : 0;
+    if (this.stuckT > 0.45 && !this.flying) {
+      this.path = null;
+      this.repathIn = 0;
+      this.stuckT = 0;
     }
 
-    let mx = dx / d + sx * 1.3;
-    let mz = dz / d + sz * 1.3;
-    const ml = Math.hypot(mx, mz) || 1;
-    mx /= ml; mz /= ml;
-
-    const want = Math.atan2(mz, mx);
-    this.yaw = angleLerp(this.yaw, want, Math.min(1, dt * 8));
-
-    // only commit to full speed once roughly facing the right way
-    const align = Math.cos(this.yaw - want);
-    const spd = this.speed * Math.max(0.35, align);
-    const nx = this.x + Math.cos(this.yaw) * spd * dt;
-    const nz = this.z + Math.sin(this.yaw) * spd * dt;
-    const free = (x, z) => {
-      const c = game.grid.get(Math.floor(x), Math.floor(z));
-      return c !== CELL.ROCK && !(solid && (c === CELL.WALL || c === CELL.BUNKER));
-    };
-    if (free(nx, this.z)) this.x = nx;
-    if (free(this.x, nz)) this.z = nz;
-    this.moving = spd / this.speed;
-    this.gait += dt * spd * 6.5;
-
-    if (Math.random() < dt * 5 * this.moving) {
+    if (!this.flying && Math.random() < dt * 5 * this.moving) {
       game.fx.spawn(this.x - Math.cos(this.yaw) * 0.3, 0.06, this.z - Math.sin(this.yaw) * 0.3,
         (Math.random() - 0.5) * 0.5, 0.25 + Math.random() * 0.4, (Math.random() - 0.5) * 0.5,
         0.45, 0.07, [0.38, 0.3, 0.24], { drag: 1.6, grow: 0.25 });
     }
-    if (Math.random() < dt * 1.6 * this.moving) game.fx.decal(this.x, this.z, 0.28, 0x4a1848, 0.4);
+    if (!this.flying && Math.random() < dt * 1.6 * this.moving) game.fx.decal(this.x, this.z, 0.28, 0x4a1848, 0.4);
   }
 
   animate(dt, game) {
