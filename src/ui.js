@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { installScouting } from './scouting.js';
 import { BUILD, ZERG_INFO, BREEDS, ECON, UNITS, AIR_STRIKE, OVERDRIVE, BASE_UPGRADE, BASE_LASER, applyBaseUpgrade } from './config.js';
 import { buildZergling, buildWall, buildCore, buildHatchery } from './models.js';
 import { makeModel, loadedModels } from './assets.js';
@@ -222,6 +223,7 @@ function unitLike(e) {
 export class UI {
   constructor(game) {
     this.game = game;
+    installScouting(game);
     this.portrait = new Portrait($('portrait'));
     this.inspect = { kind: 'marine', tier: 0, entity: null };
 

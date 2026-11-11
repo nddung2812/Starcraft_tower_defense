@@ -219,3 +219,21 @@ round-end refund already paid back; it is a convenience and does not change the 
 
 These numbers are a first pass: the unit contracts are tested, but late-round balance with the
 new units has not been playtested.
+
+## Scouting and counterplay
+
+The toolbar's **Scout** button pauses a running battle and opens the current round's
+planned enemy composition. Counts come from the same `wavePlan()` used to spawn the
+column, include already-spawned enemies, and exclude boss reinforcements. Destroyed
+hives can prevent planned spawns. Boss rounds carry an explicit warning.
+
+Each strain has practical counter advice and a button to select that unit for placement:
+Scorchers against packs and wall vaulters, Deadeyes against armour and ranged siege,
+and Anchor Walkers against aircraft. Round 1 recommends Lineguards because Scorchers
+are still locked. The report shows each counter's mineral cost and active army count;
+selecting it does not purchase a unit. Closing resumes a previously running battle and
+preserves a pre-existing pause. No damage, economy, wave, or save-format tuning changes.
+
+Validation: `node tests/browser-scouting.cjs [path/to/playwright-core]` checks composition
+and unlocked counters across 100 rounds, pause semantics, placement selection, boss
+warnings, and mobile dialog bounds.

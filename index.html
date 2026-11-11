@@ -53,6 +53,7 @@
       </div>
     </div>
     <div class="hud__controls">
+      <button id="btnScout" class="btn" type="button" aria-haspopup="dialog" aria-controls="scoutDialog">Scout</button>
       <button id="btnAir" class="btn btn--strike" title="Air Strike (R)" aria-label="Air Strike">Strike</button>
       <button id="btnPause" class="btn btn--primary" title="Pause game (Space)" aria-pressed="false">Pause</button>
       <button id="btnMore" class="btn btn--more" title="Camera and settings" aria-label="Camera and settings" aria-expanded="false" aria-controls="hudTools">⋯</button>
@@ -251,5 +252,13 @@
 </dialog>
 
 <script type="module" src="src/main.js"></script>
+<dialog id="scoutDialog" class="scout-dialog" aria-labelledby="scoutTitle" aria-describedby="scoutSummary">
+  <header><span class="scout-eyebrow">KNOW THE ENEMY · CHOOSE YOUR COUNTER</span><h2 id="scoutTitle">Scouting report</h2></header>
+  <p id="scoutSummary"></p>
+  <p class="scout-paused">Battle paused while you plan. Select a counter, then place it on the battlefield.</p>
+  <div id="scoutThreats"></div>
+  <p id="scoutBoss" class="scout-boss" hidden></p>
+  <form method="dialog"><button id="scoutClose" class="btn btn--primary" type="button" autofocus>Return to battlefield</button></form>
+</dialog>
 </body>
 </html>
