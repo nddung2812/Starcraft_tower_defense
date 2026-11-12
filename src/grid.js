@@ -321,6 +321,41 @@ export class Grid {
     return this.smooth(cells);
   }
 
+  /** Shortest ground route to any free firing position, rather than to the enemy's tile. */
+  attackRoute(sx, sy, targetX, targetZ, range) {
+    if (!this.inside(sx, sy)) return null;
+    const size = this.COLS * this.ROWS;
+    const distances = new Float64Array(size).fill(Infinity);
+    const from = new Int32Array(size).fill(-1);
+    const closed = new Uint8Array(size);
+    const frontier = new MinHeap();
+    const start = this.idx(sx, sy);
+    const passable = (x, y) => this.inside(x, y) &&
+      ((x === sx && y === sy) || [CELL.OPEN, CELL.TOWER].includes(this.get(x, y)));
+    const estimate = (x, y) => Math.max(0, Math.hypot(x + 0.5 - targetX, y + 0.5 - targetZ) - range);
+    distances[start] = 0;
+    frontier.push(start, estimate(sx, sy));
+    while (frontier.size) {
+      const cur = frontier.pop();
+      if (closed[cur]) continue;
+      closed[cur] = 1;
+      const x = cur % this.COLS, y = Math.floor(cur / this.COLS);
+      if ((cur === start || this.get(x, y) === CELL.OPEN) && estimate(x, y) <= 1e-9) {
+        return this.rebuild(from, cur).map(p => ({ x: p.x + 0.5, y: p.y + 0.5, cx: p.x, cy: p.y }));
+      }
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dy) continue;
+        const nx = x + dx, ny = y + dy;
+        if (!passable(nx, ny) || (dx && dy && (!passable(x + dx, y) || !passable(x, y + dy)))) continue;
+        const next = this.idx(nx, ny), cost = distances[cur] + (dx && dy ? SQRT2 : 1);
+        if (cost >= distances[next]) continue;
+        distances[next] = cost; from[next] = cur;
+        frontier.push(next, cost + estimate(nx, ny));
+      }
+    }
+    return null;
+  }
+
   /** Cell centers a marine or tank can drive, staying on open ground. */
   walkRoute(sx, sy, tx, ty) {
     const cells = this.findPath(sx, sy, tx, ty, true);

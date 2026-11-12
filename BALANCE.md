@@ -251,3 +251,12 @@ refresh their shared route. Existing aggro, attacks, wall vaults and breed roles
 The movement rhythm runs at 88–100% of breed speed, so arrival timing can be slightly
 later than before. `tests/browser-swarm.cjs` checks visible pack spread, forward progress,
 terrain and building collision, flight, and 144 arrivals across eight seeded maps.
+
+## Shortest attack pursuit
+
+Ground units now search for the shortest traversable route into 90% of weapon range,
+replacing the old nearest-open-tile search around the target. They stop at a reachable
+firing position instead of walking up to the enemy. Pursuit replans as targets move or
+terrain occupancy changes, preserves ground collision, and halts if no route exists.
+`tests/attack-routing.mjs` compares routes against exhaustive shortest distances across
+50 maps; the ground and army-attack browser suites cover movement integration.

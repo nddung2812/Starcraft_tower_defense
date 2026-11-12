@@ -171,7 +171,13 @@ export class Marine {
     const sx = Math.max(0, Math.min(game.grid.COLS - 1, Math.floor(this.x)));
     const sy = Math.max(0, Math.min(game.grid.ROWS - 1, Math.floor(this.z)));
     const path = game.grid.walkRoute(sx, sy, tx, ty);
+    return this.followRoute(path, game);
+  }
+
+  followRoute(path, game) {
     if (!path || path.length < 2) return false;
+    const end = path[path.length - 1];
+    const tx = end.cx, ty = end.cy;
     packSiege(this);
     if (game.grid.occupant(this.tx, this.ty) === this) game.grid.clear(this.tx, this.ty);
     this.waypoints = path;
@@ -251,10 +257,10 @@ export class Marine {
   chase(game) {
     const t = this.order.target;
     if (this.flying) { this.orderMove(Math.floor(t.x), Math.floor(t.z), game); return; }
-    const goal = game.grid.nearestOpen(Math.floor(t.x), Math.floor(t.z), 3);
-    if (!goal) return;
-    if (this.driving && goal.x === this.goalTx && goal.y === this.goalTy && this.pathGridVersion === game.grid.version) return;
-    this.orderMove(goal.x, goal.y, game);
+    const path = game.grid.attackRoute(Math.floor(this.x), Math.floor(this.z), t.x, t.z, this.attackRange * 0.9);
+    if (!path) { this.halt(game); return; }
+    if (path.length === 1) { this.halt(game); return; }
+    this.followRoute(path, game);
   }
 
   finishMove(game) {
