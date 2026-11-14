@@ -33,9 +33,13 @@ export function updateBattlecruiser(u, dt, g) {
   u.yamatoLock = null;
   const from = { x: u.x + Math.cos(u.yaw) * 2.4, y: u.altitude + 0.2, z: u.z + Math.sin(u.yaw) * 2.4 };
   const impact = { x: target.x, y: (target.altitude || 0) + 0.5, z: target.z };
-  g.fx.link(from, impact, 0xff9f32, 0.65, 0.2);
-  g.fx.link(from, impact, 0xfff3cf, 0.45, 0.075);
-  g.fx.explosion(impact, 1.8); g.fx.ring(impact, YAMATO.radius, 0xffbd69);
+  // A violet corona surrounds an opaque dark core, keeping the shot ominous even in bloom.
+  g.fx.link(from, impact, 0x5427b8, 0.65, 0.24);
+  g.fx.link(from, impact, 0xa66bff, 0.45, 0.14);
+  g.fx.link(from, impact, 0x100a24, 0.55, 0.085, false);
+  g.fx.sparks(impact, u.yaw, 60, [0.48, 0.22, 0.9], 16, 6.28);
+  g.fx.smoke(impact, 28, [0.12, 0.08, 0.2]);
+  g.fx.ring(impact, YAMATO.radius, 0x9360e8);
   const multiplier = u.stats.damage / 30;
   for (const enemy of g.combatTargets.slice()) {
     if (enemy.dead || (enemy !== target && Math.hypot(enemy.x - impact.x, enemy.z - impact.z) > YAMATO.radius)) continue;

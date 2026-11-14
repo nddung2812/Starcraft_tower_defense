@@ -110,13 +110,13 @@ export class Fx {
   }
 
   /** A thin straight line between two points: Spectre shots and Medic foam. */
-  link(from, to, color, life = 0.16, width = 0.03) {
+  link(from, to, color, life = 0.16, width = 0.03, additive = true) {
     const start = new THREE.Vector3(from.x, from.y, from.z), end = new THREE.Vector3(to.x, to.y, to.z);
     const direction = end.clone().sub(start);
     const length = direction.length();
     if (length < 0.01) return;
     const bolt = new THREE.Mesh(new THREE.CylinderGeometry(width, width, length, 5),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending }));
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending }));
     bolt.userData.opacity = 0.9;
     bolt.position.copy(start).add(end).multiplyScalar(0.5);
     bolt.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize());

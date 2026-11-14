@@ -1201,7 +1201,7 @@ const SHIP = {
   ivory: new THREE.MeshStandardMaterial({ color: 0xe4e9ec, metalness: 0.28, roughness: 0.42 }),
   gold: new THREE.MeshStandardMaterial({ color: 0xe0a92a, metalness: 0.6, roughness: 0.34 }),
   amber: new THREE.MeshStandardMaterial({ color: 0xff9a30, emissive: 0xff6f0a, emissiveIntensity: 1.7 }),
-  charge: new THREE.MeshBasicMaterial({ color: 0xffb24b }),
+  charge: new THREE.MeshStandardMaterial({ color: 0x201035, emissive: 0x6733bc, emissiveIntensity: 1.2, metalness: 0.5, roughness: 0.3 }),
   plume: new THREE.MeshBasicMaterial({
     color: 0x2a7dff, transparent: true, opacity: 0.42, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide
   })

@@ -161,7 +161,7 @@ export const UNITS = {
     mobile: true, speed: 2.15, accent: 0x5ad7ff
   },
   goliath: {
-    id: 'goliath', shots: 2, tiers: GOLIATH_TIERS, info: GOLIATH_INFO, visualScale: 0.8,
+    id: 'goliath', shots: 2, tiers: GOLIATH_TIERS, info: GOLIATH_INFO, visualScale: 0.68,
     shell: false, splash: 0, canBunker: false, canStim: false, armory: false, turret: false,
     mobile: true, speed: 1.5, accent: 0xc6e07a
   },
