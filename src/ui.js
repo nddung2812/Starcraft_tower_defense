@@ -441,7 +441,7 @@ export class UI {
       $('pName').textContent = hive ? 'Rift Hive' : `Ridge Relay · Upgrade ${g.baseLevel}`;
       $('pRole').textContent = hive ? `Evolution ${entity.evolution} · hatches in ${Math.ceil(30 - entity.evolutionT)}s · ${entity.reward} minerals` : 'Army research / piercing laser';
       $('pFaction').textContent = hive ? 'The Rift Brood' : 'Breachline Compact';
-      $('pBio').textContent = hive ? 'This brood egg evolves every 30 combat seconds, hatching a larger swarm each time. Destroy it to stop reinforcements and earn minerals. Attack (A) sends the whole army. After the swarm is cleared, you have up to 60 seconds to finish any surviving bases before the next round.' : 'Upgrade the base to boost every current and future unit. Charge the laser for 90 seconds, then aim one powerful piercing shot. Upgrades and energy carry across rounds.';
+      $('pBio').textContent = hive ? 'This brood egg evolves every 30 combat seconds, hatching a larger swarm each time. Destroy it to stop reinforcements and earn minerals. Attack (A) sends the whole army. Destroy every enemy base to finish the round. Surviving bases keep evolving until you destroy them.' : 'Upgrade the base to boost every current and future unit. Charge the laser for 90 seconds, then aim one powerful piercing shot. Upgrades and energy carry across rounds.';
       $('pQuote').textContent = '';
       $('stats').innerHTML = statRow('Hit Points', Math.ceil(entity.hp) + ' / ' + entity.maxHp, entity.hp / entity.maxHp, '#5ef08a');
     } else if (entity?.kind === 'scv' || entity?.kind === 'bunker') {

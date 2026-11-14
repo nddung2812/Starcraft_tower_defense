@@ -692,7 +692,7 @@ export class Game {
   startRaid() {
     if (this.hives.every(h => h.dead)) { this.completeWave(); return; }
     this.state = 'raid';
-    this.raidT = HIVE_RAID.duration;
+    this.raidT = 0; // Assault phase has no timeout.
     this.raidEarned = 0;
     this.drama = 1;
     this.focus = null;
@@ -952,13 +952,10 @@ export class Game {
     for (const p of this.pings) p.t += dt;
     if (this.pings.length && this.pings[0].t > 2.6) this.pings = this.pings.filter((p) => p.t <= 2.6);
 
-    // Finish an expired raid before projectiles can award any late bounty.
-    if (this.state === 'raid') {
-      this.raidT = Math.max(0, this.raidT - dt);
-      if (this.raidT <= 1e-9 || this.hives.every(h => h.dead)) {
-        this.completeWave();
-        return;
-      }
+    // Base destruction ends the round even if a swarm or boss is still alive.
+    if (['wave', 'raid'].includes(this.state) && this.hives.length && this.hives.every(h => h.dead)) {
+      this.completeWave();
+      return;
     }
     for (const hive of this.hives) hive.update(dt, this);
 
@@ -1072,6 +1069,10 @@ export class Game {
     this.drama = this.state === 'wave' && !this.assault.plan && !this.queue.length && alive === 1 ? 0.38 : 1;
     if (this.focus && this.focus.dead) this.focus = null;
 
+    if (['wave', 'raid'].includes(this.state) && this.hives.length && this.hives.every(h => h.dead)) {
+      this.completeWave();
+      return;
+    }
     if (this.state === 'wave' && !this.assault.pending && !this.queue.length && alive === 0) {
       this.startRaid();
     }

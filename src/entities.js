@@ -772,7 +772,7 @@ export class Hive {
   }
 
   takeDamage(amount, game) {
-    if (this.dead || !['wave', 'raid'].includes(game.state) || (game.state === 'raid' && game.raidT <= 0)) return;
+    if (this.dead || !['wave', 'raid'].includes(game.state)) return;
     this.hp = Math.max(0, this.hp - amount);
     if (this.hp > 0) return;
     this.dead = true;
