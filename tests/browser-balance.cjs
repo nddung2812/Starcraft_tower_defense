@@ -19,6 +19,15 @@ const assert = require('node:assert/strict');
       const opening = [];
       const render = g.stage.render; g.stage.render = () => {};
       try {
+        // A melee bug beside the base must attack it, not freeze chasing the Patch Rig through the base.
+        g.reset(0);
+        const base = g.grid.core, stray = new Zergling(base.x + 0.1, base.y + base.h + 0.01, 'zergling', 1, 1);
+        g.scv.x = base.x + 0.5; g.scv.z = base.y - 0.4;
+        check(Math.hypot(g.scv.x - stray.x, g.scv.z - stray.z) < stray.breed.aggro, 'Patch Rig fixture is outside bug aggro range');
+        for (let i = 0; i < 100; i++) stray.update(.05, g);
+        const bitten = g.core.hp; // the freeze used to set in after the first bite, once the bug noticed the rig
+        for (let i = 0; i < 100; i++) stray.update(.05, g);
+        check(g.core.hp < bitten, 'Bug froze beside the base instead of attacking it');
         for (const seed of [0, 12345, 4294967295]) {
           g.reset(seed); check(g.quickDeploy(), 'Quick Deploy failed');
           for(let i=0;i<3600 && g.level===1 && g.state!=='defeat';i++) g.update(.05);
@@ -28,8 +37,8 @@ const assert = require('node:assert/strict');
       } finally { g.stage.render=render; }
       g.reset(12345);
       const volleys = [];
-      // Specialists unlock by round 4. The Scorcher and Mender fire no projectile; tests/browser-specialists.cjs covers them.
-      g.level = 4;
+      // Every unit is unlocked by its last unlock round. The Scorcher and Mender fire no projectile; tests/browser-specialists.cjs covers them.
+      g.level = Math.max(...Object.values(BUILD).map(b => b.unlock || 1));
       for (const kind of Object.keys(UNITS).filter(k => !UNITS[k].flame && !UNITS[k].heals)) {
         g.wipeUnits(); g.loadLevel(); g.state = 'build'; g.minerals = 10000;
         const [x,y] = g.layout.open.find(([x,y]) => g.grid.buildable(x,y));

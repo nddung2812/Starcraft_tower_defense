@@ -9,6 +9,8 @@ const assert = require('node:assert/strict');
    await page.setViewportSize({width,height});
    await page.goto('http://127.0.0.1:8765');await page.waitForFunction(()=>window.game);
    await page.locator('#introBtn').click();await page.locator('#btnPause').click();
+   // The pause menu covers the battlefield; planning keeps the game paused with the controls usable.
+   await page.locator('#btnPlan').click();
    const info=await page.evaluate(()=>{
     const s=game.stage,rect=document.getElementById('game').getBoundingClientRect();
     const bounds=['.hud','.stage','.panel','.dock','.minimap','#btnPause'].map(sel=>{const r=document.querySelector(sel).getBoundingClientRect();return {sel,x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height};});
@@ -23,6 +25,8 @@ const assert = require('node:assert/strict');
    await page.keyboard.press('Escape');
    assert.equal(await page.locator('#btnPause').textContent(),'Resume');
    if(width===3440)await page.screenshot({path:'/tmp/td-ultrawide-3440.png'});
+   // Each size starts a fresh run: a saved checkpoint would put a replace-run confirmation in the way.
+   await page.evaluate(()=>localStorage.clear());
    console.log(`PASS ${width}×${height}: layout, camera aspect, picking, zoom/reset, build control, pause`);
   }
   assert.deepEqual(errors,[]);

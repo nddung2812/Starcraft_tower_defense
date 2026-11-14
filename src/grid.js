@@ -367,7 +367,8 @@ export class Grid {
    * Can something walk straight from cell A to cell B? Rock, walls and bunkers in
    * between block it; troops standing in the way do not. The end cells themselves are not checked.
    */
-  lineOpen(ax, ay, bx, by) {
+  lineOpen(ax, ay, bx, by, walk = false) {
+    // walk: the line must also be one a ground bug can run along, so the base itself is in the way.
     let x = ax, y = ay;
     const dx = Math.abs(bx - ax), dy = Math.abs(by - ay);
     const sx = ax < bx ? 1 : -1, sy = ay < by ? 1 : -1;
@@ -378,7 +379,7 @@ export class Grid {
       if (e2 < dx) { err += dx; y += sy; }
       if (x === bx && y === by) break;
       const c = this.get(x, y);
-      if (c === CELL.ROCK || c === CELL.WALL || c === CELL.BUNKER) return false;
+      if (c === CELL.ROCK || c === CELL.WALL || c === CELL.BUNKER || (walk && c === CELL.CORE)) return false;
     }
     return true;
   }

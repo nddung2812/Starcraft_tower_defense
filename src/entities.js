@@ -966,7 +966,7 @@ export class Zergling {
         if (!this.preyOk(p, game)) continue;
         const building = p.kind === 'wall' || p.kind === 'bunker';
         const d = Math.hypot(p.x - this.x, p.z - this.z) + (building ? 0.4 : 0);
-        if (d < bd && game.grid.lineOpen(cx, cz, Math.floor(p.x), Math.floor(p.z))) { bd = d; best = p; }
+        if (d < bd && game.grid.lineOpen(cx, cz, Math.floor(p.x), Math.floor(p.z), true)) { bd = d; best = p; }
       }
       this.prey = best;
     }
@@ -1108,6 +1108,9 @@ export class Zergling {
       this.path = null;
       this.repathIn = 0;
       this.stuckT = 0;
+      // Prey that cannot be walked up to (it moved behind the base or a rock) must not pin the bug
+      // in place forever: give up, rejoin the route, and look again shortly.
+      if (this.prey) { this.prey = null; this.huntIn = 1.2; }
     }
 
     if (!this.flying && Math.random() < dt * 5 * this.moving) {

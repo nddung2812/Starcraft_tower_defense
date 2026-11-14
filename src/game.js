@@ -518,8 +518,9 @@ export class Game {
     const c = this.grid.core;
     const route = this.grid.findPath(this.grid.spawn.x, this.grid.spawn.y, c.x, c.y);
     if (!route?.length) return null;
-    // Cover the shared approach, rather than placing the whole squad on one branch.
-    return this.grid.spawns.length > 1 ? { x: c.x - 5, y: c.y } : route[Math.max(0, route.length - 9)];
+    // Cover the shared approach, rather than placing the whole squad on one branch. Close enough
+    // that a bug which slips past is still in rifle range while it chews on the base.
+    return this.grid.spawns.length > 1 ? { x: c.x - 3, y: c.y } : route[Math.max(0, route.length - 9)];
   }
 
   /**

@@ -12,7 +12,7 @@ const assert = require('node:assert/strict');
     await page.locator('#introBtn').click();
     const result = await page.evaluate(async () => {
       const g = game;
-      const { UNIT_SCALE, BUILD, ECON } = await import('/src/config.js');
+      const { UNIT_SCALE, UNITS, BUILD, ECON } = await import('/src/config.js');
       const marine = g.gunners[0];
       const initialScale = marine.model.scale.x;
       g.update(0.5);
@@ -35,7 +35,7 @@ const assert = require('node:assert/strict');
       g.update(2.99);
       const beforeContact = g.state;
       g.update(0.02);
-      return { initialScale, grownScale, promotedScale, expectedScale: UNIT_SCALE * 0.56, frozen, after, resumeLabel, next, carried, refund, bonus, beforeContact, contact: g.state };
+      return { initialScale, grownScale, promotedScale, expectedScale: UNIT_SCALE * UNITS.marine.visualScale, frozen, after, resumeLabel, next, carried, refund, bonus, beforeContact, contact: g.state };
     });
     assert.equal(result.initialScale, result.expectedScale);
     assert.equal(result.grownScale, result.expectedScale);
