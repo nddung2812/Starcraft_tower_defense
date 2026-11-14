@@ -150,6 +150,29 @@ const assert = require('node:assert/strict');
     for (let i = 0; i < 20; i++) await page.locator('#game').dispatchEvent('wheel', { deltaY: -100 });
     assert.equal((await state()).dist, 10);
 
+    // Wider overview zoom, with a complete square minimap marker at every edge.
+    for (let i = 0; i < 20; i++) await page.locator('#game').dispatchEvent('wheel', { deltaY: 100 });
+    assert.equal((await state()).dist, 36);
+    await page.evaluate(() => {
+      const ctx = document.getElementById('minimap').getContext('2d');
+      const original = ctx.strokeRect.bind(ctx);
+      ctx.strokeRect = (x, y, w, h) => {
+        window.cameraMarker = { x, y, w, h, width: ctx.canvas.width, height: ctx.canvas.height };
+        original(x, y, w, h);
+      };
+    });
+    for (const [x, z] of [[0, 0], [1, 0], [0, 1], [1, 1], [.5, .5]]) {
+      await page.evaluate(([x, z]) => {
+        const s = game.stage;
+        s.focus.set(x * s.cols, 0, z * s.rows);
+        window.cameraMarker = null;
+      }, [x, z]);
+      await page.waitForFunction(() => window.cameraMarker);
+      const m = await page.evaluate(() => window.cameraMarker);
+      assert.equal(m.w, m.h);
+      assert.ok(m.x >= 0 && m.y >= 0 && m.x + m.w <= m.width && m.y + m.h <= m.height);
+    }
+
     // No drift at canvas edges; losing focus cancels the drag and allows the next one.
     await reset(); const beforeEdge = await state();
     await page.mouse.move(rect.x + rect.width - 2, cy);

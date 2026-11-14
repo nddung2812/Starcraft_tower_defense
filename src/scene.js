@@ -112,10 +112,10 @@ export class Stage {
     this.camera = new THREE.PerspectiveCamera(42, 1, 0.5, 200);
     this.yaw = Math.PI / 2;
     this.pitch = 0.82;
-    this.dist = 14;
+    this.dist = 18;
     // Keep units readable and enough ground visible at either zoom limit.
     this.minDist = 10;
-    this.maxDist = 22;
+    this.maxDist = 36;
     this.focus = new THREE.Vector3(this.cols / 2, 0, this.rows / 2);
     this.homeFocus = this.focus.clone();
     this.shake = 0;
@@ -320,7 +320,7 @@ export class Stage {
   resetView() {
     this.yaw = Math.PI / 2;
     this.pitch = 0.82;
-    this.dist = 14;
+    this.dist = 18;
     this.focus.copy(this.homeFocus);
     this.userZoomed = true;
   }

@@ -1,4 +1,3 @@
-import * as THREE from 'three';
 import { CELL } from './config.js';
 
 const CELL_RGB = {
@@ -9,8 +8,6 @@ const CELL_RGB = {
   [CELL.BUNKER]: [232, 180, 74],
   [CELL.TOWER]: [138, 112, 82]
 };
-
-const CORNERS = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
 
 /**
  * Top-down overview of the canyon. Left-click or drag moves the camera,
@@ -26,7 +23,6 @@ export class Minimap {
     this.cols = game.grid.COLS;
     this.rows = game.grid.ROWS;
     this.scale = 130 / Math.max(this.cols, this.rows);
-    this.ndc = new THREE.Vector2();
     this.dragging = false;
     this.terrain = document.createElement('canvas');
     this.terrainVersion = -1;
@@ -171,25 +167,17 @@ export class Minimap {
       ctx.stroke();
     }
 
-    // camera footprint
-    // top corners can look past the horizon; walk them down the screen until they hit ground
-    const pts = [];
-    for (const [nx, ny] of CORNERS) {
-      let hit = null;
-      for (let y = ny; y >= -1 && !hit; y -= 0.1) {
-        this.ndc.set(nx, y);
-        hit = this.stage.pick(this.ndc);
-        if (hit && Math.hypot(hit.x - this.stage.focus.x, hit.z - this.stage.focus.z) > 60) hit = null;
-      }
-      if (hit) pts.push(hit);
-    }
-    if (pts.length >= 3) {
-      ctx.strokeStyle = 'rgba(234, 245, 255, .85)';
-      ctx.lineWidth = 1 * this.dpr;
-      ctx.beginPath();
-      pts.forEach((p, i) => (i ? ctx.lineTo(p.x * s, p.z * s) : ctx.moveTo(p.x * s, p.z * s)));
-      ctx.closePath();
-      ctx.stroke();
-    }
+    // A square navigation marker stays readable while panning and orbiting.
+    // Approximate the view span at the focus, without perspective corner distortion.
+    const stage = this.stage;
+    const inset = 0.5 / this.scale;
+    const span = Math.min(this.cols - 2 * inset, this.rows - 2 * inset,
+      2 * stage.dist * Math.tan(stage.camera.fov * Math.PI / 360) / Math.sin(stage.pitch));
+    // Keep all four edges visible even when the camera reaches a map boundary.
+    const x = Math.max(inset, Math.min(this.cols - inset - span, stage.focus.x - span / 2));
+    const z = Math.max(inset, Math.min(this.rows - inset - span, stage.focus.z - span / 2));
+    ctx.strokeStyle = 'rgba(234, 245, 255, .85)';
+    ctx.lineWidth = this.dpr;
+    ctx.strokeRect(x * s, z * s, span * s, span * s);
   }
 }
