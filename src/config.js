@@ -137,7 +137,8 @@ export const MENDER_INFO = {
   quote: '"Hold still. Almost done."'
 };
 
-export const YAMATO = { damage: 1400, splashDamage: 260, radius: 2.6, range: 12, charge: 1.4, cooldown: 18 };
+// cooldown was 18 s; 26 s is about 30% fewer shots.
+export const YAMATO = { damage: 1400, splashDamage: 260, radius: 2.6, range: 12, charge: 1.4, cooldown: 26 };
 export const CRUISER_TIERS = [
   { rank: 'Dreadnought', hp: 1400, damage: 30, attackSpeed: 0.6, range: 8, upgradeCost: 700 },
   { rank: 'Flagship', hp: 2100, damage: 42, attackSpeed: 0.5, range: 8.8, upgradeCost: null }

@@ -347,7 +347,7 @@ The model and synthesized sounds are built locally; tuning below is for BREACHLI
 - Unlocks in round 5; costs 900 minerals. Build with J. Flies over terrain, remains vulnerable to anti-air.
 - Dreadnought: 1,400 HP, 6 armour, four 30-damage shots every 0.6s, 8 range, 2.1 movement speed.
 - Flagship promotion costs 700: 2,100 HP, four 42-damage shots every 0.5s, 8.8 range.
-- Yamato: 1.4s charge, 12 range, 18s cooldown from charge start. Deals 1,400 armour-ignoring
+- Yamato: 1.4s charge, 12 range, 26s cooldown from charge start. Deals 1,400 armour-ignoring
   damage to the lock and 260 splash to other enemies within 2.6 tiles, including aircraft.
   Damage scales with weapon promotions and base research (1,960 direct damage on a Flagship).
 - Auto-targets bosses, hives and enemies with at least 300 maximum HP. Select a cruiser and
