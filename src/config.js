@@ -156,12 +156,12 @@ export const UNITS = {
     armory: false, turret: true, mobile: true, speed: 2.1, accent: 0xffbd69
   },
   marine: {
-    id: 'marine', shots: 1, tiers: MARINE_TIERS, info: MARINE_INFO, visualScale: 0.448,
+    id: 'marine', shots: 1, tiers: MARINE_TIERS, info: MARINE_INFO, visualScale: 0.4032,
     shell: false, splash: 0, canBunker: true, canStim: true, armory: true, turret: false,
     mobile: true, speed: 2.15, accent: 0x5ad7ff
   },
   goliath: {
-    id: 'goliath', shots: 2, tiers: GOLIATH_TIERS, info: GOLIATH_INFO, visualScale: 0.68,
+    id: 'goliath', shots: 2, tiers: GOLIATH_TIERS, info: GOLIATH_INFO, visualScale: 0.6460,
     shell: false, splash: 0, canBunker: false, canStim: false, armory: false, turret: false,
     mobile: true, speed: 1.5, accent: 0xc6e07a
   },
@@ -244,6 +244,7 @@ export const BREEDS = {
   zergling: { id: 'zergling', name: 'Ripper', role: 'Melee Swarm', hp: 37, armor: 0, damage: 6, attackSpeed: 0.55, range: 0.95, speed: 2.4, scale: 1, bounty: 1, melee: true, aggro: 2.6 },
   warrior:  { id: 'warrior', name: 'Brute', role: 'Armored Strain', hp: 150, armor: 3, damage: 12, attackSpeed: 0.9, range: 1.05, speed: 1.35, scale: 1.32, bounty: 3, melee: true, aggro: 2.2 },
   hopper:   { id: 'hopper', name: 'Leaper', role: 'Wall Vaulter', hp: 55, armor: 0, damage: 7, attackSpeed: 0.65, range: 0.9, speed: 2.7, scale: 0.82, bounty: 2, melee: true, jump: true, aggro: 3 },
+  broodray: { id: 'broodray', name: 'Brood Ray', role: 'Armoured Acid Flyer', flying: true, targetsAir: true, hp: 220, armor: 3, damage: 18, attackSpeed: 1.65, range: 4.8, speed: 2.1, scale: 1.35, bounty: 7, ranged: true, projectile: 'acid', muzzle: [0.65, 0.2] },
   skyhunter: { id: 'skyhunter', name: 'Wraith', role: 'Flying Assault', flying: true, targetsAir: true, hp: 100, armor: 1, damage: 10, attackSpeed: 1.15, range: 4.2, speed: 3.1, scale: 1.1, bounty: 4, ranged: true, projectile: 'spine', muzzle: [0.5, 0.3] },
   needler:  { targetsAir: true, id: 'needler', name: 'Needler', role: 'Spine Launcher', hp: 76, armor: 1, damage: 10, attackSpeed: 1.1, range: 4.0, speed: 1.85, scale: 1, bounty: 3, ranged: true, projectile: 'spine', muzzle: [0.42, 0.62] },
   tanker:   { id: 'tanker', name: 'Corroder', role: 'Acid Siege', hp: 276, armor: 1, damage: 18, attackSpeed: 1.7, range: 3.6, speed: 1.05, scale: 1.7, bounty: 5, ranged: true }
@@ -386,7 +387,8 @@ export function wavePlan(n) {
     add(size, t, 0.1, 'zergling');
     t += 1.05 + size * 0.1;
   }
-  if (n >= 5) add(Math.min(12, 2 + Math.floor((n - 5) / 2)), 3.5, 1.15, 'skyhunter');
+  if (n >= 5) add(Math.min(16, 3 + Math.floor((n - 5) / 1.5)), 3.5, 1.15, 'skyhunter');
+  if (n >= 7) add(Math.min(8, 1 + Math.floor((n - 7) / 2)), 5.5, 2.2, 'broodray');
   if (n >= 3) add(Math.min(14, 1 + Math.floor((n - 3) / 1.5)), 1.8, 1.3, 'needler');    // ranged spine launchers
   if (n >= 4) add(Math.min(14, 1 + Math.floor((n - 4) / 1.5)), 1, 1.5, 'warrior');      // armoured
   if (n >= 6) add(Math.min(14, 2 + Math.floor((n - 6) / 1.5)), 1.4, 0.85, 'hopper');    // wall vaulters

@@ -390,3 +390,10 @@ bonus, armour, aircraft/garrison protection, wall occlusion, Yamato survival and
 - Garrisoned Troopers gain ×1.5 damage and +2 range (base: 12 damage, 6.4 range), with normal promotions and research retained.
 - Destruction ejects both occupants alive at their current health; they resume normal rifle combat without bunker bonuses.
 - `tests/browser-bunker.cjs` checks operator count, separate muzzles, capacity, bonuses, and survivor combat.
+
+### Brood Ray and air reinforcements
+
+- Wraith waves start at round 5 with 3 flyers, increasing to a maximum of 16.
+- Brood Rays join at round 7: 220 base HP, 3 armour, 18 acid damage every 1.65s, 4.8 range, 2.1 speed, and 7 bounty. They fly and target both ground and air. Waves grow from 1 to a maximum of 8.
+- From round 5, every fourth enemy in an evolved hive's brood is a Wraith. From round 7 and evolution 2, the final brood member becomes a Brood Ray. These replace ground brood members, preserving the brood size cap.
+- Scouting recommends Atlas mechs against both flying strains.

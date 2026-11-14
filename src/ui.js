@@ -441,7 +441,7 @@ export class UI {
       $('pName').textContent = hive ? 'Rift Hive' : `Ridge Relay · Upgrade ${g.baseLevel}`;
       $('pRole').textContent = hive ? `Evolution ${entity.evolution} · hatches in ${Math.ceil(30 - entity.evolutionT)}s · ${entity.reward} minerals` : 'Army research / piercing laser';
       $('pFaction').textContent = hive ? 'The Rift Brood' : 'Breachline Compact';
-      $('pBio').textContent = hive ? 'This brood egg evolves every 30 combat seconds, hatching a larger swarm each time. Destroy it to stop reinforcements and earn minerals. Attack (A) sends the whole army. Destroy every enemy base to finish the round. Surviving bases keep evolving until you destroy them.' : 'Upgrade the base to boost every current and future unit. Charge the laser for 90 seconds, then aim one powerful piercing shot. Upgrades and energy carry across rounds.';
+      $('pBio').textContent = hive ? 'This brood egg evolves every 30 combat seconds, hatching a larger swarm each time. Destroy it to stop reinforcements and earn minerals. Attack (A) sends the whole army. Destroy every enemy base to finish the round. Surviving bases keep evolving until you destroy them.' : 'Upgrade the base to boost every current and future unit. The cannon tracks enemies and automatically fires a piercing laser every 90 seconds when a target is available. Upgrades and energy carry across rounds.';
       $('pQuote').textContent = '';
       $('stats').innerHTML = statRow('Hit Points', Math.ceil(entity.hp) + ' / ' + entity.maxHp, entity.hp / entity.maxHp, '#5ef08a');
     } else if (entity?.kind === 'scv' || entity?.kind === 'bunker') {
@@ -765,7 +765,7 @@ export class UI {
     // Base research and the laser live in the inspector: click the Ridge Relay to see them.
     $('baseActions').hidden = this.inspect.entity?.kind !== 'core' || g.state === 'defeat';
     if (g.laserReady && !this.laserAnnounced && ['wave', 'raid'].includes(g.state)) {
-      this.toast('Laser ready', 'Press L, or click your base, then click a direction.', 'unlock', 5000);
+      this.toast('Laser ready', 'Auto-fire armed. The cannon fires when an enemy is available.', 'unlock', 5000);
     }
     this.laserAnnounced = g.laserReady;
     $('btnBaseUpgrade').textContent = `Upgrade base · ${g.baseUpgradeCost} minerals`;
@@ -776,7 +776,7 @@ export class UI {
     const aiming = $('btnLaser').getAttribute('aria-pressed') === 'true';
     $('btnLaser').textContent = aiming ? 'Cancel laser aim' : g.laserReady ? 'Fire laser (L)' : `Laser · ${Math.floor(g.laserCharge / BASE_LASER.chargeTime * 100)}%`;
     $('btnLaser').disabled = g.paused || !g.laserReady || !['wave', 'raid'].includes(g.state);
-    $('laserHint').textContent = aiming ? 'Click a direction from your base · Esc cancels' : g.laserReady ? 'Ready · 600 damage through the enemy line' : `${Math.ceil(BASE_LASER.chargeTime - g.laserCharge)}s to charge · one piercing shot`;
+    $('laserHint').textContent = aiming ? 'Click a direction from your base · Esc cancels' : g.laserReady ? 'Auto-fire armed · tracking enemies · 600 piercing damage' : `${Math.ceil(BASE_LASER.chargeTime - g.laserCharge)}s to auto-fire · tracks enemies`;
     const waiting = g.lastArmy?.length || 0;
     $('btnRedeploy').hidden = !waiting || !$('intro').hidden || !['build', 'brief', 'wave'].includes(g.state);
     if (waiting) {

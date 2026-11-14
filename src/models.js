@@ -1081,7 +1081,7 @@ export function buildFalcon(tier = 0) {
   return root;
 }
 
-export function buildSkyhunter() {
+export function buildSkyhunter(heavy = false) {
   const root = new THREE.Group();
   const body = new THREE.Group();
   root.add(body);
@@ -1098,12 +1098,28 @@ export function buildSkyhunter() {
     const membrane = mesh(new THREE.ShapeGeometry(shape).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x994fa0, side: THREE.DoubleSide, roughness: 0.6 }));
     wing.add(membrane); body.add(wing); wings.push({ wing, side });
   }
+  if (heavy) {
+    // A broad armoured abdomen and luminous acid sacs distinguish the heavy flyer.
+    const shell = mesh(new THREE.SphereGeometry(0.42, 12, 8), MAT.fleshDark, -0.24, 0.2, 0);
+    shell.scale.set(1.65, 0.8, 1.15); body.add(shell);
+    for (const side of [-1, 1]) {
+      const sac = mesh(new THREE.SphereGeometry(0.18, 10, 8), MAT.acid, 0.05, 0.08, side * 0.32);
+      sac.scale.set(1.45, 0.8, 1); body.add(sac);
+      for (let i = 0; i < 3; i++) {
+        body.add(mesh(new THREE.ConeGeometry(0.08, 0.32, 5), MAT.bone, -0.2 - i * 0.22, 0.48, side * 0.2));
+      }
+    }
+    for (const { wing } of wings) {
+      wing.scale.set(1.4, 1, 1.3);
+      wing.children[0].material.color.setHex(0x506d46);
+    }
+  }
   const weapon = new THREE.Group(); weapon.userData.muzzle = new THREE.Vector3(0.55, 0.2, 0); body.add(weapon);
   root.userData.torso = body; root.userData.weapon = weapon;
   let time = 0;
   root.userData.anim = (state, dt) => {
     time += dt;
-    for (const {wing, side} of wings) wing.rotation.x = Math.sin(time * 13) * 0.55 * side;
+    for (const {wing, side} of wings) wing.rotation.x = Math.sin(time * (heavy ? 8 : 13)) * 0.55 * side;
     body.rotation.z = state === 'death' ? Math.min(1.5, time) : Math.sin(time * 3) * 0.05;
   };
   return root;

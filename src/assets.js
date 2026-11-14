@@ -18,6 +18,7 @@ const PROCEDURAL = {
   cruiser: (tier) => buildBattlecruiser(tier),
   falcon: (tier) => buildFalcon(tier),
   skyhunter: () => buildSkyhunter(),
+  broodray: () => buildSkyhunter(true),
   marine: (tier) => buildMarine(tier),
   scorcher: (tier) => buildScorcher(tier),
   deadeye: (tier) => buildDeadeye(tier),
@@ -37,6 +38,7 @@ const PROCEDURAL = {
 const RIM = {
   ultralisk: [0xc06bff, 0.25], maw: [0xc06bff, 0.28],
   cruiser: [0xffbd69, 0.25],
+  broodray: [0x86d94a, 0.3],
   falcon: [0x71e7e0, 0.35], skyhunter: [0xc06bff, 0.3],
   scorcher: [0xffb070, 0.3], deadeye: [0xc9a8ff, 0.34], mender: [0x7dffb0, 0.3],
   marine: [0x5ad7ff, 0.32], goliath: [0x5ad7ff, 0.32], tank: [0x5ad7ff, 0.3], scv: [0x5ad7ff, 0.28],

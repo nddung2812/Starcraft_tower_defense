@@ -6,6 +6,7 @@ const COUNTERS = {
   zergling: { unit: 'scorcher', fallback: 'marine', threat: 'Swarm', why: 'Flames hit every ground enemy in a short cone. Keep the pack in front.', early: 'Overlap Trooper firing ranges at the shared approach. Bunkers protect the firing line.' },
   warrior: { unit: 'deadeye', threat: 'Armour', why: 'Spectre rounds ignore armour and prioritise large targets. Keep a frontline ahead of them.' },
   hopper: { unit: 'scorcher', threat: 'Wall vaulters', why: 'Leapers jump a single wall. Keep short-range flames behind your barricades to catch them.' },
+  broodray: { unit: 'goliath', threat: 'Heavy air attack', why: 'Armoured Brood Rays spit acid at both ground troops and aircraft. Use Atlas mechs and focus fire; walls and ground-only weapons cannot stop them.' },
   skyhunter: { unit: 'goliath', threat: 'Air attack', why: 'Atlas mechs shoot ground and air. Walls, Torches and Hammers cannot stop aircraft.' },
   needler: { unit: 'deadeye', threat: 'Ranged fire', why: 'Spectres outrange spine launchers. Screen the fragile marksmen with tougher units.' },
   tanker: { unit: 'deadeye', threat: 'Acid siege', why: 'Spectres prioritise large targets and outrange acid siege. Spread your frontline to limit splash damage.' }

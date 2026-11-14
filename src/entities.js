@@ -743,8 +743,10 @@ export class Hive {
         this.hatchT = 2;
         const count = Math.min(HIVE_RAID.broodCap, HIVE_RAID.broodBase + this.evolution * HIVE_RAID.broodPerEvolution);
         for (let i = 0; i < count; i++) {
+          const breed = game.level >= 7 && this.evolution >= 2 && i === count - 1 ? 'broodray'
+            : game.level >= 5 && i % 4 === 3 ? 'skyhunter' : 'zergling';
           const bug = new Zergling(this.x + (Math.random() - 0.5) * 0.28, this.z,
-            'zergling', 1 + (game.level - 1) * 0.1, 1);
+            breed, 1 + (game.level - 1) * 0.1, 1);
           game.zerglings.push(bug);
           game.world.add(bug.obj);
         }
@@ -825,6 +827,22 @@ export class Core {
   update(dt, game) {
     const ud = this.model.userData;
     ud.dish.rotation.y += dt * 0.7;
+    if (!this.dead && !game.paused && !game.pendingEvolution && ['wave', 'raid'].includes(game.state)) {
+      // Defend against the nearest mobile threat first, then attack surviving bases.
+      let target = null, best = Infinity;
+      for (const enemy of game.combatTargets) {
+        if (enemy.dead) continue;
+        const distance = Math.hypot(enemy.x - this.x, enemy.z - this.z);
+        if (distance < 0.1) continue;
+        const score = distance + (enemy.kind === 'hive' ? game.grid.COLS + game.grid.ROWS : 0);
+        if (score < best) { best = score; target = enemy; }
+      }
+      if (target) {
+        const yaw = -Math.atan2(target.z - this.z, target.x - this.x);
+        if (this.laserFlash <= 0) ud.laserTurret.rotation.y = angleLerp(ud.laserTurret.rotation.y, yaw, Math.min(1, dt * 6));
+        if (game.laserReady) game.fireLaser(target.x, target.z);
+      }
+    }
     this.laserFlash = Math.max(0, this.laserFlash - dt);
     ud.laserMuzzle.material.emissiveIntensity = this.laserFlash > 0
       ? 6 : 0.35 + 2.65 * (game.laserCharge / BASE_LASER.chargeTime);

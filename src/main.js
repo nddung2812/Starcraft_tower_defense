@@ -837,6 +837,7 @@ window.addEventListener('keyup', (ev) => keys.delete(ev.key));
 
 game.on('pick', setPlacing);
 game.on('laser', () => setLaserAim(!laserAim));
+game.on('change', () => { if (laserAim && !game.laserReady) setLaserAim(false); });
 game.on('airstrike', () => setAirAim(!airAim));
 game.on('cmd', runCommand);
 game.on('selectOnly', (e) => select(e));
