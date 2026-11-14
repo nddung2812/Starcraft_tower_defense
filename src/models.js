@@ -639,6 +639,7 @@ export function buildNeedler() {
 }
 
 export function buildBug(breed) {
+  if (breed === 'ultralisk') return buildUltralisk();
   if (breed === 'needler') return buildNeedler();
   const tint = { warrior: 0x3d2038, hopper: 0x8a5a32, tanker: 0x2c4a28 }[breed] || null;
   const root = buildZergling(tint);
@@ -1102,5 +1103,57 @@ export function buildBattlecruiser(tier = 0) {
   weapon.userData.muzzles = [-1, 1].flatMap(side => [0.05, 0.95].map(x => new THREE.Vector3(x + 0.43, 0.47, side * 0.92)));
   weapon.userData.muzzle = weapon.userData.muzzles[0];
   root.userData.torso = torso; root.userData.weapon = weapon; root.userData.yamato = charge;
+  return root;
+}
+
+/** Four-legged siege beast with overlapping chitin and paired sweeping scythes. */
+export function buildUltralisk() {
+  const root = new THREE.Group(), body = new THREE.Group(), head = new THREE.Group();
+  root.add(body); body.add(head); head.position.set(0.62, 0.5, 0);
+  const shell = new THREE.MeshStandardMaterial({ color: 0x3a2449, roughness: 0.48, metalness: 0.22 });
+  const edge = new THREE.MeshStandardMaterial({ color: 0x805b8e, roughness: 0.52 });
+  const oval = (parent, size, mat, x, y, z) => {
+    const m = mesh(new THREE.SphereGeometry(1, 16, 10), mat, x, y, z); m.scale.set(...size); parent.add(m); return m;
+  };
+  oval(body, [0.9, 0.5, 0.49], MAT.fleshDark, -0.1, 0.64, 0);
+  for (let i = 0; i < 4; i++) {
+    oval(body, [0.35, 0.35, 0.55 - i * 0.045], i % 2 ? edge : shell, 0.38 - i * 0.36, 0.9 - i * 0.06, 0);
+    body.add(mesh(new THREE.ConeGeometry(0.11, 0.38, 5), MAT.bone, 0.25 - i * 0.35, 1.23 - i * 0.07, 0));
+  }
+  oval(head, [0.42, 0.3, 0.34], shell, 0, 0.08, 0);
+  oval(head, [0.28, 0.13, 0.29], MAT.flesh, 0.19, -0.1, 0);
+  const tusks = [], legs = [];
+  const segment = (parent, a, b, r1, r2) => {
+    const start = new THREE.Vector3(...a), end = new THREE.Vector3(...b), direction = end.clone().sub(start);
+    const m = mesh(new THREE.CylinderGeometry(r2, r1, direction.length(), 8), MAT.boneLit);
+    m.position.copy(start).add(end).multiplyScalar(0.5);
+    m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize()); parent.add(m);
+  };
+  for (const side of [-1, 1]) {
+    oval(head, [0.07, 0.045, 0.04], MAT.eye, 0.24, 0.2, side * 0.27);
+    const tusk = new THREE.Group(); tusk.position.set(0.05, -0.03, side * 0.25); head.add(tusk);
+    segment(tusk, [0,0,0], [0.25,0.02,side*0.4], 0.13,0.11);
+    segment(tusk, [0.25,0.02,side*0.4], [0.7,0.12,side*0.43], 0.11,0.065);
+    segment(tusk, [0.7,0.12,side*0.43], [1,0.3,side*0.18], 0.065,0.002);
+    tusks.push({ tusk, side });
+    for (let i = 0; i < 2; i++) {
+      const leg = new THREE.Group(); leg.position.set(0.38-i*0.95, 0.55, side*0.36); body.add(leg);
+      oval(leg, [0.25,0.24,0.23], shell, 0,0,side*0.1);
+      segment(leg,[0,0,side*0.13],[-0.1,-0.34,side*0.31],0.13,0.08);
+      oval(leg,[0.22,0.09,0.14], MAT.fleshDark, 0,-0.48,side*0.33);
+      for (let claw=0;claw<2;claw++) segment(leg,[0.1,-0.48,side*0.33+claw*0.08],[0.32,-0.5,side*0.33+claw*0.08],0.045,0.002);
+      legs.push({leg,phase:i*Math.PI+(side>0?Math.PI:0)});
+    }
+  }
+  let time = 0, death = 0;
+  root.userData.anim = (state, dt) => {
+    time += dt;
+    if (state === 'death') { death = Math.min(1,death+dt*1.5);body.rotation.z=death*1.4;body.position.y=-death*.25;return; }
+    const walk = state === 'walk' ? 1 : 0;
+    body.position.y = Math.abs(Math.sin(time*7))*0.035*walk;
+    for (const {leg,phase} of legs) leg.rotation.z=Math.sin(time*7+phase)*0.34*walk;
+    for (const {tusk,side} of tusks) tusk.rotation.y=state==='attack'?side*(0.12+Math.sin(time*16)*0.38):side*0.03;
+    head.rotation.z=state==='attack'?Math.sin(time*16)*0.08:Math.sin(time*2)*0.025;
+  };
   return root;
 }

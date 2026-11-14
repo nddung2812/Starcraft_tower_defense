@@ -226,7 +226,9 @@ export const ECON = {
   scvCost: 60
 };
 
+export const ULTRALISK = { firstRound: 8, cleaveRadius: 2.2, cleaveArc: 1.05, structureMultiplier: 1.6 };
 export const BREEDS = {
+  ultralisk: { id: 'ultralisk', name: 'Ultralisk', role: 'Armoured Siege Beast', hp: 1300, armor: 7, damage: 48, attackSpeed: 1.15, range: 1.65, speed: 1.6, scale: 2, bounty: 18, melee: true, aggro: 3.8 },
   zergling: { id: 'zergling', name: 'Rift Skitter', role: 'Melee Swarm', hp: 37, armor: 0, damage: 6, attackSpeed: 0.55, range: 0.95, speed: 2.4, scale: 1, bounty: 1, melee: true, aggro: 2.6 },
   warrior:  { id: 'warrior', name: 'Ironback', role: 'Armored Strain', hp: 150, armor: 3, damage: 12, attackSpeed: 0.9, range: 1.05, speed: 1.35, scale: 1.32, bounty: 3, melee: true, aggro: 2.2 },
   hopper:   { id: 'hopper', name: 'Vaultling', role: 'Wall Vaulter', hp: 55, armor: 0, damage: 7, attackSpeed: 0.65, range: 0.9, speed: 2.7, scale: 0.82, bounty: 2, melee: true, jump: true, aggro: 3 },
@@ -378,6 +380,7 @@ export function wavePlan(n) {
   if (n >= 4) add(Math.min(14, 1 + Math.floor((n - 4) / 1.5)), 1, 1.5, 'warrior');      // armoured
   if (n >= 6) add(Math.min(14, 2 + Math.floor((n - 6) / 1.5)), 1.4, 0.85, 'hopper');    // wall vaulters
   if (n >= 8) add(Math.min(10, 1 + Math.floor((n - 8) / 2.5)), 2.4, 1.7, 'tanker');         // acid siege
+  if (n >= ULTRALISK.firstRound) add(Math.min(4, 1 + Math.floor((n - ULTRALISK.firstRound) / 4)), 6, 4, 'ultralisk');
   out.sort((a, b) => a.at - b.at);
   return out;
 }

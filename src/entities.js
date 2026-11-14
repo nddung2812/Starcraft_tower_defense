@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { packHeading, swarmStepClear } from './swarm.js';
 import { updateBattlecruiser } from './battlecruiser.js';
+import { cleaveDefenders } from './ultralisk.js';
 import { CELL, UNITS, BREEDS, UNIT_SCALE, BUG_SCALE, OVERDRIVE, applyBaseUpgrade, HIVE_RAID, BASE_LASER, SUPPLY } from './config.js';
 import { buildWall, buildCore, buildHatchery, buildCrate } from './models.js';
 import { makeModel } from './assets.js';
@@ -839,7 +840,7 @@ export class Zergling {
     this.obj.position.set(x, 0, z);
     this.model = makeModel(breedId);
     this.obj.add(this.model);
-    this.bar = new HealthBar(this.obj, 0.5 * this.scale, 0.07, 0.55 + 0.35 * this.scale);
+    this.bar = new HealthBar(this.obj, 0.5 * this.scale, 0.07, breedId === 'ultralisk' ? 1.45 * this.scale : 0.55 + 0.35 * this.scale);
   }
 
   update(dt, game) {
@@ -992,7 +993,8 @@ export class Zergling {
     if (this.attackCd <= 0) {
       this.attackCd = this.breed.attackSpeed;
       this.swing = 1;
-      victim.takeDamage(this.damage, game, want);
+      if (this.breedId === 'ultralisk') cleaveDefenders(this, victim, game, want);
+      else victim.takeDamage(this.damage, game, want);
     }
     this.moving = 0;
   }

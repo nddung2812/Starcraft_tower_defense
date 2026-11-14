@@ -283,3 +283,25 @@ The model and synthesized sounds are built locally; tuning below is for Ridgewat
 
 `tests/browser-battlecruiser.cjs` covers damage, charge timing, target cancellation, cooldown,
 air splash, friendly-fire exclusion, upgrades, flight, saves, hotkeys and mobile build targets.
+
+## Ultralisk siege beast
+
+The enemy roster now includes an Ultralisk, inspired by Blizzard's armoured melee
+beast (https://classic.battle.net/scc/zerg/units/ultralisk.shtml). Its procedural model
+has four animated legs, overlapping chitin plates, dorsal spikes and paired scythe tusks.
+
+- First appears in round 8: 1,300 base HP × 1.7 wave scaling = 2,210 HP, 7 armour.
+- 48 damage every 1.15s, 1.65 attack range, 1.6 base movement speed; follows normal
+  terrain routes and pack steering. It cannot fly, jump walls or attack aircraft.
+- Each swing cleaves exposed ground defenders in a 2.2-tile, 120-degree frontal arc.
+  Walls and bunkers take 60% extra damage (76.8 per swing). No duplicate primary hit,
+  hits behind the beast, damage to bunker occupants, or secondary hits through terrain.
+- One per wave at round 8, two at 12, three at 16, capped at four from round 20.
+  Appears 6 seconds into the wave, with later beasts spaced 4 seconds apart.
+- Pays 144 minerals. Standard Yamato deals 1,400 damage, leaving the first-wave beast
+  at 810 HP; aircraft, Deadeyes, and spreading ground defenders provide counterplay.
+- A warning announces its arrival once per round. Scout explains its threat and counters;
+  selecting it displays its own model and stats.
+
+`tests/browser-ultralisk.cjs` validates spawn progression, cleave boundaries, structure
+bonus, armour, aircraft/garrison protection, wall occlusion, Yamato survival and canyon traversal.

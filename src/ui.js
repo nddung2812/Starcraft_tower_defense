@@ -61,13 +61,13 @@ class Portrait {
       this.camera.position.set(1.7, 1.05, 3.15);
       this.camera.lookAt(0.05, 0.32, 0);
     } else {
-      this.current = loadedModels().includes('zergling') ? model('zergling') : buildZergling();
+      this.current = kind === 'ultralisk' ? model('ultralisk') : loadedModels().includes('zergling') ? model('zergling') : buildZergling();
       this.camera.position.set(0, 0.62, 1.7);
       this.camera.lookAt(0, 0.22, 0);
     }
     this.current.traverse((o) => { o.castShadow = false; o.receiveShadow = false; });
     this.pivot.add(this.current);
-    if (this.current.userData.fromFile || kind === 'cruiser') this.frame(this.current);
+    if (this.current.userData.fromFile || kind === 'cruiser' || kind === 'ultralisk') this.frame(this.current);
   }
 
   /** Fit the camera to a model file, whatever its proportions. */
@@ -327,6 +327,10 @@ export class UI {
       this.toast(`${b.name} unlocked (${b.key})`, b.desc, 'unlock', 9000);
     });
     game.on('streak', (t) => this.callout(`${t.name} ×${t.streak}`, `Kill streak · +${t.bonus} minerals`));
+    game.on('ultralisk', () => {
+      this.callout('ULTRALISK INBOUND', 'Heavy armour · sweeping tusks · deploy aircraft or Deadeyes', 'unit');
+      this.toast('Ultralisk at the breach', 'Spread ground troops. Walls take bonus damage; Yamato and Deadeyes pierce its armour.', 'warn', 6000);
+    });
     game.on('supply', () => {
       this.callout('Supply drop', 'Click the crate or walk a unit onto it', 'supply');
       this.toast('Supply drop near your base', 'Gold marker on the minimap. It leaves in 18 seconds.', 'supply');
@@ -417,7 +421,7 @@ export class UI {
     this.inspect = { kind, tier, entity };
     document.querySelectorAll('.tab').forEach((b) => b.classList.toggle('tab--active', b.dataset.unit === kind));
     document.querySelector('.panel').dataset.faction = kind;
-    this.portrait.show(entity?.kind === 'core' || entity?.kind === 'hive' ? entity.kind : kind, tier);
+    this.portrait.show(entity?.breedId === 'ultralisk' ? 'ultralisk' : entity?.kind === 'core' || entity?.kind === 'hive' ? entity.kind : kind, tier);
     this.renderStats();
   }
 
@@ -486,7 +490,7 @@ export class UI {
       $('pName').textContent = b.name;
       $('pRole').textContent = b.role;
       $('pFaction').textContent = ZERG_INFO.faction;
-      $('pBio').textContent = ZERG_INFO.bio;
+      $('pBio').textContent = b.id === 'ultralisk' ? 'Armoured siege beast. Sweeping tusks hit exposed ground defenders in a frontal arc and deal 60% bonus damage to walls and bunkers. Cannot hit aircraft. Counter with Yamato and armour-piercing Deadeyes; keep infantry spread out.' : ZERG_INFO.bio;
       $('pQuote').textContent = ZERG_INFO.quote;
       const hp = entity ? entity.maxHp : b.hp;
       $('stats').innerHTML =

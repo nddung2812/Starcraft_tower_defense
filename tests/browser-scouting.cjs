@@ -48,7 +48,7 @@ const assert = require('node:assert/strict');
     await page.evaluate(() => { game.level = 10; game.loadLevel(); game.state = 'build'; game.emit('change'); });
     await page.locator('#btnScout').click();
     assert.match(await page.locator('#scoutTitle').textContent(), /Round 10/);
-    assert.equal(await page.locator('.scout-threat').count(), 6);
+    assert.equal(await page.locator('.scout-threat').count(), 7);
     assert.equal(await page.locator('#scoutBoss').isVisible(), true);
     await page.screenshot({ path: '/tmp/ridgewatch-scouting-desktop.png' });
     await page.setViewportSize({ width: 390, height: 844 });

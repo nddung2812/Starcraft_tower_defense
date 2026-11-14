@@ -2,6 +2,7 @@ import { BUILD, BREEDS, wavePlan, milestonePlan, unlockRound } from './config.js
 
 // Advice follows actual weapon roles; scouting never changes wave generation or combat stats.
 const COUNTERS = {
+  ultralisk: { unit: 'cruiser', threat: 'Ultralisk siege beast', why: 'Heavy armour shrugs off rifles; sweeping tusks shred clustered ground units and barricades. Battlecruisers attack safely from the air. Use Yamato and armour-piercing Deadeyes; spread your frontline.' },
   zergling: { unit: 'scorcher', fallback: 'marine', threat: 'Swarm', why: 'Flames hit every ground enemy in a short cone. Keep the pack in front.', early: 'Overlap Lineguard firing ranges at the shared approach. Bunkers protect the firing line.' },
   warrior: { unit: 'deadeye', threat: 'Armour', why: 'Deadeye rounds ignore armour and prioritise large targets. Keep a frontline ahead of them.' },
   hopper: { unit: 'scorcher', threat: 'Wall vaulters', why: 'Vaultlings jump a single wall. Keep short-range flames behind your barricades to catch them.' },

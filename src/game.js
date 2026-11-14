@@ -127,6 +127,7 @@ export class Game {
   }
 
   loadLevel() {
+    this.ultraliskWarned = false;
     this.assault.reset();
     this.raidT = 0;
     this.raidEarned = 0;
@@ -956,6 +957,11 @@ export class Game {
           sp.y + 0.85 + (Math.random() - 0.5) * 0.28,
           s.breed, s.hpScale, s.speedScale
         );
+        if (s.breed === 'ultralisk' && !this.ultraliskWarned) {
+          this.ultraliskWarned = true;
+          this.emit('ultralisk');
+          sfx.screech();
+        }
         this.zerglings.push(z);
         this.world.add(z.obj);
         this.fx.sparks({ x: z.x, y: 0.3, z: z.z }, 0, 8, [0.7, 0.35, 1], 3, 6.28);
