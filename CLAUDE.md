@@ -37,6 +37,10 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 | `src/main.js` | Entry point. Loads models, then owns all input: selection, orders, control groups, hotkeys, camera, minimap wiring, start screen and game-over flow, the frame loop. |
 | `src/game.js` | Game state and rules: placing and selling, levels, waves, kills and score, group commands (`commandMove/Attack/Garrison/Stop`), alerts, terrain rebuild. |
 | `src/entities.js` | `Marine` (all player units: marine/goliath/tank/falcon plus the scorcher/deadeye/mender specialists), `Zergling` (all bug strains), `Wall`, `Bunker`, `Scv`, `Core`, `SupplyCrate`, projectiles. |
+| `src/opening.js` | Optional layer. The first half-minute of a round: the hive-to-base camera sweep for new commanders, the "inbound from … in about N seconds" toast, and the round-one field manual steps. |
+| `src/story.js` | Optional layer. The evacuation frame: one Ember Control radio line a round, a convoy for every round held, the result line and share text. Never touches combat or score. |
+| `src/atmosphere.js` | Optional layer. Sky dome, far ridges and the time-of-day palette (lights, fog and background) that turns every three rounds. |
+| `src/touch.js` | Optional layer. Two-finger pinch zoom and twist rotate. (Tap-to-order is `touchOrder()` in `main.js`.) |
 | `src/maw.js` | Tunnel Maw: `MawAmbush` (timing, warning marks, eruption) and the `TunnelMaw` entity that swallows, holds and releases a unit. Tuning is `MAW` in config. |
 | `src/evolutions.js` | Boss reward abilities: automatic tank siege, walker chain lightning, bunker Last Stand, descriptions and model additions. Tuning lives in config. |
 | `src/grid.js` | Tile grid, A* for player units, the shared bug route field, line-of-sight helpers. |
@@ -55,6 +59,44 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 | `src/daily.js` | Daily challenge: one seed per UTC day, today's best and day streak in `td.daily.v1`, share text. |
 | `src/fx.js`, `audio.js`, `voice.js` | Particles and decals, synthesised sound effects, speech-synthesis voice lines. |
 | `assets/models/README.md` | How to drop in `.glb` unit models. |
+
+## First impression, story, sky and touch (Nov 15, 2026)
+
+Built to answer "why would someone share this, and do they get to the good part": an audit found
+a new player waited about 27 seconds for 4 bugs, phones could not give a move order, links
+unfurled with no picture, and a run had no meaning beyond its kill count. None of this changes
+spawning, routing, stats or score.
+
+- **Optional layers.** `opening`, `story`, `atmosphere` and `touch` are loaded by `layer()` at
+  the end of `main.js` with dynamic `import()` and land in `game.extras`. A missing or failing
+  file costs that layer only (a test aborts `story.js` and plays on). Keep it that way: core
+  modules must never import them statically, and callers use `extras.story?.…`.
+- **Opening.** On `count` 2 of a fresh run's first briefing the camera sweeps to the lead hive,
+  holds while the wave opens, and returns (5.4 s). Only for the first 3 runs on a device
+  (`td.opening.v1`), never with reduced motion, and it stops the moment anything else moves
+  `stage.focus`; pointer, wheel or key input skips it back to base. It emits `openingSweep`
+  (`start`, `hive`, `end`); the story layer captions those. Every round's wave start shows one callout with
+  the attacking sides and `contactEta()` (route tiles from the flow field over Ripper pace; a test
+  holds it within 6 s of the real arrival). The round-one field manual is now step-driven
+  (`opening.guide()`), not a 5-second timer, and speaks in taps on touch screens.
+- **Touch.** With units selected, a tap on anything but one of your own units is their smart
+  order; tapping the single selected unit again deselects. A second finger hands the gesture to
+  `touch.js`, which ends the pan and swallows both fingers until they lift. Mouse is unchanged.
+- **Story.** `evacuated(rounds) = 120n + 15n(n+1)` people for `n` rounds cleared. A run that dies
+  in round N held N-1. Radio lines for rounds 1–10 follow what actually appears (spitters at 3,
+  flyers at 5, the flank at 7, the Behemoth at 8, tunnelling at 9); 16 and 21 mark three and four
+  fronts. The result screen leads with the people saved; `run.evacuated` also reaches the score
+  card and the share text. Score is still kills.
+- **Sky.** `phaseFor(level)`: afternoon, dusk, night, dawn, three rounds each. Afternoon is the
+  lighting the game always had, so rounds 1–3 look exactly as before. Fog and background share
+  each phase's haze colour. The backdrop is drawn first, never writes depth, follows the camera,
+  and is separate from the map's own meshes (which still end at the map edge).
+- **Link previews.** `index.html` has Open Graph and Twitter tags pointing at
+  `https://protectyourhome.vercel.app` (the repo's homepage); change them if the domain changes.
+  `assets/og.jpg` is rendered from a staged battle by `tests/make-og-image.cjs`; rerun it after a
+  rename or a visual change.
+- `tests/browser-opening.cjs` (sweep, estimate, manual, tap orders, pinch) and
+  `tests/browser-story.cjs` (totals, script, result, share, phases, missing layer).
 
 ## Tunnel Maw (Nov 15, 2026)
 
@@ -294,7 +336,7 @@ the balance suite checks the starting squad can clear both opening approaches.
 Left-drag pan · Shift-drag box-select · click / Shift-click / double-click or Ctrl-click (all of a type on screen) ·
 right-click = smart order (move, attack, garrison, repair, revive; never rotates the camera) · middle-drag = rotate/tilt · ⌥ + left-drag = rotate/tilt · wheel = zoom · arrows =
 scroll (no automatic edge scrolling) · Ctrl+1–9 set group, Shift+1–9 add, 1–9 select, double-tap to jump · A whole-army advance · Shift+A selected attack-move · S stop ·
-K defend (selected units stay home when the army attacks) ·
+K defend (selected units stay home when the army attacks) · touch: tap a unit, then tap ground/enemy/bunker to order it; pinch to zoom, twist to rotate ·
 F stim · R air strike · U promote · X salvage · F1 SCV · F2 all army · Space launch wave / jump to
 last alert · Esc cancel · Z redeploy last round's army · click a supply drop to collect it.
 Build hotkeys: W wall, M marine, B bunker, G goliath, T tank, V Falcon Gunship, and once unlocked
@@ -365,6 +407,18 @@ Other useful checks from development:
 Cursor has also edited this repo. Before editing, check `git status` and file modification
 times; if files are changing, stop and coordinate rather than overwrite.
 
+Other Claude Code sessions work in this same directory at the same time and commit and push to
+`main` (Nov 15, 2026: a rename, a camera change and three features landed from another session
+in fifteen minutes). So:
+
+- Check `git status` and `git log` before each batch of edits, not just the first. Names and
+  copy may have changed since you last read them.
+- Stage by explicit path. Adding a shared file takes the other session's uncommitted hunks too.
+- Never leave a tracked file importing a file that is still untracked: a commit from the other
+  session would ship a broken site. New features go in their own module, loaded through
+  `layer()` in `main.js` so that a missing file cannot stop the game.
+- `ListAgents` shows the other sessions and `SendMessage` reaches them.
+
 ## Open decisions (before going public)
 
 1. **Player-facing rebrand completed (Nov 9, 2026).** BREACHLINE: 29 uses original roster,
@@ -387,6 +441,28 @@ times; if files are changing, stop and coordinate rather than overwrite.
    - Needs: the domain and its registrar, and confirmation of Vercel + Upstash.
 4. **Leaderboard trust.** Scores come from the browser and can be forged. Sanity checks raise
    the bar; real protection needs server-side validation or replays.
+
+## Making it spread: where the playbook stands (Nov 15, 2026)
+
+Done: share card and challenge links, a local daily challenge, achievements, an online score
+API (`api/`), Open Graph tags with a rendered preview image, a first-wave camera sweep and an
+arrival estimate, a step-by-step first-round manual, touch orders and pinch zoom, and a story
+frame that gives a run a result worth posting.
+
+Not done, in the order they would help most:
+1. **The swarm arrives too late.** Round 1 is a 27-second wait for 4 Rippers; the crowd that a
+   clip would sell appears around round 8. Denser early rounds at the same total health, or a
+   veteran start at round 5, need the owner's decision: both the march and the opening counts
+   were tuned on purpose.
+2. **A shared daily board.** The daily is local only. `api/scores.js` already has run tokens and
+   rate limits; a per-day key would turn the daily into a competition with a result to post.
+3. **Run-defining choices ("Field Orders").** One of three run-long doctrines after each round,
+   rolled from the seed so a daily offers everyone the same picks. Changes balance; not built.
+4. **Clips.** A "save the last 15 seconds" or a photo mode. Nothing records today.
+5. **Where players quit.** No analytics, so every item above is a guess about the funnel.
+6. **Name and address.** The repository, its Pages URL and one Vercel project still say
+   "Starcraft", and the Titan's cannon is still called "Yamato" in player-facing text. Portals
+   and press need those gone.
 
 ## Making it spread: recommended playbook
 

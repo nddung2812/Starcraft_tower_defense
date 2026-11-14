@@ -21,6 +21,8 @@ const canvas = document.getElementById('game');
 const stage = new Stage(canvas);
 const game = new Game(stage);
 window.game = game;
+// Optional layers (touch camera, sky, story, opening) register here once loaded; see the end of this file.
+const extras = game.extras = {};
 const challenge = readChallenge();
 if (challenge) game.reset(challenge.seed);
 const ui = new UI(game);
@@ -710,9 +712,29 @@ canvas.addEventListener('pointerup', (ev) => {
     else smartCommand(tileAt(ev));
   } else if (mode === 'box' || mode === 'left') {
     if (mode === 'box' && drag.moved > 6) boxSelect(ev);
-    else if (!grabCrate(tileAt(ev))) clickSelect(tileAt(ev), ev, mode === 'box' || ev.shiftKey);
+    else {
+      const t = tileAt(ev);
+      if (!grabCrate(t) && !touchOrder(t, ev)) clickSelect(t, ev, mode === 'box' || ev.shiftKey);
+    }
   }
 });
+
+/**
+ * A touch screen has no right button. With units selected, a tap on anything but one of your
+ * own units is their order (move, attack, garrison, repair); tapping the one selected unit
+ * again lets go of it.
+ */
+function touchOrder(t, ev) {
+  if (ev.pointerType !== 'touch' || !t || !army().length) return false;
+  const e = entityAt(t);
+  if (isUnit(e)) {
+    if (selection.length !== 1 || selection[0] !== e) return false;   // another unit: select it as usual
+    select(null);
+    return true;
+  }
+  smartCommand(t);
+  return true;
+}
 
 /** A click on a supply drop collects it instead of changing the selection. */
 function grabCrate(t) {
@@ -874,6 +896,16 @@ function updateGuide() {
     guideDismissTimer = null;
     return;
   }
+  const step = extras.opening?.guide();
+  if (step) {
+    // The manual now follows what you do, not a clock: it stays until round one is over.
+    clearTimeout(guideDismissTimer);
+    guideDismissTimer = null;
+    guide.querySelector('.field-guide__tag').textContent = `FIELD MANUAL / 0${step.step}`;
+    document.getElementById('guideTitle').textContent = step.title;
+    document.getElementById('guideText').textContent = step.text;
+    return;
+  }
   if (guideDismissTimer === null) guideDismissTimer = setTimeout(dismissGuide, 5000);
   const hasSquad = game.gunners.length > 0;
   const fighting = game.state === 'brief' || game.state === 'wave';
@@ -912,7 +944,8 @@ document.getElementById('btnChallenge').addEventListener('click', async () => {
   if (!completedRun) return;
   if (!navigator.share) { await copyChallenge(); return; }
   try {
-    const text = completedRun.daily ? dailyShareText(completedRun, completedRun.daily) : `I stopped ${completedRun.score} bugs. Can you beat me on the same maps?`;
+    const text = completedRun.daily ? dailyShareText(completedRun, completedRun.daily)
+      : extras.story?.shareLine(completedRun) || `I stopped ${completedRun.score} bugs. Can you beat me on the same maps?`;
     await navigator.share({ title: 'Beat my last stand', text, url: challengeUrl(completedRun) });
     shareStatus.textContent = 'Challenge sent. The line is drawn.';
   } catch (error) {
@@ -988,6 +1021,7 @@ game.on('over', async () => {
   const previousBest = localBest();
   const run = { name: player || 'Commander', score: game.score, level: game.level, kills: game.kills,
     seconds: game.time, seed: game.mapSeed };
+  run.evacuated = extras.story?.evacuated(run) ?? null;
   const daily = recordDaily(run);
   run.daily = daily?.number || 0;
   completedRun = run;
@@ -1002,10 +1036,12 @@ game.on('over', async () => {
     : run.score > previousBest ? 'NEW PERSONAL BEST. Make this the score to beat.' : 'Your last stand. Their next challenge.';
   // Show the result immediately; a slow leaderboard must never hold up a rematch.
   ui.showBanner({ ...run, scores: [], best: Math.max(previousBest, run.score) });
+  extras.story?.annotateBanner(run);
   const result = await submitScore(run);
   const { scores } = await topScores(10);
   if (generation !== runGeneration) return;
   ui.showBanner({ ...run, ...result, scores, best: Math.max(localBest(), run.score) });
+  extras.story?.annotateBanner(run);
 });
 
 game.on('restart', () => {
@@ -1177,3 +1213,19 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden) animationFrame = requestAnimationFrame(frame);
 });
 if (!document.hidden) animationFrame = requestAnimationFrame(frame);
+
+/*
+ * Optional layers. Each loads on its own, so a missing or failing file costs that layer and
+ * nothing else; the game above never waits for them.
+ */
+function layer(name, install) {
+  return install().then((part) => { extras[name] = part; game.emit('change'); })
+    .catch((error) => console.warn(`[extras] ${name} unavailable`, error));
+}
+layer('touch', async () => (await import('./touch.js')).installTouch(canvas, stage, { cancelDrag: endDrag }));
+layer('atmosphere', async () => (await import('./atmosphere.js')).installAtmosphere(game, stage));
+layer('story', async () => (await import('./story.js')).installStory(game, ui));
+layer('opening', async () => {
+  const [opening, touch] = await Promise.all([import('./opening.js'), import('./touch.js')]);
+  return opening.installOpening({ game, stage, ui, canvas, intro, isTouch: () => touch.touchScreen(extras.touch) });
+});

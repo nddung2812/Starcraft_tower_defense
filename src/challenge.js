@@ -44,7 +44,8 @@ export function makeRunCard(canvas, run) {
   ctx.fillStyle = '#f0b23c'; ctx.font = 'bold 126px monospace';
   ctx.fillText(run.score.toLocaleString(), 64, 605);
   ctx.fillStyle = '#d9e7f2'; ctx.font = 'bold 30px monospace';
-  ctx.fillText('BUGS STOPPED', 64, 652);
+  // What the stand was worth, when the story layer supplied it.
+  ctx.fillText(run.evacuated ? `BUGS STOPPED  ·  ${run.evacuated.toLocaleString()} EVACUATED` : 'BUGS STOPPED', 64, 652);
   ctx.font = '24px monospace'; ctx.fillStyle = '#8ca5bb';
   ctx.fillText(`${run.name}  /  LEVEL ${run.level}  /  ${Math.floor(run.seconds / 60)}m ${Math.floor(run.seconds % 60)}s`, 64, 722);
   ctx.fillStyle = '#5ad7ff'; ctx.fillRect(64, 774, 1072, 2);

@@ -172,6 +172,23 @@ balance as permanent treasure stacks and enemy HP grow.
   bosses and multiple hives, laser damage/charging/carryover, mouse controls and mobile layout.
 
 
+## Opening, story and sky (Nov 15, 2026)
+
+Presentation only: no spawn, route, stat, economy or score change.
+
+- Measured before the change: on round 1 the first Ripper reaches the squad about 27 seconds
+  after Play, and the round has 4 of them. That wait is unchanged. It now carries a camera sweep
+  to the hive (new commanders only), a callout naming the attacking sides with an arrival estimate
+  (22 s promised, 23.2 s measured on the test seed), and a three-step field manual.
+- Evacuation: clearing round `r` sends a convoy of `120 + 30r` people; `n` rounds held is
+  `120n + 15n(n+1)` in total (5 rounds: 1,050; 10: 2,850; 20: 8,700). Shown on round clear, on
+  the result screen, on the score card and in the share text. It is a readout of rounds held,
+  not a second score.
+- Time of day turns every three rounds: afternoon (the original lighting), dusk, night, dawn.
+  Sun strength stays between 1.85 and 2.2 so units read the same; hue, fog and sky change.
+- Not playtested by a person: whether the sweep feels like a welcome or an interruption, and
+  whether dusk and night are still easy to read on a phone in daylight.
+
 ## Tunnel Maw (Nov 15, 2026)
 
 A burrowing worm that ambushes instead of marching. Tuning is `MAW` in `src/config.js`.
