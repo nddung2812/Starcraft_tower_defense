@@ -1,4 +1,4 @@
-import { ARMORY, TREASURE, TREASURE_RULES, BUILD, UNITS, CELL, applyBaseUpgrade, BASE_LASER, YAMATO } from './config.js';
+import { ARMORY, TREASURE, TREASURE_RULES, BUILD, UNITS, CELL, applyBaseUpgrade, BASE_UPGRADE, BASE_LASER, YAMATO } from './config.js';
 import { Grid } from './grid.js';
 import { carveLevel, SUPPORTED_MAP_VERSIONS } from './levels.js';
 import { Marine, Wall, Bunker } from './entities.js';
@@ -17,7 +17,7 @@ export function captureCheckpoint(g, meta) {
   const snapshot = {
     version: 1, savedAt: Date.now(), ...meta,
     level: g.level, seed: g.mapSeed, minerals: g.minerals, kills: g.kills, time: g.time,
-    mapVersion: g.mapVersion, baseLevel: g.baseLevel, laserCharge: g.laserCharge,
+    mapVersion: g.mapVersion, baseLevel: g.baseLevel, baseUpgradeT: g.baseUpgradeT, laserCharge: g.laserCharge,
     airStrikeCd: g.airStrikeCd, phase: g.state, coreHp: g.core.hp,
     armory: g.armory.map(a => a.id),
     evolutions: { ...g.evolutions },
@@ -47,6 +47,7 @@ export function validateCheckpoint(s) {
       !['build', 'brief'].includes(s.phase) || !number(s.coreHp, 0.001)) return false;
     if (s.laserCharge !== undefined && !number(s.laserCharge, 0, BASE_LASER.chargeTime)) return false;
     if (s.baseLevel !== undefined && !integer(s.baseLevel, 0, 100000)) return false;
+    if (s.baseUpgradeT !== undefined && !number(s.baseUpgradeT, 0, BASE_UPGRADE.maxTime)) return false;
     if (s.mapVersion !== undefined && !SUPPORTED_MAP_VERSIONS.includes(s.mapVersion)) return false;
     if (s.evolutions !== undefined && (!s.evolutions || Array.isArray(s.evolutions) || typeof s.evolutions !== 'object' ||
       !Object.entries(s.evolutions).every(([id, rank]) => EVOLUTIONS.some(e => e.id === id) && integer(rank, 1, 20000)) ||
@@ -122,7 +123,7 @@ export function restoreCheckpoint(g, s) {
   if (!validateCheckpoint(s)) throw Error('This saved run is incompatible or damaged.');
   g.wipeUnits();
   Object.assign(g, { level: s.level, mapSeed: s.seed, minerals: s.minerals, kills: s.kills, score: s.kills,
-    mapVersion: s.mapVersion ?? 1, baseLevel: s.baseLevel ?? 0, laserCharge: s.laserCharge ?? 0,
+    mapVersion: s.mapVersion ?? 1, baseLevel: s.baseLevel ?? 0, baseUpgradeT: s.baseUpgradeT ?? 0, laserCharge: s.laserCharge ?? 0,
     time: s.time, airStrikeCd: s.airStrikeCd, state: 'build', paused: true, queue: [],
     armory: s.armory.map(id => ARMORY.find(a => a.id === id)),
     evolutions: { ...(s.evolutions || {}) }, pendingEvolution: null,

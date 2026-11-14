@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { indexSwarm } from './swarm.js';
-import { CELL, BUILD, ECON, ARMORY, UNITS, AIR_STRIKE, TREASURE, TREASURE_RULES, baseUpgradeCost, applyBaseUpgrade, HIVE_RAID, BASE_LASER, wavePlan, STREAK, SUPPLY, unlockRound } from './config.js';
+import { CELL, BUILD, ECON, ARMORY, UNITS, AIR_STRIKE, TREASURE, TREASURE_RULES, baseUpgradeCost, baseUpgradeTime, applyBaseUpgrade, HIVE_RAID, BASE_LASER, wavePlan, STREAK, SUPPLY, unlockRound } from './config.js';
 import { Grid } from './grid.js';
 import { carveLevel, MAP_VERSION } from './levels.js';
 import { Marine, Zergling, Wall, Bunker, Scv, Core, Hive, Tracer, Shell, AirBomb, SupplyCrate } from './entities.js';
@@ -91,6 +91,7 @@ export class Game {
     this.mapSeed = Number.isInteger(seed) ? seed >>> 0 : (Math.random() * 0x7fffffff) >>> 0;
     this.minerals = ECON.startMinerals;
     this.baseLevel = 0;
+    this.baseUpgradeT = 0;
     this.laserCharge = 0;
     this.kills = 0;
     this.score = 0;
@@ -160,7 +161,7 @@ export class Game {
     this.rebuildTerrain(layout);
 
     if (this.core) this.world.remove(this.core.obj);
-    this.core = new Core(layout.core);
+    this.core = new Core(layout.core, this.baseLevel);
     this.world.add(this.core.obj);
 
     if (this.scv) this.world.remove(this.scv.obj);
@@ -247,10 +248,29 @@ export class Game {
     return targets.reduce((best, target) => !best || unit.distTo(target) < unit.distTo(best) ? target : best, null);
   }
 
+  /** Seconds the research in progress takes in total, and whether one is running. */
+  get baseUpgradeTime() { return baseUpgradeTime(this.baseLevel); }
+  get baseUpgrading() { return this.baseUpgradeT > 0; }
+
+  /** Pay for the next research level and start building it; it lands when the timer runs out. */
   upgradeBase() {
-    if (!['build', 'brief', 'wave', 'raid'].includes(this.state) || this.core.dead || !this.canAfford(this.baseUpgradeCost)) return false;
+    if (!['build', 'brief', 'wave', 'raid'].includes(this.state) || this.core.dead || this.baseUpgrading
+      || !this.canAfford(this.baseUpgradeCost)) return false;
     this.minerals -= this.baseUpgradeCost;
+    this.baseUpgradeT = this.baseUpgradeTime;
+    this.fx.ring({ x: this.core.x, z: this.core.z }, 1.6, 0xffd36a);
+    sfx.place?.();
+    this.emit('baseUpgradeStarted', this.baseLevel + 1);
+    this.emit('change');
+    return true;
+  }
+
+  /** The research in progress lands now: the timer calls this, and so can anything that must not wait. */
+  completeBaseUpgrade() {
+    if (!this.baseUpgrading) return false;
+    this.baseUpgradeT = 0;
     this.baseLevel++;
+    this.core.setLevel(this.baseLevel, true);
     for (const unit of this.gunners) {
       unit.baseLevel = this.baseLevel;
       unit.applyStats(this.marineUpgrades);
@@ -264,6 +284,7 @@ export class Game {
     }
     this.fx.ring({ x: this.core.x, z: this.core.z }, 3, 0xffd36a);
     sfx.upgrade();
+    this.emit('baseUpgraded', this.baseLevel);
     this.emit('change');
     return true;
   }
@@ -947,6 +968,10 @@ export class Game {
     if (this.paused || this.pendingEvolution || this.state === 'defeat') return;
     this.laserCharge = Math.min(BASE_LASER.chargeTime, this.laserCharge + dt);
     if (this.laserCharge >= BASE_LASER.chargeTime - 1e-9) this.laserCharge = BASE_LASER.chargeTime;
+    if (this.baseUpgradeT > 0) {
+      this.baseUpgradeT -= dt;
+      if (this.baseUpgradeT <= 1e-9) { this.baseUpgradeT = 1e-9; this.completeBaseUpgrade(); }
+    }
     this.time += dt;
     this.updateWater?.(this.time);
     if (this.airStrikeCd > 0) this.airStrikeCd = Math.max(0, this.airStrikeCd - dt);

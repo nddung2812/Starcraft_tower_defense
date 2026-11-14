@@ -3,7 +3,7 @@ import { packHeading, swarmStepClear } from './swarm.js';
 import { updateBattlecruiser } from './battlecruiser.js';
 import { cleaveDefenders } from './ultralisk.js';
 import { CELL, UNITS, BREEDS, UNIT_SCALE, BUG_SCALE, OVERDRIVE, applyBaseUpgrade, HIVE_RAID, BASE_LASER, SUPPLY, BUNKER_WEAPONS } from './config.js';
-import { buildWall, buildCore, buildHatchery, buildCrate } from './models.js';
+import { buildWall, buildCore, upgradeCore, buildHatchery, buildCrate } from './models.js';
 import { makeModel } from './assets.js';
 import { EVOLUTION_RULES, evolutionPower } from './config.js';
 import { packSiege, updateUnitEvolution, updateBunkerEvolution, triggerLastStand, chainLightning } from './evolutions.js';
@@ -792,7 +792,7 @@ export class Hive {
 }
 
 export class Core {
-  constructor(spec) {
+  constructor(spec, level = 0) {
     this.kind = 'core';
     this.tx = spec.x; this.ty = spec.y;
     this.w = spec.w; this.h = spec.h;
@@ -804,8 +804,17 @@ export class Core {
 
     this.obj = new THREE.Group();
     this.obj.position.set(this.x, 0, this.z);
-    this.model = buildCore();
+    this.model = buildCore(level);
     this.obj.add(this.model);
+    this.level = level;
+    this.pop = null;
+    this.weldT = 0;
+    // Construction hoop that sweeps up the building while research is under way.
+    this.scan = new THREE.Mesh(new THREE.TorusGeometry(1.18, 0.02, 6, 48),
+      new THREE.MeshBasicMaterial({ color: 0xffd36a, transparent: true, opacity: 0.8, depthWrite: false }));
+    this.scan.rotation.x = Math.PI / 2;
+    this.scan.visible = false;
+    this.obj.add(this.scan);
 
     this.light = new THREE.PointLight(0xffc56a, 6, 7, 2);
     this.light.position.set(1.0, 0.7, 0);
@@ -813,7 +822,18 @@ export class Core {
 
     this.bar = new HealthBar(this.obj, 1.6, 0.12, 2.35);
     this.laserBar = new HealthBar(this.obj, 1.6, 0.12, 2.35, 0xff3020);
+    this.buildBar = new HealthBar(this.obj, 1.6, 0.12, 2.35, 0xffd36a);
     this.laserFlash = 0;
+    this.light.intensity = 6 + Math.min(level, 12) * 0.5;
+  }
+
+  /** Redress the building for a research level; `animate` grows the newest addition into place. */
+  setLevel(level, animate = false) {
+    this.level = level;
+    const newest = upgradeCore(this.model, level);
+    this.light.intensity = 6 + Math.min(level, 12) * 0.5;
+    this.pop = animate && newest ? { group: newest, t: 0 } : null;
+    if (this.pop) newest.scale.setScalar(0.01);
   }
 
   fireLaser(ux, uz) {
@@ -827,6 +847,31 @@ export class Core {
   update(dt, game) {
     const ud = this.model.userData;
     ud.dish.rotation.y += dt * 0.7;
+    // Research dressing: turning halos, the mast beacon, breathing pylon lights and the sky beam.
+    for (const s of ud.spin) s.obj.rotation.y += dt * s.speed;
+    for (const m of ud.blink) m.emissiveIntensity = (game.time % 1.4) < 0.25 ? 4 : 0.3;
+    for (const m of ud.pulse) m.emissiveIntensity = 2.2 + Math.sin(game.time * 2.4) * 0.9;
+    if (ud.beam) ud.beam.opacity = 0.17 + Math.sin(game.time * 1.7) * 0.05;
+    if (this.pop) {
+      this.pop.t = Math.min(1, this.pop.t + dt / 0.6);
+      const k = this.pop.t, back = 1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2);   // ease out, slight overshoot
+      this.pop.group.scale.setScalar(Math.max(0.01, back));
+      if (k >= 1) { this.pop.group.scale.setScalar(1); this.pop = null; }
+    }
+    const building = game.baseUpgrading && !this.dead;
+    this.scan.visible = building;
+    if (building) {
+      const done = 1 - game.baseUpgradeT / game.baseUpgradeTime;
+      this.scan.position.y = 0.1 + ((game.time * 0.9) % 1) * 1.5;
+      this.scan.material.opacity = 0.35 + 0.5 * Math.abs(Math.sin(game.time * 6));
+      this.weldT -= dt;
+      if (this.weldT <= 0) {
+        this.weldT = 0.22 + Math.random() * 0.2;
+        const a = Math.random() * Math.PI * 2, r = 0.75 + Math.random() * 0.3;
+        game.fx.sparks({ x: this.x + Math.cos(a) * r, y: 0.3 + Math.random() * 0.9, z: this.z + Math.sin(a) * r }, a, 5, [1, 0.8, 0.4], 3, 1.6);
+      }
+      this.buildDone = done;
+    }
     if (!this.dead && !game.paused && !game.pendingEvolution && ['wave', 'raid'].includes(game.state)) {
       // Defend against the nearest mobile threat first, then attack surviving bases.
       let target = null, best = Infinity;
@@ -852,6 +897,10 @@ export class Core {
     this.laserBar.set(game.laserCharge / BASE_LASER.chargeTime, game.camera, true);
     // Keep the second bar directly below health as the camera rotates and tilts.
     this.laserBar.group.position.set(0, -0.12, 0).applyQuaternion(game.camera.quaternion).add(this.bar.group.position);
+    if (building) {
+      this.buildBar.set(this.buildDone, game.camera, true);
+      this.buildBar.group.position.set(0, -0.24, 0).applyQuaternion(game.camera.quaternion).add(this.bar.group.position);
+    } else this.buildBar.group.visible = false;
   }
 
   takeDamage(amount, game, fromAngle) {

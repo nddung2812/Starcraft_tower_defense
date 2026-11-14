@@ -855,7 +855,7 @@ export function buildScv() {
   return g;
 }
 
-export function buildCore() {
+export function buildCore(level = 0) {
   const g = new THREE.Group();
   const hull = new THREE.MeshStandardMaterial({ color: 0x9aa3ab, metalness: 0.86, roughness: 0.34 });
   const dark = new THREE.MeshStandardMaterial({ color: 0x2c333a, metalness: 0.8, roughness: 0.46 });
@@ -933,8 +933,147 @@ export function buildCore() {
     g.add(mesh(box(0.05, 0.07, 0.04, 0.01), pip, 0.62, 0.58, -0.22 + i * 0.1));
   });
 
-  g.userData = { dish, laserTurret, laserMuzzle };
+  g.userData = { dish, laserTurret, laserMuzzle, hull };
+  upgradeCore(g, level);
   return g;
+}
+
+/** What each base research level adds to the building; past the list, every level still adds a stud and glow. */
+export const CORE_STAGES = [
+  'Lit gallery', 'Armour buttresses', 'Beacon mast', 'Gold command band', 'Guard pylons',
+  'Power conduits', 'Halo ring', 'Pylon crowns', 'Spire crown', 'Sky beacon'
+];
+
+/**
+ * Dress the base for its research level. Every level adds something of its own (kept in its own
+ * group, so the newest one can be animated in) on top of everything earlier levels added.
+ * Rebuilds in place and returns the newest level's group, or null at level 0.
+ */
+export function upgradeCore(g, level = 0) {
+  const ud = g.userData;
+  if (ud.upgrades) {
+    g.remove(ud.upgrades);
+    ud.upgrades.traverse((o) => { o.geometry?.dispose(); o.material?.dispose(); });
+  }
+  const root = ud.upgrades = new THREE.Group();
+  g.add(root);
+  ud.level = level;
+  ud.spin = [];
+  ud.blink = [];
+  ud.pulse = [];
+  // The hull cleans up from field grey to bright plate over the first ten levels.
+  ud.hull.color.setHex(0x9aa3ab).lerp(new THREE.Color(0xdfe6ee), Math.min(1, level / 10) * 0.75);
+  if (level <= 0) return null;
+
+  const glowBoost = 1 + Math.min(level, 20) * 0.06;
+  const lit = (color, intensity = 1.6) => new THREE.MeshStandardMaterial({
+    color, emissive: color, emissiveIntensity: intensity * glowBoost, roughness: 0.3
+  });
+  const steel = new THREE.MeshStandardMaterial({ color: 0x58626c, metalness: 0.85, roughness: 0.38 });
+  const gold = new THREE.MeshStandardMaterial({ color: 0xe2b23f, emissive: 0x6b4708, emissiveIntensity: 0.5, metalness: 0.95, roughness: 0.24 });
+  const cyan = lit(0x7fe3ff), amber = lit(0xffc45a, 1.3);
+  const tiers = [];
+  const tier = (n) => {
+    if (!tiers[n]) { tiers[n] = new THREE.Group(); tiers[n].name = `CoreStage${n}`; root.add(tiers[n]); }
+    return tiers[n];
+  };
+  const around = (count, radius, y, make, offset = 0) => {
+    for (let i = 0; i < count; i++) {
+      const a = offset + (i / count) * Math.PI * 2;
+      const part = make(i, a);
+      part.position.set(Math.cos(a) * radius, y, Math.sin(a) * radius);
+      part.rotation.y = -a;
+    }
+  };
+
+  // One glowing foundation stud per level, so even very high levels keep changing.
+  const studs = Math.min(level, 24);
+  for (let i = 0; i < studs; i++) {
+    const a = Math.PI / 24 + (i / 24) * Math.PI * 2;
+    const stud = mesh(box(0.05, 0.06, 0.09, 0.012), i % 2 ? amber : cyan, Math.cos(a) * 1.06, 0.15, Math.sin(a) * 1.06);
+    stud.rotation.y = -a;
+    tier(Math.min(i + 1, level)).add(stud);
+  }
+
+  // 1: a ring of lit windows round the drum
+  around(12, 0.785, 0.5, () => { const w = mesh(box(0.035, 0.09, 0.13, 0.01), cyan); tier(1).add(w); return w; }, Math.PI / 12);
+  // 2: four armour buttresses bracing the drum
+  if (level >= 2) around(4, 0.93, 0.36, () => {
+    const b = new THREE.Group();
+    const slab = mesh(box(0.2, 0.52, 0.34, 0.04), steel, 0, 0, 0); slab.rotation.z = 0.32; b.add(slab);
+    b.add(mesh(box(0.1, 0.07, 0.36, 0.02), new THREE.MeshStandardMaterial({ color: 0xc22830, metalness: 0.5, roughness: 0.4 }), -0.06, 0.27, 0));
+    tier(2).add(b); return b;
+  }, Math.PI / 4);
+  // 3: a signal mast with a blinking beacon, opposite the bridge tower
+  if (level >= 3) {
+    const mast = new THREE.Group(); mast.position.set(-0.5, 0.8, -0.48);
+    mast.add(mesh(new THREE.CylinderGeometry(0.022, 0.035, 1.0, 6), steel, 0, 0.5, 0));
+    for (const y of [0.55, 0.75]) mast.add(mesh(box(0.26, 0.02, 0.02, 0.005), steel, 0, y, 0));
+    const beacon = lit(0xff4a3a, 2.4);
+    mast.add(mesh(new THREE.SphereGeometry(0.05, 10, 8), beacon, 0, 1.03, 0));
+    ud.blink.push(beacon);
+    tier(3).add(mast);
+  }
+  // 4: gold command band and gold caps on the foundation blocks
+  if (level >= 4) {
+    const band = mesh(new THREE.TorusGeometry(0.775, 0.035, 8, 32), gold, 0, 0.75, 0); band.rotation.x = Math.PI / 2;
+    tier(4).add(band);
+    around(8, 0.86, 0.385, () => { const cap = mesh(box(0.3, 0.03, 0.2, 0.01), gold); tier(4).add(cap); return cap; });
+  }
+  // 5: four guard pylons at the corners
+  const pylonAt = [];
+  if (level >= 5) around(4, 1.13, 0, (i, a) => {
+    const p = new THREE.Group();
+    p.add(mesh(new THREE.CylinderGeometry(0.07, 0.1, 0.7, 8), steel, 0, 0.35, 0));
+    p.add(mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.05, 8), gold, 0, 0.7, 0));
+    const orb = lit(0x7fe3ff, 2.2);
+    p.add(mesh(new THREE.SphereGeometry(0.075, 12, 8), orb, 0, 0.8, 0));
+    ud.pulse.push(orb);
+    pylonAt.push(a);
+    tier(5).add(p); return p;
+  }, Math.PI / 4);
+  // 6: power conduits up the drum and a lit ring on the ground
+  if (level >= 6) {
+    around(12, 0.79, 0.52, () => { const c = mesh(box(0.03, 0.4, 0.035, 0.008), amber); tier(6).add(c); return c; });
+    const ground = mesh(new THREE.RingGeometry(1.2, 1.27, 48), new THREE.MeshBasicMaterial({ color: 0xffc45a, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false }), 0, 0.03, 0);
+    ground.rotation.x = -Math.PI / 2; ground.castShadow = false;
+    tier(6).add(ground);
+  }
+  // 7: a slowly turning halo above the dome
+  const halo = (radius, y, tilt, speed, n) => {
+    const h = new THREE.Group(); h.position.y = y; h.rotation.z = tilt;
+    const ring = new THREE.Group(); h.add(ring);
+    const hoop = mesh(new THREE.TorusGeometry(radius, 0.022, 8, 48), gold); hoop.rotation.x = Math.PI / 2; ring.add(hoop);
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * Math.PI * 2;
+      ring.add(mesh(box(0.1, 0.06, 0.06, 0.012), cyan, Math.cos(a) * radius, 0, Math.sin(a) * radius));
+    }
+    ud.spin.push({ obj: ring, speed });
+    tier(n).add(h);
+  };
+  if (level >= 7) halo(0.95, 1.0, 0.1, 0.6, 7);
+  // 8: gold crowns and orbiting rings on the pylons
+  if (level >= 8) for (const a of pylonAt) {
+    const top = new THREE.Group(); top.position.set(Math.cos(a) * 1.13, 0.8, Math.sin(a) * 1.13);
+    const ring = mesh(new THREE.TorusGeometry(0.14, 0.014, 6, 20), gold); ring.rotation.x = Math.PI / 2.6;
+    top.add(ring);
+    top.add(mesh(new THREE.ConeGeometry(0.035, 0.16, 6), gold, 0, 0.16, 0));
+    ud.spin.push({ obj: top, speed: 1.6 });
+    tier(8).add(top);
+  }
+  // 9: a crown of spires round the upper deck
+  if (level >= 9) around(8, 0.62, 0.99, () => { const sp = mesh(new THREE.ConeGeometry(0.04, 0.22, 6), gold); tier(9).add(sp); return sp; }, Math.PI / 8);
+  // 10: a second halo and a beacon of light into the sky
+  if (level >= 10) {
+    halo(0.72, 1.82, -0.16, -0.9, 10);
+    const beamMat = new THREE.MeshBasicMaterial({ color: 0xffe2a0, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+    const beam = mesh(new THREE.CylinderGeometry(0.05, 0.16, 3.4, 12, 1, true), beamMat, -0.5, 3.5, -0.48);
+    beam.castShadow = false; beam.receiveShadow = false;
+    ud.beam = beamMat;
+    tier(10).add(beam);
+  } else ud.beam = null;
+
+  return tiers[Math.min(level, tiers.length - 1)] || null;
 }
 
 export function buildHatchery() {

@@ -119,7 +119,7 @@ const assert = require('node:assert/strict');
       check(a.hp === a.maxHp, 'Medic heals on its own during play');
       out.mender = { heal: medic.stats.damage, range: medic.attackRange };
       // A promotion and base research scale the specialists like every other unit.
-      g.upgradeBase(); check(g.upgradeGunner(medic) && medic.rank === 'Chief Medic' && medic.stats.damage === 20 * 1.15, 'Medic promotion and research');
+      g.upgradeBase(); g.completeBaseUpgrade(); check(g.upgradeGunner(medic) && medic.rank === 'Chief Medic' && medic.stats.damage === 20 * 1.15, 'Medic promotion and research');
 
       // Kill streaks: each tier pays once, and the streak lapses after the window.
       fresh(1); g.state = 'wave';

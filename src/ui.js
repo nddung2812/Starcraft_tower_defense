@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { installScouting } from './scouting.js';
 import { startYamato, yamatoTarget } from './battlecruiser.js';
 import { BUILD, ZERG_INFO, BREEDS, ECON, UNITS, AIR_STRIKE, OVERDRIVE, BASE_UPGRADE, BASE_LASER, YAMATO, applyBaseUpgrade } from './config.js';
-import { buildZergling, buildWall, buildCore, buildHatchery } from './models.js';
+import { buildZergling, buildWall, buildCore, buildHatchery, CORE_STAGES } from './models.js';
 import { makeModel, loadedModels } from './assets.js';
 import { EVOLUTIONS, EVOLUTION_RULES } from './config.js';
 import { evolutionDescription } from './evolutions.js';
@@ -42,7 +42,7 @@ class Portrait {
     if (this.current) this.pivot.remove(this.current);
     const model = (k) => makeModel(k, tier, { rim: false });
     if (kind === 'core' || kind === 'hive') {
-      this.current = kind === 'core' ? buildCore() : buildHatchery();
+      this.current = kind === 'core' ? buildCore(tier) : buildHatchery();
       this.frame(this.current);
     } else if (['marine', 'scorcher', 'deadeye', 'mender'].includes(kind)) {
       this.current = model(kind);
@@ -323,6 +323,11 @@ export class UI {
       this.raidNoticeTimer = setTimeout(() => { $('raidNotice').hidden = true; }, 2000);
     });
     game.on('unlock', (u) => this.toast(`Armory unlocked — ${u.name}`, u.effect, 'unlock'));
+    game.on('baseUpgraded', (level) => {
+      const stage = CORE_STAGES[level - 1];
+      this.toast(`Base level ${level}`, `${stage ? stage + ' added. ' : ''}All units +${Math.round(BASE_UPGRADE.bonus * 100)}% health and damage.`, 'unlock', 4500);
+      if (this.inspect.entity?.kind === 'core') this.showUnit(this.inspect.kind, this.inspect.tier, this.inspect.entity);
+    });
     game.on('unitUnlocked', (b) => {
       this.newCards.add(b.id);
       this.callout('New unit unlocked', `${b.name} · press ${b.key} · ${b.cost} minerals`, 'unit');
@@ -428,7 +433,7 @@ export class UI {
     this.inspect = { kind, tier, entity };
     document.querySelectorAll('.tab').forEach((b) => b.classList.toggle('tab--active', b.dataset.unit === kind));
     document.querySelector('.panel').dataset.faction = kind;
-    this.portrait.show(entity?.breedId === 'ultralisk' || entity?.breedId === 'maw' ? entity.breedId : entity?.kind === 'core' || entity?.kind === 'hive' ? entity.kind : kind, tier);
+    this.portrait.show(entity?.breedId === 'ultralisk' || entity?.breedId === 'maw' ? entity.breedId : entity?.kind === 'core' || entity?.kind === 'hive' ? entity.kind : kind, entity?.kind === 'core' ? this.game.baseLevel : tier);
     this.renderStats();
   }
 
@@ -768,11 +773,19 @@ export class UI {
       this.toast('Laser ready', 'Auto-fire armed. The cannon fires when an enemy is available.', 'unlock', 5000);
     }
     this.laserAnnounced = g.laserReady;
-    $('btnBaseUpgrade').textContent = `Upgrade base · ${g.baseUpgradeCost} minerals`;
-    $('btnBaseUpgrade').disabled = g.minerals < g.baseUpgradeCost || g.state === 'defeat';
+    const upgrading = g.baseUpgrading, left = Math.ceil(g.baseUpgradeT);
+    const done = upgrading ? Math.round((1 - g.baseUpgradeT / g.baseUpgradeTime) * 100) : 0;
+    $('btnBaseUpgrade').textContent = upgrading ? `Upgrading base · ${left}s` : `Upgrade base · ${g.baseUpgradeCost} minerals`;
+    $('btnBaseUpgrade').disabled = upgrading || g.minerals < g.baseUpgradeCost || g.state === 'defeat';
+    // The button fills as the work goes on.
+    $('btnBaseUpgrade').style.backgroundImage = upgrading
+      ? `linear-gradient(90deg, rgba(255, 211, 106, 0.45) ${done}%, rgba(255, 211, 106, 0.08) ${done}%)` : '';
     const bonus = Math.round(g.baseLevel * BASE_UPGRADE.bonus * 100);
-    $('baseBonus').textContent = `Lv ${g.baseLevel} · +${bonus}% HP / damage`;
-    $('btnBaseUpgrade').title = 'Each level: +15% health for all units, +15% damage for all combat units. Applies to current and future units; lasts for this run.';
+    const next = CORE_STAGES[g.baseLevel];
+    $('baseBonus').textContent = upgrading
+      ? `Lv ${g.baseLevel} → ${g.baseLevel + 1}${g.paused ? ' · paused' : ''}${next ? ' · ' + next : ''}`
+      : `Lv ${g.baseLevel} · +${bonus}% HP / damage`;
+    $('btnBaseUpgrade').title = `Each level: +15% health for all units, +15% damage for all combat units, and a visible addition to the base${next ? ' (next: ' + next + ')' : ''}. Takes ${g.baseUpgradeTime}s to build. Applies to current and future units; lasts for this run.`;
     const aiming = $('btnLaser').getAttribute('aria-pressed') === 'true';
     $('btnLaser').textContent = aiming ? 'Cancel laser aim' : g.laserReady ? 'Fire laser (L)' : `Laser · ${Math.floor(g.laserCharge / BASE_LASER.chargeTime * 100)}%`;
     $('btnLaser').disabled = g.paused || !g.laserReady || !['wave', 'raid'].includes(g.state);

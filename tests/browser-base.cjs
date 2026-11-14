@@ -21,6 +21,10 @@ const assert = require('node:assert/strict');
       const rejected = !g.upgradeBase() && g.minerals === 199 && g.baseLevel === 0;
       g.minerals = 200;
       document.getElementById('btnBaseUpgrade').click();
+      // Research is paid at once but lands after a short build; nothing changes until then.
+      const started = g.minerals === 0 && g.baseLevel === 0 && g.baseUpgrading && m.stats.damage === 8;
+      g.minerals = 5000; const queued = !g.upgradeBase() && g.minerals === 5000; g.minerals = 0;
+      g.completeBaseUpgrade();
       const first = { level: g.baseLevel, minerals: g.minerals, cost: g.baseUpgradeCost, damage: m.stats.damage, maxHp: m.maxHp, ratio: m.hp / m.maxHp, scv: g.scv.maxHp };
       const future = Object.keys(UNITS).map(kind => {
         const unit = new Marine(kind, 1, 1, g.marineUpgrades, g.baseLevel);
@@ -30,7 +34,7 @@ const assert = require('node:assert/strict');
       });
       // A garrisoned and downed unit receives the same run upgrade without reviving.
       m.downed = true; m.hp = 0; g.minerals = 350;
-      const second = g.upgradeBase();
+      const second = g.upgradeBase() && g.completeBaseUpgrade();
       const downed = m.downed && m.hp === 0 && m.stats.damage === 8 * 1.3;
       m.downed = false; m.hp = m.maxHp;
       g.laserCharge = 47.5;
@@ -45,10 +49,46 @@ const assert = require('node:assert/strict');
       delete legacy.baseLevel; delete legacy.laserCharge;
       const oldValid = validateCheckpoint(legacy);
       restoreCheckpoint(g, legacy);
-      const oldDefaults = g.baseLevel === 0 && g.laserCharge === 0;
-      return { rejected, first, future, second, downed, valid, invalid, restored, oldValid, oldDefaults };
+      const oldDefaults = g.baseLevel === 0 && g.laserCharge === 0 && g.baseUpgradeT === 0;
+      // The build timer: frozen while paused, six seconds for the first level, saved mid-build.
+      const { BASE_UPGRADE, baseUpgradeTime } = await import('/src/config.js');
+      const { buildCore, CORE_STAGES } = await import('/src/models.js');
+      const render = g.stage.render; g.stage.render = () => {};
+      g.reset(123); g.paused = false; g.minerals = 200;
+      const begun = g.upgradeBase() && g.baseUpgradeT === 6 && g.baseUpgradeTime === 6;
+      g.paused = true; g.update(30); const frozen = g.baseUpgradeT === 6; g.paused = false;
+      for (let i = 0; i < 59; i++) g.update(0.1);
+      const pending = g.baseLevel === 0 && g.baseUpgrading && g.core.scan.visible && g.core.buildBar.group.visible;
+      const midSave = captureCheckpoint(g, { player: 'Tester', quickDeployment: true, guideDismissed: true });
+      const midValid = validateCheckpoint(midSave) && Math.abs(midSave.baseUpgradeT - 0.1) < 1e-6
+        && [-1, BASE_UPGRADE.maxTime + 1, '3'].every(baseUpgradeT => !validateCheckpoint({ ...midSave, baseUpgradeT }));
+      for (let i = 0; i < 2; i++) g.update(0.1);
+      const landed = g.baseLevel === 1 && !g.baseUpgrading && !g.core.scan.visible && !g.core.buildBar.group.visible
+        && !!g.core.model.getObjectByName('CoreStage1') && g.core.pop !== null;
+      for (let i = 0; i < 10; i++) g.update(0.1);
+      const settled = g.core.pop === null && g.core.model.getObjectByName('CoreStage1').scale.x === 1;
+      restoreCheckpoint(g, midSave);
+      const resumed = g.baseLevel === 0 && Math.abs(g.baseUpgradeT - 0.1) < 1e-6 && g.minerals === 0;
+      g.paused = false; g.update(0.2);
+      const resumedLanded = g.baseLevel === 1 && g.core.level === 1;
+      // The look carries onto the next map, and every level adds something to the building.
+      g.minerals = 5000; for (let i = 0; i < 3; i++) { g.upgradeBase(); g.completeBaseUpgrade(); }
+      g.loadLevel();
+      const carried = g.core.level === 4 && !!g.core.model.getObjectByName('CoreStage4');
+      const count = n => { let c = 0; buildCore(n).traverse(o => { if (o.isMesh) c++; }); return c; };
+      const meshes = Array.from({ length: 16 }, (_, n) => count(n));
+      const grows = meshes.every((c, n) => n === 0 || c > meshes[n - 1]);
+      const times = [0, 1, 6, 50].map(baseUpgradeTime);
+      g.minerals = 1e6; for (let i = 0; i < 12; i++) { g.upgradeBase(); g.completeBaseUpgrade(); g.update(0.7); }
+      const high = g.baseLevel === 16 && g.core.model.userData.spin.length > 0 && CORE_STAGES.length === 10;
+      g.stage.render = render;
+      g.reset(123);
+      const timer = { started, queued, begun, frozen, pending, midValid, landed, settled, resumed, resumedLanded, carried, grows, high, cleared: g.baseUpgradeT === 0 && g.core.level === 0 };
+      return { rejected, first, future, second, downed, valid, invalid, restored, oldValid, oldDefaults, timer, times, meshes };
     });
     assert.equal(upgrades.rejected, true);
+    for (const [key, ok] of Object.entries(upgrades.timer)) assert.equal(ok, true, `build timer: ${key} ${JSON.stringify(upgrades.meshes)}`);
+    assert.deepEqual(upgrades.times, [6, 7, 12, 12]);
     assert.deepEqual(upgrades.first, { level: 1, minerals: 0, cost: 350, damage: 9.2, maxHp: 81, ratio: 0.5, scv: 81 });
     for (const u of upgrades.future) {
       assert.equal(u.damage, u.baseDamage * 1.15, u.kind);
@@ -87,7 +127,7 @@ const assert = require('node:assert/strict');
       g.update(59.9);
       const held = g.state === 'raid' && g.level === 1;
       g.laserCharge = 40;
-      g.minerals = 1000; g.upgradeBase();
+      g.minerals = 1000; g.upgradeBase(); g.completeBaseUpgrade();
       g.update(0.1);
       const end = { state: g.state, level: g.level, baseLevel: g.baseLevel, charge: g.laserCharge, hives: g.hives.every(h => !h.dead && h.hp === h.maxHp) };
       // Missing the bounty still advances normally.

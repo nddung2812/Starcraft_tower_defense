@@ -321,7 +321,9 @@ export const BUG_SCALE = 1.12;
 
 export const CORE_HP = 500;
 // Run-wide base research; bonuses are additive per level, then multiply unit stats.
-export const BASE_UPGRADE = { firstCost: 200, costStep: 150, bonus: 0.15 };
+// Research is paid up front and lands after a short build: firstTime seconds, a little longer each level.
+export const BASE_UPGRADE = { firstCost: 200, costStep: 150, bonus: 0.15, firstTime: 6, timeStep: 1, maxTime: 12 };
+export const baseUpgradeTime = level => Math.min(BASE_UPGRADE.maxTime, BASE_UPGRADE.firstTime + level * BASE_UPGRADE.timeStep);
 export const baseUpgradeCost = level => BASE_UPGRADE.firstCost + level * BASE_UPGRADE.costStep;
 export function applyBaseUpgrade(stats, level) {
   const factor = 1 + level * BASE_UPGRADE.bonus;
