@@ -136,7 +136,7 @@ export const MENDER_INFO = {
 
 export const UNITS = {
   marine: {
-    id: 'marine', shots: 1, tiers: MARINE_TIERS, info: MARINE_INFO, visualScale: 0.56,
+    id: 'marine', shots: 1, tiers: MARINE_TIERS, info: MARINE_INFO, visualScale: 0.448,
     shell: false, splash: 0, canBunker: true, canStim: true, armory: true, turret: false,
     mobile: true, speed: 2.15, accent: 0x5ad7ff
   },
