@@ -716,6 +716,9 @@ export class Wall {
 export class Hive {
   constructor(spawn, level) {
     this.kind = 'hive';
+    this.evolution = 0;
+    this.evolutionT = 0;
+    this.hatchT = 0;
     this.x = spawn.x + 0.5; this.z = spawn.y + 0.9;
     this.maxHp = HIVE_RAID.hp + (level - 1) * HIVE_RAID.hpPerLevel;
     this.hp = this.maxHp;
@@ -732,8 +735,38 @@ export class Hive {
 
   update(dt, game) {
     if (this.dead) return;
-    this.obj.userData.ring.rotation.z += dt * 0.6;
-    this.light.intensity = 6 + Math.sin(game.time * 2) * 2;
+    if (['wave', 'raid'].includes(game.state)) {
+      this.evolutionT += dt;
+      while (this.evolutionT >= HIVE_RAID.evolutionInterval) {
+        this.evolutionT -= HIVE_RAID.evolutionInterval;
+        this.evolution++;
+        this.hatchT = 2;
+        const count = Math.min(HIVE_RAID.broodCap, HIVE_RAID.broodBase + this.evolution * HIVE_RAID.broodPerEvolution);
+        for (let i = 0; i < count; i++) {
+          const bug = new Zergling(this.x + (Math.random() - 0.5) * 0.28, this.z,
+            'zergling', 1 + (game.level - 1) * 0.1, 1);
+          game.zerglings.push(bug);
+          game.world.add(bug.obj);
+        }
+        game.fx.ring(this, 2.5, 0xe8b840);
+        game.fx.label({ x: this.x, y: 2.8, z: this.z }, `EVOLVED · +${count}`, 'cash');
+        game.emit('change');
+      }
+    }
+    this.hatchT = Math.max(0, this.hatchT - dt);
+    const { egg, plates, membrane } = this.obj.userData;
+    const growth = 1 + Math.min(this.evolution, 5) * 0.055;
+    const pulse = Math.sin(game.time * (3 + this.evolutionT / 15));
+    egg.scale.set(growth * (1 + pulse * 0.025), growth * (1 - pulse * 0.018), growth * (1 + pulse * 0.025));
+    const opening = Math.sin(this.hatchT / 2 * Math.PI) * 0.35;
+    for (const plate of plates) {
+      plate.position.copy(plate.userData.rest);
+      plate.position.x *= 1 + opening;
+      plate.position.z *= 1 + opening;
+    }
+    membrane.emissiveIntensity = 0.45 + this.evolutionT / 60 + opening * 3;
+    this.light.color.setHex(0xe8b840);
+    this.light.intensity = 3 + pulse + opening * 8;
     this.bar.set(this.hp / this.maxHp, game.camera, true);
     this.bar.group.visible = game.state === 'raid' || this.hp < this.maxHp;
   }

@@ -893,31 +893,39 @@ export function buildCore() {
 
 export function buildHatchery() {
   const g = new THREE.Group();
-  const mound = new THREE.Mesh(new THREE.SphereGeometry(0.95, 24, 14, 0, Math.PI * 2, 0, Math.PI / 2), MAT.creep);
-  mound.scale.set(1, 0.42, 1);
-  mound.receiveShadow = true;
-  g.add(mound);
-
-  const pit = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.3, 0.3, 20),
-    new THREE.MeshStandardMaterial({ color: 0x0a0110, roughness: 1 }));
-  pit.position.y = 0.26;
-  g.add(pit);
-
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.44, 0.06, 8, 28),
-    new THREE.MeshStandardMaterial({ color: 0xc06bff, emissive: 0x9a3ddb, emissiveIntensity: 2.5 }));
-  ring.rotation.x = Math.PI / 2;
-  ring.position.y = 0.4;
-  g.add(ring);
-
-  for (let i = 0; i < 7; i++) {
-    const a = (i / 7) * Math.PI * 2;
-    const tendril = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.5, 6), MAT.fleshDark);
-    tendril.position.set(Math.cos(a) * 0.62, 0.2, Math.sin(a) * 0.62);
-    tendril.rotation.z = Math.cos(a) * 0.7;
-    tendril.rotation.x = -Math.sin(a) * 0.7;
-    g.add(tendril);
+  const flesh = new THREE.MeshStandardMaterial({ color: 0x651e32, roughness: 0.5 });
+  const membrane = new THREE.MeshStandardMaterial({ color: 0xc39a32, emissive: 0x805014, emissiveIntensity: 0.45, roughness: 0.32 });
+  const egg = new THREE.Group();
+  g.add(egg);
+  const core = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 18), flesh);
+  core.position.y = 1.05;
+  core.scale.set(0.83, 1.12, 0.83);
+  egg.add(core);
+  const plates = [];
+  // Raised golden membranes sit inside a dark, fleshy lattice, like a brood egg.
+  for (let row = 0; row < 3; row++) {
+    const latitude = -0.65 + row * 0.65;
+    const count = row === 1 ? 7 : 5;
+    for (let i = 0; i < count; i++) {
+      const angle = i / count * Math.PI * 2 + row * 0.42;
+      const plate = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 10), membrane);
+      plate.position.set(Math.cos(angle) * Math.cos(latitude) * 0.79, 1.05 + Math.sin(latitude) * 1.08, Math.sin(angle) * Math.cos(latitude) * 0.79);
+      plate.lookAt(plate.position.clone().multiplyScalar(2).sub(new THREE.Vector3(0, 1.05, 0)));
+      plate.scale.set(0.31 + (i % 2) * 0.035, 0.4, 0.19);
+      plate.userData.rest = plate.position.clone();
+      plate.castShadow = true;
+      egg.add(plate); plates.push(plate);
+    }
   }
-  g.userData = { ring };
+  const mound = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 10), MAT.creep);
+  mound.scale.set(1.2, 0.18, 1.2); g.add(mound);
+  for (let i = 0; i < 8; i++) {
+    const a = i / 8 * Math.PI * 2;
+    const points = [new THREE.Vector3(Math.cos(a)*0.5,0.55,Math.sin(a)*0.5), new THREE.Vector3(Math.cos(a+0.2)*0.95,0.16,Math.sin(a+0.2)*0.95), new THREE.Vector3(Math.cos(a+0.35)*1.35,0.04,Math.sin(a+0.35)*1.35)];
+    const root = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 8, 0.085, 5, false), flesh);
+    g.add(root);
+  }
+  g.userData = { egg, plates, membrane };
   return g;
 }
 
