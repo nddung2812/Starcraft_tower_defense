@@ -599,7 +599,11 @@ export class UI {
     $('btnScv').textContent = `Rebuild Patch Rig · ${ECON.scvCost}`;
 
     document.querySelectorAll('[data-build]').forEach((b) => {
-      b.classList.toggle('card--poor', g.minerals < BUILD[b.dataset.build].cost);
+      const spec = BUILD[b.dataset.build];
+      const limited = g.atUnitLimit(spec.id);
+      b.disabled = limited;
+      b.title = limited ? `${spec.name} · Maximum ${spec.maxActive} active units` : `${spec.name} · ${spec.cost} minerals (${spec.key})`;
+      b.classList.toggle('card--poor', limited || g.minerals < spec.cost);
     });
 
     this.renderStats();

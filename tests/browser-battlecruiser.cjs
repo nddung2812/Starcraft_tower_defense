@@ -21,6 +21,16 @@ const assert = require('node:assert/strict');
       const [x,y] = g.layout.open.find(([x,y]) => g.canBuildAt(x,y) && x > 10 && x < g.grid.COLS - 12);
       check(g.placeGunner('cruiser',x,y), 'Cannot build unlocked cruiser');
       const u = g.gunners.at(-1);
+      check(g.placeGunner('cruiser',x,y) && g.placeGunner('cruiser',x,y), 'Cannot build three cruisers');
+      const cappedMinerals = g.minerals;
+      check(!g.placeGunner('cruiser',x,y) && g.minerals === cappedMinerals, 'Fourth cruiser accepted or charged');
+      const extras = g.gunners.filter(v => v !== u);
+      extras[0].downed = true;
+      check(!g.placeGunner('cruiser',x,y), 'Downed cruiser bypassed cap');
+      extras[0].dead = true;
+      check(g.placeGunner('cruiser',x,y), 'Destroyed cruiser cannot be replaced');
+      for (const v of g.gunners.filter(v => v !== u)) g.world.remove(v.obj);
+      g.gunners = [u]; g.minerals = 5000 - BUILD.cruiser.cost;
       check(u.maxHp === 1400 && u.stats.armor === 6 && u.flying && !u.isPlaced(g), 'Capital stats or flying occupancy');
       check(g.minerals === 5000 - BUILD.cruiser.cost, 'Wrong build price');
       const enemy = (dx, dz, breed = 'warrior', hp = 5000) => {

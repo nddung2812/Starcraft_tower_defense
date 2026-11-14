@@ -37,7 +37,7 @@ export const BUILD = {
   // Specialists join the build bar one round at a time (`unlock` is the first round they can be built).
   scorcher: { id: 'scorcher', name: 'Torch', cost: 110, icon: 'C', key: 'C', unlock: 2, desc: 'Flame trooper. Burns every ground bug in a short cone. Weak against armour.' },
   deadeye: { id: 'deadeye', name: 'Spectre', cost: 150, icon: 'D', key: 'D', unlock: 3, desc: 'Marksman. Very long range, ignores armour, picks the biggest target. Fragile.' },
-  cruiser: { id: 'cruiser', name: 'Titan', cost: 900, icon: 'Y', key: 'J', unlock: 5, desc: 'Armoured capital ship. Four batteries hit ground and air. Charges Yamato automatically against heavy targets; Y fires manually. Flies over terrain.' },
+  cruiser: { id: 'cruiser', name: 'Titan', cost: 900, maxActive: 3, icon: 'Y', key: 'J', unlock: 5, desc: 'Maximum 3 active Titans. Armoured capital ship. Four batteries hit ground and air. Charges Yamato automatically against heavy targets; Y fires manually. Flies over terrain.' },
   mender: { id: 'mender', name: 'Medic', cost: 100, icon: '+', key: 'H', unlock: 4, desc: 'Field medic. Heals the most injured unit nearby. Carries no weapon.' }
 };
 export const unlockRound = id => BUILD[id]?.unlock || 1;

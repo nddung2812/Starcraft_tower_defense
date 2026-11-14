@@ -274,6 +274,11 @@ export class Game {
 
   canAfford(cost) { return this.minerals >= cost; }
 
+  atUnitLimit(kind) {
+    const limit = BUILD[kind]?.maxActive;
+    return limit != null && this.gunners.filter(u => u.kind === kind && !u.dead).length >= limit;
+  }
+
   /** Before or during a fight, on open ground, and not on top of a bug (it would be sealed inside). */
   canBuildAt(tx, ty) {
     if (!['build', 'brief', 'wave', 'raid'].includes(this.state)) return false;
@@ -313,7 +318,7 @@ export class Game {
 
   placeGunner(kind, tx, ty) {
     const spec = BUILD[kind];
-    if (!spec || !this.isUnlocked(kind) || !this.canBuildAt(tx, ty) || !this.canAfford(spec.cost)) return false;
+    if (!spec || this.atUnitLimit(kind) || !this.isUnlocked(kind) || !this.canBuildAt(tx, ty) || !this.canAfford(spec.cost)) return false;
     const m = new Marine(kind, tx, ty, this.marineUpgrades, this.baseLevel);
     syncEvolutionVisual(m, this);
     m.restYaw = this.threatYaw(m.x, m.z);

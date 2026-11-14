@@ -629,7 +629,7 @@ canvas.addEventListener('pointermove', (ev) => {
     paint(0xff5a4a);
     rangeRing.visible = false;
   } else if (placing) {
-    const ok = game.canBuildAt(hoverTile.x, hoverTile.y) && game.canAfford(BUILD[placing].cost);
+    const ok = !game.atUnitLimit(placing) && game.canBuildAt(hoverTile.x, hoverTile.y) && game.canAfford(BUILD[placing].cost);
     paint(ok ? 0x5ef08a : 0xff5a4a);
     const spec = UNITS[placing];
     rangeRing.visible = !!(spec && ok);
