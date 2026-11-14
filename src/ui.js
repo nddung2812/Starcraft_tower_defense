@@ -135,6 +135,7 @@ function statRow(label, value, frac, color) {
 const COMMANDS = [
   { id: 'attack', label: 'Attack', key: 'A' },
   { id: 'stop', label: 'Stop', key: 'S' },
+  { id: 'defend', label: 'Defend', key: 'K' },
   { id: 'air', label: 'Air Strike', key: 'R' },
   { id: 'stim', label: 'Overdrive', key: 'F' },
   { id: 'promote', label: 'Promote', key: 'U' },
@@ -474,6 +475,7 @@ export class UI {
         $('pBio').textContent += ` ${EVOLUTIONS.find(e => e.id === evolution).name} · Rank ${g.evolutions[evolution]}. ${evolutionDescription(evolution, g.evolutions[evolution])}`;
         if (kind === 'tank' && entity) $('pRole').textContent += entity.siegeDeployed ? ' · SIEGE DEPLOYED' : ' · MOBILE';
       }
+      if (entity?.defend) $('pRole').textContent += ' · DEFENDING';
       $('pQuote').textContent = spec.info.quote;
       const accent = spec.info.accent;
       $('stats').innerHTML =
@@ -617,6 +619,7 @@ export class UI {
     this.selList.forEach((e, i) => {
       const bar = bars[i];
       if (!bar) return;
+      bar.closest('.chip').classList.toggle('chip--guard', !!e.defend);
       const pct = Math.max(0, e.hp / e.maxHp);
       bar.style.width = pct * 100 + '%';
       bar.style.background = pct > 0.55 ? '#5ef08a' : pct > 0.25 ? '#f0b23c' : '#ff5a4a';
@@ -643,6 +646,13 @@ export class UI {
     set('attack', g.state !== 'defeat' && !g.pendingEvolution && g.gunners.some(u => !u.dead && !u.downed));
     document.querySelector('[data-cmd="attack"]').title = 'Send the whole army to destroy enemy bases (A). Shift+A: attack-move selected units to a clicked point.';
     set('stop', units.length > 0);
+    const guards = units.filter((u) => UNITS[u.kind]);
+    const guarding = guards.length > 0 && guards.every((u) => u.defend);
+    set('defend', guards.length > 0, guarding ? 'Defending' : 'Defend');
+    const defendButton = document.querySelector('[data-cmd="defend"]');
+    defendButton.classList.toggle('cmd--on', guarding);
+    defendButton.title = guarding ? 'Release the selected units so they join the army attack again (K).'
+      : 'Keep the selected units home: they hold their ground and defend when the army attacks (K).';
     set('air', fighting && g.airStrikeReady, fighting && !g.airStrikeReady ? `Air ${Math.ceil(g.airStrikeCd)}s` : 'Air Strike');
     set('stim', g.stimUnlocked && units.some((u) => u.kind === 'marine' && u.stimT <= 0 && u.silenceT <= 0 && u.hp > OVERDRIVE.hpCost));
     const cost = primary && UNITS[primary.kind] && !primary.downed ? primary.upgradeCost : null;

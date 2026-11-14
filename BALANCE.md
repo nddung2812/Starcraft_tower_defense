@@ -154,6 +154,12 @@ balance as permanent treasure stacks and enemy HP grow.
   troops and Anchor Walkers (1.5 tiles/second). Units fight enemies en route, then resume and
   retarget surviving bases. Friendly buildings and Patch Rigs are never attack targets.
   Stop and move orders override the advance; Shift+A retains selected-unit attack-move.
+- Defend (K) is a per-unit toggle on the command card. A defending unit is skipped by Attack (A):
+  it holds its ground, stays in its bunker and keeps shooting whatever comes into range. Direct
+  orders (move, attack a target, Shift+A) still work on it. Setting Defend on a unit that is
+  already advancing recalls it by stopping it where it stands. Defenders carry a gold diamond
+  on the ground, a gold chip border and "DEFENDING" in the inspector. The flag is saved in
+  checkpoints and travels with Redeploy army, so last round's home guard is still a home guard.
 - Base laser starts at 0%, charges for 90 simulation seconds, and holds one shot at 100%.
   Click Fire Laser (or L), then click a direction on the battlefield. One red beam extends from
   the base to the map edge and applies 600 damage once to every enemy along its path, including
@@ -165,6 +171,28 @@ balance as permanent treasure stacks and enemy HP grow.
 - `tests/browser-base.cjs` checks research, old/new checkpoints, bonus timing and rewards,
   bosses and multiple hives, laser damage/charging/carryover, mouse controls and mobile layout.
 
+
+## Base side and attack fronts (Nov 15, 2026)
+
+Map version 4. The seed picks which side the main front attacks from, so the base is no longer
+always in the east, and harder rounds open more sides:
+
+| Rounds | Fronts | Base | Hives |
+|---|---|---|---|
+| 1–6 | 1 | Far end of the map, on a random side | 2 on the opposite side |
+| 7–15 | 2 | Inland, about two thirds of the way in | 2 on the main side, 1 on a flank |
+| 16–20 | 3 | Inland, centred across the map | 2 on the main side, 1 on each flank |
+| 21+ | 4 | Mid-map | 1 on every side |
+
+- Route counts are unchanged (2 / 3 / 4), so wave sizes and pacing per hive are the same.
+  Flank and mid-map approaches are shorter than a full-map march (never under 38 tiles).
+- A base with more than one front gets a 10×10 boulder-free plaza. Quick Deploy and Redeploy
+  still form up on the main front; cover the other sides yourself.
+- Bunkers and idle units face where the swarm's route reaches their tile from, not always the
+  lead hive. A bunker's firing arc is unchanged, so one bunker still covers one approach.
+- The round briefing names the sides under attack. Saves from versions 1–3 keep their
+  west-to-east terrain for the saved round and move to version 4 on the next.
+- Not yet playtested by a person: whether three and four fronts are fair at rounds 16+.
 
 ## Map and wave progression (Nov 10, 2026)
 

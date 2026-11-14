@@ -41,8 +41,75 @@ function rockDepth(cols, rows, isWalkable) {
 }
 
 const SECTORS = ['Ash Flats', 'Red Gully', 'Shale Run', 'Dust Basin', 'Scar Ridge', 'Cinder Pass', 'Hollow Reach', 'Iron Wash', 'Broken Mesa', 'Last Light'];
-export const MAP_VERSION = 3;
-export const SUPPORTED_MAP_VERSIONS = [1, 2, MAP_VERSION];
+export const MAP_VERSION = 4;
+export const SUPPORTED_MAP_VERSIONS = [1, 2, 3, MAP_VERSION];
+
+/** How many sides of the base the swarm attacks from. Harder rounds open more fronts. */
+export function attackFronts(level) { return level <= 6 ? 1 : level <= 15 ? 2 : level <= 20 ? 3 : 4; }
+
+const SIDES = ['west', 'east', 'north', 'south'];
+// The two sides beside each front, listed low edge first in that front's own frame.
+const FLANKS = { west: ['north', 'south'], east: ['north', 'south'], north: ['west', 'east'], south: ['west', 'east'] };
+const TOWARD = { west: { dx: -1, dy: 0 }, east: { dx: 1, dy: 0 }, north: { dx: 0, dy: -1 }, south: { dx: 0, dy: 1 } };
+/*
+ * Every approach is laid out in its own frame and then turned onto the square map:
+ * u runs in from that side's map edge, v runs across it.
+ */
+const cellFrom = (side, n, u, v) => side === 'west' ? [u, v] : side === 'east' ? [n - 1 - u, v]
+  : side === 'north' ? [v, u] : [v, n - 1 - u];
+const pointFrom = (side, n, u, v) => side === 'west' ? [u, v] : side === 'east' ? [n - u, v]
+  : side === 'north' ? [v, u] : [v, n - u];
+/** The base's corner cell as an approach from `side` sees it. */
+const baseFrom = (side, n, core) => side === 'west' ? [core.x, core.y] : side === 'east' ? [n - 2 - core.x, core.y]
+  : side === 'north' ? [core.y, core.x] : [n - 2 - core.y, core.x];
+
+/**
+ * Version 4: the base sits on a random side while one front attacks, moves inland as a
+ * flank opens, and ends up mid-map with hives on all four sides.
+ */
+function planFronts(level, n, rng) {
+  const fronts = attackFronts(level);
+  const primary = SIDES[Math.floor(rng() * SIDES.length)];
+  const flanks = FLANKS[primary].slice();
+  const flankLow = rng() < 0.5;          // which flank opens first
+  if (!flankLow) flanks.reverse();
+  const jitter = (range) => Math.round((rng() - 0.5) * range);
+  const mid = Math.floor(n / 2) - 1;
+  // Base corner in the primary front's frame.
+  let bu, bv;
+  if (fronts === 1) { bu = n - 5; bv = mid + jitter(6); }
+  else if (fronts === 2) {
+    // Inland, and pushed away from the flank so that approach is still a real march.
+    bu = Math.round(n * 0.66);
+    bv = flankLow ? Math.round(n * 0.58) - 1 : n - 1 - Math.round(n * 0.58);
+  } else if (fronts === 3) { bu = Math.round(n * 0.64); bv = mid + jitter(6); }
+  else { bu = mid + jitter(n * 0.12); bv = mid + jitter(n * 0.12); }
+  const core = primary === 'west' ? { x: bu, y: bv } : primary === 'east' ? { x: n - 2 - bu, y: bv }
+    : primary === 'north' ? { x: bv, y: bu } : { x: bv, y: n - 2 - bu };
+  Object.assign(core, { w: 2, h: 2, hp: CORE_HP });
+
+  const lanes = [];
+  if (fronts === 4) {
+    for (const side of [primary, ...flanks, SIDES.find(s => s !== primary && !flanks.includes(s))]) {
+      const across = baseFrom(side, n, core)[1];
+      lanes.push({ side, entry: Math.max(Math.round(n * 0.2), Math.min(Math.round(n * 0.8), across + jitter(n * 0.2))), join: 9 });
+    }
+  } else {
+    // Two approaches share the main front and a longer firing line, as in earlier maps.
+    const spread = fronts === 1 ? [0.18, 0.82] : fronts === 3 ? [0.22, 0.78] : flankLow ? [0.34, 0.84] : [0.16, 0.66];
+    const entries = spread.map(f => Math.round(n * f) + jitter(4));
+    entries.sort((a, b) => Math.abs(a - bv) - Math.abs(b - bv) || a - b);   // the more central hive leads
+    for (const entry of entries) lanes.push({ side: primary, entry, join: 12 });
+    // Flank hives come in just behind the base, clear of the main approaches.
+    const behind = primary === 'west' || primary === 'north' ? 1 : -1;
+    for (const side of flanks.slice(0, fronts - 1)) {
+      const across = baseFrom(side, n, core)[1];
+      const entry = across + behind * (1 + Math.round(rng() * n * 0.06));
+      lanes.push({ side, entry: Math.max(8, Math.min(n - 9, entry)), join: 9, flank: true });
+    }
+  }
+  return { fronts, primary, core, lanes };
+}
 
 /** Broad building areas separated by short necks; widths are measured in whole tiles. */
 function canyonWidths(cols, rng, end = Math.floor(cols * 0.75)) {
@@ -87,13 +154,62 @@ function centerAt(path, x) {
   return { y: ay + (by - ay) * t, slope: (by - ay) / (bx - ax) };
 }
 
-/** Several separated western approaches converge only near the eastern command center. */
+/** A seeded battlefield: separated approaches that converge only near the base. */
 export function carveLevel(level, seed, version = MAP_VERSION) {
   if (!SUPPORTED_MAP_VERSIONS.includes(version)) throw new Error('Unsupported map version');
   const { cols, rows } = mapDimensions(level);
   // Old saves must reconstruct the same lanes before validating placed hardware.
   const routeCount = version < 3 ? (level <= 5 ? 1 : level <= 15 ? 2 : 3) : mapDimensions(level).routeCount;
   const rng = mulberry32((seed ^ Math.imul(level, 0x9e3779b1)) >>> 0);
+  const plan = version >= 4 ? planFronts(level, cols, rng) : null;
+  return plan ? finishLevel(level, seed, version, rng, carveFronts(level, seed, cols, rng, plan))
+    : finishLevel(level, seed, version, rng, carveWestern(level, seed, version, rng, cols, rows, routeCount));
+}
+
+/** Approaches from one or more sides, each built in its own frame. */
+function carveFronts(level, seed, n, rng, plan) {
+  const { core } = plan;
+  const key = (x, y) => y * n + x;
+  const open = new Set(), protectedRoute = new Set();
+  const shapes = [[1, -0.8, 0.4], [-0.6, 1, -0.5], [0.4, 1, 0.6], [-0.4, -1, -0.6]];
+  const paths = [], spawns = [];
+  plan.lanes.forEach((lane, index) => {
+    const { side, entry } = lane;
+    const [bu, bv] = baseFrom(side, n, core);
+    const length = bu + 5;                      // the old full-map approach had its base 5 from the far edge
+    const convergence = Math.floor(length * 0.64);
+    // Approaches on one front bend together, so they stay apart until they converge.
+    const shape = shapes[(level - 1 + (lane.flank ? index : 0)) % shapes.length];
+    const bend = lane.flank ? 2 + rng() : 3 + rng() * 2;
+    const points = [0.24 * length, 0.44 * length, convergence].map((u, i) =>
+      [u, entry + shape[i] * bend + (rng() - 0.5) * 2]);
+    const path = [[3.5, entry + 0.5], ...points, [length - lane.join, bv + 1], [bu + 1, bv + 1]];
+    const widths = canyonWidths(length, mulberry32((seed ^ Math.imul(level, 0x9e3779b1) ^ Math.imul(index + 1, 0x85ebca6b)) >>> 0), convergence);
+    const mark = (set, u, v) => {
+      const [x, y] = cellFrom(side, n, u, v);
+      if (x >= 1 && y >= 1 && x < n - 1 && y < n - 1) set.add(key(x, y));
+    };
+    for (let u = 1; u <= Math.min(n - 2, bu + 3); u++) {
+      const center = centerAt(path, u + 0.5);
+      const width = u + 0.5 < convergence ? widths[u]
+        : Math.max(widths[u], Math.round(widths[u] * Math.hypot(1, center.slope)));
+      const bottom = Math.round(center.y - width / 2);
+      const spine = Math.round(center.y - 1);
+      for (let v = bottom; v < bottom + width; v++) mark(open, u, v);
+      mark(protectedRoute, u, spine);
+      mark(protectedRoute, u, spine + 1);
+    }
+    paths.push(path.map(([u, v]) => pointFrom(side, n, u, v)));
+    const [x, y] = cellFrom(side, n, 3, entry);
+    spawns.push({ x, y });
+  });
+  const sides = plan.lanes.map(l => l.side);
+  return { cols: n, rows: n, routeCount: plan.lanes.length, core, spawns, paths, open, protectedRoute,
+    sides, fronts: plan.fronts, front: TOWARD[plan.primary] };
+}
+
+/** Versions 1-3: every hive on the western edge, the base on the eastern one. */
+function carveWestern(level, seed, version, rng, cols, rows, routeCount) {
   const key = (x,y) => y * cols + x;
   const core = { x: cols - 5, y: Math.floor(rows / 2) - 1, w: 2, h: 2, hp: CORE_HP };
   if (version >= 3) core.y += Math.round((rng() - 0.5) * 6);
@@ -148,13 +264,26 @@ export function carveLevel(level, seed, version = MAP_VERSION) {
       }
     });
   }
+  return { cols, rows, routeCount, core, spawns, paths, open, protectedRoute,
+    sides: spawns.map(() => 'west'), fronts: 1, front: TOWARD.west };
+}
+
+/** Shared by every map version: clearings, boulders, rock depth, peaks and the briefing. */
+function finishLevel(level, seed, version, rng, carved) {
+  const { cols, rows, routeCount, core, spawns, paths, open, protectedRoute, sides, fronts, front } = carved;
+  const key = (x,y) => y * cols + x;
+  const spawn = spawns[0];
   const carve = (cx,cy,r) => {
     for (let y = cy - r; y <= cy + r; y++) for (let x = cx - r; x <= cx + r; x++) {
       if (x >= 1 && y >= 1 && x < cols - 1 && y < rows - 1) open.add(key(x,y));
     }
   };
   spawns.forEach(s => carve(s.x,s.y,2));
-  carve(core.x,core.y,3);
+  if (fronts > 1) {
+    // A base attacked from several sides gets a plaza to form a ring in.
+    carve(core.x, core.y, 4);
+    carve(core.x + 1, core.y + 1, 4);
+  } else carve(core.x,core.y,3);
   const grid = new Grid(cols,rows);
   grid.load({ cols,rows,open: [...open].map(k=>[k%cols,Math.floor(k/cols)]),spawn,spawns,core });
   const shuffle = (list) => {
@@ -163,8 +292,11 @@ export function carveLevel(level, seed, version = MAP_VERSION) {
       [list[i], list[j]] = [list[j], list[i]];
     }
   };
+  const nearBase = (x, y) => Math.max(Math.abs(x - core.x - 0.5), Math.abs(y - core.y - 0.5));
+  const boulderRoom = version < 4 ? (x) => x > 5 && x < cols - 8
+    : (x, y) => nearBase(x, y) > (fronts > 1 ? 5.5 : 3.5);
   const candidates = [...open].map((k) => [k % cols, Math.floor(k / cols)]).filter(([x, y]) =>
-    x > 5 && x < cols - 8 && !protectedRoute.has(key(x, y)) &&
+    boulderRoom(x, y) && !protectedRoute.has(key(x, y)) &&
     spawns.every((s) => Math.hypot(x - s.x, y - s.y) > 4));
   shuffle(candidates);
   const boulders = [];
@@ -195,17 +327,21 @@ export function carveLevel(level, seed, version = MAP_VERSION) {
     if (!peaks.some(([px, py]) => Math.hypot(px - x, py - y) < 9)) peaks.push([x, y, 0]);
   }
   const approach = grid.findPath(spawn.x, spawn.y, core.x, core.y);
-  const front = approach[Math.max(0, approach.length - 9)];
-  const focus = {
-    x: (core.x + 1) * 0.4 + (front.x + 0.5) * 0.6,
-    z: (core.y + 1) * 0.4 + (front.y + 0.5) * 0.6
+  // One front: look at the firing line ahead of the base. Several: look at the base itself.
+  const line = approach[Math.max(0, approach.length - 9)];
+  const focus = fronts > 1 ? { x: core.x + 1, z: core.y + 1 } : {
+    x: (core.x + 1) * 0.4 + (line.x + 0.5) * 0.6,
+    z: (core.y + 1) * 0.4 + (line.y + 0.5) * 0.6
   };
   const name = level <= AUTHORED_LEVELS ? LEVELS[level - 1].name
     : `${SECTORS[(level - AUTHORED_LEVELS - 1) % SECTORS.length]} · Sector ${level}`;
+  const named = [...new Set(sides)];
+  const from = named.length === 1 ? `the ${named[0]}`
+    : `the ${named.slice(0, -1).join(', ')} and ${named[named.length - 1]}`;
   return {
     cols, rows, routeCount, paths, name, mapVersion: version,
-    blurb: `${cols}×${rows} battlefield. ${routeCount} western attack ${routeCount === 1 ? 'route converges' : 'routes converge'} on your base. Defend every approach.`,
+    blurb: `${cols}×${rows} battlefield. ${routeCount} attack ${routeCount === 1 ? 'route converges' : 'routes converge'} on your base from ${from}. ${named.length > 1 ? 'Defend every side.' : 'Defend every approach.'}`,
     open: [...open].map((k) => [k % cols, Math.floor(k / cols)]),
-    spawn, spawns, core, peaks, boulders, depth, focus
+    spawn, spawns, core, peaks, boulders, depth, focus, sides, fronts, front
   };
 }

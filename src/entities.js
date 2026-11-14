@@ -120,6 +120,16 @@ export class Marine {
     this.ring.visible = true;
     this.ring.material.opacity = 0.55;
     this.obj.add(this.ring);
+    // Defend mode: a gold diamond around the ring marks a unit that stays home on Attack.
+    this.defend = false;
+    this.guardMark = new THREE.Mesh(
+      new THREE.RingGeometry(0.62, 0.7, 4, 1).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: 0xffd36a, transparent: true, opacity: 0.9, depthWrite: false })
+    );
+    this.guardMark.position.y = 0.025;
+    this.guardMark.scale.setScalar({ cruiser: 2.4, tank: 1.35, goliath: 1.2 }[kind] || 1);
+    this.guardMark.visible = false;
+    this.obj.add(this.guardMark);
 
     const barY = (kind === 'cruiser' ? 1.4 : kind === 'goliath' ? 1.62 : kind === 'tank' ? 0.98 : 1.28) * this.visualScale;
     this.bar = new HealthBar(this.obj, kind === 'tank' ? 0.78 : 0.62, 0.08, barY);
@@ -313,6 +323,7 @@ export class Marine {
     this.blindT = Math.max(0, this.blindT - dt);
     this.silenceT = Math.max(0, this.silenceT - dt);
     this.ring.material.color.set(this.silenceT > 0 ? 0xc06bff : this.blindT > 0 ? 0x8296ff : (game.armyColour || this.spec.accent));
+    this.guardMark.visible = this.defend && !this.dead && !this.downed;
     if (this.flying && !this.dead) {
       this.altitude = (game.heightAt?.(this.x, this.z) || 0) + 2.6 + Math.sin(game.time * 2.5) * 0.1;
       this.obj.position.y = this.altitude;

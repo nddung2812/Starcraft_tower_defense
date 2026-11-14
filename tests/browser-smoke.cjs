@@ -37,7 +37,12 @@ const os = require('node:os');
         const map = carveLevel(level, seed), grid = new Grid(); grid.load(map);
         const lengths = map.spawns.map(s => grid.findPath(s.x, s.y, map.core.x, map.core.y)?.length || 0);
         if (lengths.some(n => !n)) throw Error(`Unreachable level ${level}, seed ${seed}`);
-        if (map.spawn.x > 6 || map.core.x < map.cols - 6 || map.spawns.length !== (level <= 6 ? 2 : level <= 15 ? 3 : 4)) throw Error('Bases or difficulty-based route count incorrect');
+        // Hives sit on the map edges; with one front the base is at the far end from them.
+        const depth = (side, c) => side === 'west' ? c.x : side === 'east' ? map.cols - 1 - c.x : side === 'north' ? c.y : map.rows - 1 - c.y;
+        const fronts = level <= 6 ? 1 : level <= 15 ? 2 : level <= 20 ? 3 : 4;
+        if (map.spawns.some((s, i) => depth(map.sides[i], s) > 6) || new Set(map.sides).size !== fronts ||
+          (fronts === 1 && depth(map.sides[0], map.core) < map.cols - 6) ||
+          map.spawns.length !== (level <= 6 ? 2 : level <= 15 ? 3 : 4)) throw Error('Bases, attack fronts or difficulty-based route count incorrect');
         if (JSON.stringify(map) !== JSON.stringify(carveLevel(level, seed))) throw Error('Map seed mismatch');
         results.push({ level, seed, lengths });
       }

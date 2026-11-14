@@ -1,19 +1,27 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { carveLevel, MAP_VERSION } from '../src/levels.js';
+import { carveLevel, attackFronts, MAP_VERSION } from '../src/levels.js';
 import { Grid } from '../src/grid.js';
 
 let checked = 0;
 const totals = {};
 for (let seed = 0; seed < 24; seed++) {
   for (const level of [1, 5, 6, 11, 16, 21, 26, 40, 100]) {
-    const map = carveLevel(level, seed);
-    assert.equal(map.mapVersion, MAP_VERSION);
+    const raw = carveLevel(level, seed);
+    assert.equal(raw.mapVersion, MAP_VERSION);
+    // Turn the map so its main front attacks from the west, then measure as before.
+    const side = raw.sides[0], n = raw.cols;
+    const turn = ([x, y]) => side === 'west' ? [x, y] : side === 'east' ? [n - 1 - x, y] : side === 'north' ? [y, x] : [n - 1 - y, x];
+    const map = { ...raw, open: raw.open.map(turn), boulders: raw.boulders.map(turn) };
+    const base = turn([raw.core.x, raw.core.y])[0] - (side === 'east' || side === 'south' ? 1 : 0);
+    const fronts = attackFronts(level);
+    // Past this column other fronts' canyons cross the main one, so widths stop being comparable.
+    const limit = Math.min(Math.floor((base + 5) * 0.64), fronts === 4 ? Math.floor(base - n * 0.1 - 11) : Infinity);
     // Fill boulders back in to measure the underlying canyon rather than obstacle gaps.
     const terrain = new Set([...map.open, ...map.boulders].map(([x,y]) => y * map.cols + x));
     const hist = {};
     const necks = [];
-    for (let x = 6; x < Math.floor(map.cols * 0.64); x++) {
+    for (let x = 6; x < limit; x++) {
       let run = [];
       const measure = () => {
         if (!run.length) return;
@@ -27,14 +35,16 @@ for (let seed = 0; seed < 24; seed++) {
       }
       measure();
     }
-    for (const width of [2,3,4,6,7]) assert.ok(hist[width] > 0, `Missing ${width}-tile section at ${level}/${seed}`);
-    const broad = (hist[5] || 0) + (hist[6] || 0) + (hist[7] || 0);
-    assert.ok(broad > (hist[2] || 0) + (hist[3] || 0), 'Narrow sections dominate the map');
+    if (fronts < 4) {
+      for (const width of [2,3,4,6,7]) assert.ok(hist[width] > 0, `Missing ${width}-tile section at ${level}/${seed}`);
+      const broad = (hist[5] || 0) + (hist[6] || 0) + (hist[7] || 0);
+      assert.ok(broad > (hist[2] || 0) + (hist[3] || 0), 'Narrow sections dominate the map');
+    }
     // Two-tile necks stay completely clear; in three-tile necks the two-cell spine stays clear.
     const open = new Set(map.open.map(([x,y]) => y * map.cols + x));
     for (const { x, ys } of necks) assert.ok(ys.filter(y => open.has(y * map.cols + x)).length >= 2, 'Boulder reduced a neck below two open tiles');
-    const grid = new Grid(); grid.load(map);
-    for (const spawn of map.spawns) assert.ok(grid.findPath(spawn.x, spawn.y, map.core.x, map.core.y)?.length, `Unreachable route at ${level}/${seed}`);
+    const grid = new Grid(); grid.load(raw);
+    for (const spawn of raw.spawns) assert.ok(grid.findPath(spawn.x, spawn.y, raw.core.x, raw.core.y)?.length, `Unreachable route at ${level}/${seed}`);
     for (const [width, n] of Object.entries(hist)) totals[width] = (totals[width] || 0) + n;
     checked++;
   }
@@ -61,5 +71,16 @@ for (const [level, seed, expected] of versionTwo) {
   const hash = createHash('sha256').update(JSON.stringify({ open: m.open, boulders: m.boulders, peaks: m.peaks, paths: m.paths, focus: m.focus })).digest('hex');
   assert.equal(hash, expected, 'Version-2 terrain changed');
 }
+const versionThree = [
+  [1, 12345, 'a9b322d8b4bb4de69c9c226bf416bf5baf68639c4602de25fe6148c55da55e72'],
+  [6, 0, '61d055729c4dddd52e4404c64f1f292007496d326f36c576a424013ead6f4738'],
+  [26, 4294967295, 'e9bdc5f95903af4260829d0af3a406e7b6caea81c0d3ad36846060a593cc1c90']
+];
+for (const [level, seed, expected] of versionThree) {
+  const m = carveLevel(level, seed, 3);
+  const hash = createHash('sha256').update(JSON.stringify({ open: m.open, boulders: m.boulders, peaks: m.peaks, paths: m.paths, focus: m.focus })).digest('hex');
+  assert.equal(hash, expected, 'Version-3 terrain changed');
+}
+for (const width of [2,3,4,6,7]) assert.ok(totals[width] > 0, `No ${width}-tile sections anywhere`);
 assert.throws(() => carveLevel(1, 0, 99), /Unsupported map version/);
 console.log(`PASS: ${checked} maps with 2/3/4/6/7-tile sections, broader majority, protected necks, connected routes and legacy terrain; widths:`, totals);

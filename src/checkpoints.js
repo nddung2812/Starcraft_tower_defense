@@ -9,7 +9,7 @@ export const SAVE_KEY = 'td.checkpoint.v1';
 const number = (v, min = 0, max = 1e12) => Number.isFinite(v) && v >= min && v <= max;
 const integer = (v, min = 0, max = 1e9) => Number.isInteger(v) && number(v, min, max);
 const fields = ['tx', 'ty', 'x', 'z', 'hp', 'tier', 'invested', 'yaw', 'restYaw', 'cooldown',
-  'yamatoCd', 'stimT', 'blindT', 'silenceT', 'goalTx', 'goalTy', 'wp', 'driving', 'waypoints'];
+  'yamatoCd', 'stimT', 'blindT', 'silenceT', 'goalTx', 'goalTy', 'wp', 'driving', 'waypoints', 'defend'];
 
 /** Only peaceful planning/countdown states can become checkpoints. Combat replays the round. */
 export function captureCheckpoint(g, meta) {
@@ -21,7 +21,7 @@ export function captureCheckpoint(g, meta) {
     airStrikeCd: g.airStrikeCd, phase: g.state, coreHp: g.core.hp,
     armory: g.armory.map(a => a.id),
     evolutions: { ...g.evolutions },
-    lastArmy: (g.lastArmy || []).map(({ kind, tier, invested }) => ({ kind, tier, invested })),
+    lastArmy: (g.lastArmy || []).map(({ kind, tier, invested, defend }) => ({ kind, tier, invested, defend: !!defend })),
     treasure: g.treasureLoot.map(({ id, boxType, earnedLevel, expiresAfterLevel }) =>
       ({ id, boxType, earnedLevel, expiresAfterLevel })),
     walls: g.walls.map(w => ({ tx: w.tx, ty: w.ty, hp: w.hp })),
@@ -52,7 +52,8 @@ export function validateCheckpoint(s) {
       !Object.entries(s.evolutions).every(([id, rank]) => EVOLUTIONS.some(e => e.id === id) && integer(rank, 1, 20000)) ||
       Object.values(s.evolutions).reduce((sum, rank) => sum + rank, 0) > Math.floor((s.level - 1) / 5))) return false;
     if (s.lastArmy !== undefined && (!Array.isArray(s.lastArmy) || s.lastArmy.length > 5000 || !s.lastArmy.every(u =>
-      u && Object.hasOwn(UNITS, u.kind) && integer(u.tier, 0, UNITS[u.kind].tiers.length - 1) && number(u.invested)))) return false;
+      u && Object.hasOwn(UNITS, u.kind) && integer(u.tier, 0, UNITS[u.kind].tiers.length - 1) && number(u.invested) &&
+      (u.defend === undefined || typeof u.defend === 'boolean')))) return false;
     if (!Array.isArray(s.armory) || s.armory.length > ARMORY.length || new Set(s.armory).size !== s.armory.length ||
       !s.armory.every(id => ARMORY.some(a => a.id === id))) return false;
     if (!Array.isArray(s.treasure) || s.treasure.length > 10000 || !s.treasure.every(t =>
@@ -82,6 +83,7 @@ export function validateCheckpoint(s) {
         (u.yamatoCd !== undefined && !number(u.yamatoCd, 0, YAMATO.cooldown)) ||
         !number(u.invested) || !number(u.yaw, -100, 100) ||
         (u.restYaw != null && !number(u.restYaw, -100, 100)) ||
+        (u.defend != null && typeof u.defend !== 'boolean') ||
         !['cooldown', 'stimT', 'blindT', 'silenceT'].every(k => number(u[k])) ||
         typeof u.placed !== 'boolean' || typeof u.driving !== 'boolean' || typeof u.attackMove !== 'boolean' ||
         (u.advancing !== undefined && typeof u.advancing !== 'boolean') ||

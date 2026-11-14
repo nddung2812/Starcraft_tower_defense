@@ -63,6 +63,36 @@ const path = require('node:path');
         check(g.mapVersion===version&&JSON.stringify(g.layout.open)===terrain&&g.walls[0].tx===spot[0]&&g.walls[0].ty===spot[1],`Version ${version} terrain changed on restore`);
         g.completeWave();check(g.mapVersion===MAP_VERSION,'Next round did not upgrade map version');
       }
+      // The base turns up on every side, and the opening squad, bunkers and hives follow it.
+      const seen=new Set(),far={west:'east',east:'west',north:'south',south:'north'};
+      for(let seed=1;seed<=12;seed++){
+        g.reset(seed);
+        const side=g.layout.sides[0],c=g.grid.core,n=g.grid.COLS;
+        seen.add(far[side]);
+        check(g.layout.fronts===1&&g.layout.sides.every(s=>s===side),'Round 1 must have a single front');
+        const anchor=g.deployAnchor();
+        check(Math.hypot(anchor.x-c.x,anchor.y-c.y)<=5,'Deploy anchor is not beside the base');
+        const toward=(anchor.x-c.x)*g.layout.front.dx+(anchor.y-c.y)*g.layout.front.dy;
+        check(toward>=3,'Deploy anchor is not on the attacked side of the base');
+        check(g.quickDeploy()&&g.gunners.length===3,'Quick Deploy failed on a '+side+' front');
+        check(g.hives.length===2&&g.hives.every(h=>Math.min(h.x,h.z,n-h.x,n-h.z)<6),'Hives are not on the map edge');
+      }
+      check(seen.size===4,'Base did not appear on every side: '+[...seen]);
+      // More fronts on harder rounds; a bunker on each approach faces up that approach.
+      for(const [level,fronts] of [[7,2],[16,3],[21,4]]){
+        g.reset(4321);g.level=level;g.loadLevel();g.minerals=1e6;
+        check(g.layout.fronts===fronts&&new Set(g.layout.sides).size===fronts,`Round ${level} should attack from ${fronts} sides`);
+        check(g.hives.length===g.layout.routeCount,'Each approach needs a hive');
+        const step={west:[-1,0],east:[1,0],north:[0,-1],south:[0,1]};
+        g.grid.spawns.forEach((spawn,i)=>{
+          const route=g.grid.findPath(spawn.x,spawn.y,g.grid.core.x,g.grid.core.y);
+          const cell=route.slice(Math.floor(route.length*.3),Math.floor(route.length*.5)).find(p=>g.canBuildAt(p.x,p.y));
+          check(cell&&g.placeBunker(cell.x,cell.y),'Cannot place a bunker on approach '+i);
+          const b=g.bunkers.at(-1),[dx,dy]=step[g.layout.sides[i]];
+          check(Math.cos(b.facing)*dx+Math.sin(b.facing)*dy>0.5,`Bunker on the ${g.layout.sides[i]} approach faces the wrong way`);
+        });
+        g.wipeUnits();
+      }
       g.reset(12345);check(g.grid.COLS===56&&g.stage.cols===56,'Restart did not shrink the map');
       g.stage.render=render;
       g.stage.focus.set(28,0,28);g.stage.pitch=1.1;g.stage.dist=g.stage.fitDistance();g.stage.updateCamera();g.stage.render();
@@ -77,6 +107,6 @@ const path = require('node:path');
     await page.screenshot({path:path.join(os.tmpdir(),'td-map-overview.png')});
     assert.deepEqual(errors,[]);
     console.log('Dynamic map integration:',layouts);
-    console.log('PASS: exact terrain/ground bounds, 2–4 difficulty-based live wave routes, shared routing, map growth, restart shrink, camera clamps and minimap coordinates');
+    console.log('PASS: exact terrain/ground bounds, 2–4 difficulty-based live wave routes, bases on every side, 2–4 attack fronts with bunkers facing each approach, shared routing, map growth, restart shrink, camera clamps and minimap coordinates');
   }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -321,6 +321,30 @@ export class Grid {
     return this.smooth(cells);
   }
 
+  /**
+   * The direction the swarm arrives from at a tile: the average bearing of nearby cells
+   * whose march to the base passes it. Null when no route comes this way.
+   */
+  upstreamYaw(tx, ty, reach = 7) {
+    const f = this.field();
+    let sx = 0, sy = 0;
+    for (let y = ty - reach; y <= ty + reach; y++) {
+      for (let x = tx - reach; x <= tx + reach; x++) {
+        if (!this.inside(x, y)) continue;
+        let cur = this.idx(x, y);
+        if (!Number.isFinite(f.dist[cur])) continue;
+        for (let step = 0; step < reach * 2 && cur !== -1; step++) {
+          if (Math.abs(cur % this.COLS - tx) <= 1 && Math.abs(((cur / this.COLS) | 0) - ty) <= 1) {
+            if (step) { sx += x - tx; sy += y - ty; }
+            break;
+          }
+          cur = f.next[cur];
+        }
+      }
+    }
+    return sx || sy ? Math.atan2(sy, sx) : null;
+  }
+
   /** Shortest ground route to any free firing position, rather than to the enemy's tile. */
   attackRoute(sx, sy, targetX, targetZ, range) {
     if (!this.inside(sx, sy)) return null;

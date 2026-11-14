@@ -293,6 +293,17 @@ export class Game {
     return true;
   }
 
+  /**
+   * Which way a defender here should face. With one front that is the lead hive; with
+   * several, it is wherever the swarm's route reaches this tile from.
+   */
+  threatYaw(x, z) {
+    const sp = this.grid.spawn;
+    const toHive = Math.atan2((sp.y + 1) - z, (sp.x + 0.5) - x);
+    if ((this.layout?.fronts || 1) < 2) return toHive;
+    return this.grid.upstreamYaw(Math.floor(x), Math.floor(z)) ?? toHive;
+  }
+
   /** Specialists join the roster one round at a time. */
   isUnlocked(id) { return this.level >= unlockRound(id); }
 
@@ -301,8 +312,7 @@ export class Game {
     if (!spec || !this.isUnlocked(kind) || !this.canBuildAt(tx, ty) || !this.canAfford(spec.cost)) return false;
     const m = new Marine(kind, tx, ty, this.marineUpgrades, this.baseLevel);
     syncEvolutionVisual(m, this);
-    const sp = this.grid.spawn;
-    m.restYaw = Math.atan2((sp.y + 1) - m.z, (sp.x + 0.5) - m.x);
+    m.restYaw = this.threatYaw(m.x, m.z);
     m.yaw = m.restYaw;
     m.invested = spec.cost;
     if (!m.flying) this.grid.set(tx, ty, CELL.TOWER, m);
@@ -317,8 +327,7 @@ export class Game {
 
   placeBunker(tx, ty) {
     if (!this.canBuildAt(tx, ty) || !this.canAfford(BUILD.bunker.cost)) return false;
-    const sp = this.grid.spawn;
-    const facing = Math.atan2((sp.y + 1) - (ty + 0.5), (sp.x + 0.5) - (tx + 0.5));
+    const facing = this.threatYaw(tx + 0.5, ty + 0.5);
     const b = new Bunker(tx, ty, BUILD.bunker.hp, facing);
     syncEvolutionVisual(b, this);
     this.grid.set(tx, ty, CELL.BUNKER, b);
@@ -520,7 +529,10 @@ export class Game {
     if (!route?.length) return null;
     // Cover the shared approach, rather than placing the whole squad on one branch. Close enough
     // that a bug which slips past is still in rifle range while it chews on the base.
-    return this.grid.spawns.length > 1 ? { x: c.x - 3, y: c.y } : route[Math.max(0, route.length - 9)];
+    const front = this.layout?.front || { dx: -1, dy: 0 };   // the side the main front attacks from
+    const ahead = (d) => (d > 0 ? 4 : d < 0 ? -3 : 0);
+    return this.grid.spawns.length > 1 ? { x: c.x + ahead(front.dx), y: c.y + ahead(front.dy) }
+      : route[Math.max(0, route.length - 9)];
   }
 
   /**
@@ -553,6 +565,7 @@ export class Game {
         unit.invested += unit.upgradeCost;
         unit.upgrade(this.marineUpgrades);
       }
+      unit.defend = !!want.defend;
       placed++;
     }
     this.lastArmy = waiting.length ? waiting : null;
@@ -621,9 +634,7 @@ export class Game {
     this.emit('brief', {
       kicker: `Level ${this.level}`,
       title: this.layout.name,
-      body: this.layout.blurb + (this.grid.spawns.length > 1
-        ? ` Breaches open from ${this.grid.spawns.length} directions.`
-        : '')
+      body: this.layout.blurb
     });
     this.emit('change');
     this.emit('checkpoint');
@@ -687,7 +698,7 @@ export class Game {
     const prevName = this.layout.name;
     this.emit('roundCleared', { level: prev, perfect: !this.roundCoreDamaged && this.core.hp === this.core.maxHp });
     // levels never run out: clear one and the next canyon is waiting
-    const army = this.gunners.filter(u => !u.dead).map(u => ({ kind: u.kind, tier: u.tier, invested: u.invested }));
+    const army = this.gunners.filter(u => !u.dead).map(u => ({ kind: u.kind, tier: u.tier, invested: u.invested, defend: u.defend }));
     this.lastArmy = army.length ? army : null;
     const refund = this.recoverHardware();
     this.minerals += refund + bonus;
@@ -778,12 +789,25 @@ export class Game {
 
   /* ---------------- commands ---------------- */
 
-  /** One press sends every combat unit, including bunker troops, toward enemy bases. */
+  /** Units told to defend hold their ground; the whole-army Attack order leaves them at home. */
+  commandDefend(units, on = !units.every(u => u.defend)) {
+    let n = 0;
+    for (const unit of units) {
+      if (!UNITS[unit.kind] || unit.dead) continue;
+      unit.defend = on;
+      if (on && unit.order?.type === 'advance') unit.stop(this);   // recalled mid-advance
+      n++;
+    }
+    if (n) this.emit('change');
+    return n;
+  }
+
+  /** One press sends every combat unit, including bunker troops, toward enemy bases. Defenders stay. */
   commandAdvanceArmy() {
     if (this.state === 'defeat' || this.pendingEvolution) return 0;
     let n = 0;
     for (const unit of this.gunners) {
-      if (unit.dead || unit.downed) continue;
+      if (unit.dead || unit.downed || unit.defend) continue;
       const target = this.advanceTarget(unit);
       if (!target) continue;
       if (unit.bunker) this.eject(unit, true);

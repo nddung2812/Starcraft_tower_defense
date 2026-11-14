@@ -39,7 +39,7 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 | `src/entities.js` | `Marine` (all player units: marine/goliath/tank/falcon plus the scorcher/deadeye/mender specialists), `Zergling` (all bug strains), `Wall`, `Bunker`, `Scv`, `Core`, `SupplyCrate`, projectiles. |
 | `src/evolutions.js` | Boss reward abilities: automatic tank siege, walker chain lightning, bunker Last Stand, descriptions and model additions. Tuning lives in config. |
 | `src/grid.js` | Tile grid, A* for player units, the shared bug route field, line-of-sight helpers. |
-| `src/levels.js` | Generates 1–3 difficulty-based seeded approaches between west/east bases, with boulders, rock depth and spires. Early level names come from `LEVELS`. |
+| `src/levels.js` | Generates the seeded map: 2–4 approaches from 1–4 sides (`attackFronts(level)`) converging on the base, with boulders, rock depth and spires. Early level names come from `LEVELS`. |
 | `src/terrain.js` | The mountain heightfield mesh built from the per-cell rock depth. |
 | `src/scenery.js` | Optional scenery art from `SCENERY_FILES`: rock `.glb` shapes for lane boulders and spires, and photo textures for the canyon floor and mountains (world-space triplanar detail multiplied into the existing colours). A missing file falls back to the procedural rock or painted texture. Sources and licences are in `assets/CREDITS.md`. |
 | `src/config.js` | **All tuning lives here**: map size, costs, unit and bug stats, wave plan, level paths, model files. |
@@ -54,6 +54,28 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 | `src/daily.js` | Daily challenge: one seed per UTC day, today's best and day streak in `td.daily.v1`, share text. |
 | `src/fx.js`, `audio.js`, `voice.js` | Particles and decals, synthesised sound effects, speech-synthesis voice lines. |
 | `assets/models/README.md` | How to drop in `.glb` unit models. |
+
+## Random base side, attack fronts and Defend mode (Nov 15, 2026)
+
+- **Map version 4.** The base is no longer always in the east. `planFronts()` in `levels.js`
+  picks the main front's side from the seed and `attackFronts(level)` sets how many sides attack:
+  one on rounds 1–6 (base at the far end of a random side), two on 7–15 (base inland, one flank
+  hive), three on 16–20, four from 21 (base mid-map, a hive on every side). Route counts are
+  still 2 / 3 / 4. The table is in `BALANCE.md`.
+- **Each approach is built in its own frame** (`u` in from its map edge, `v` across) and turned
+  onto the square map by `cellFrom`/`pointFrom`. `carveWestern()` is the untouched version 1–3
+  generator; `finishLevel()` is shared. A layout now carries `sides` (one per spawn), `fronts`
+  and `front` (unit step from the base toward the main front).
+- **Nothing may assume west hives or an east base.** Use `layout.sides`/`layout.front`,
+  `game.deployAnchor()` and `game.threatYaw(x, z)`; the last faces a bunker or idle unit up the
+  swarm's route (`grid.upstreamYaw`) once there is more than one front.
+- **Defend (K).** `unit.defend` is a per-unit flag toggled by `game.commandDefend(units)`.
+  `commandAdvanceArmy()` skips defenders, so they stay home (and in their bunkers) when Attack is
+  pressed; direct orders still move them. It is an optional checkpoint field on units and on
+  `lastArmy`, so Redeploy restores it. Marked by `guardMark` (gold diamond), a gold chip border
+  and "DEFENDING" in the inspector.
+- `tests/map-layout.mjs` checks sides, fronts, base placement and that approaches stay apart
+  for the outer half of their march; `tests/browser-defend.cjs` covers Defend.
 
 ## Specialists, streaks, supply drops, redeploy and daily challenge (Nov 11, 2026)
 
@@ -255,6 +277,7 @@ the balance suite checks the starting squad can clear both opening approaches.
 Left-drag pan · Shift-drag box-select · click / Shift-click / double-click or Ctrl-click (all of a type on screen) ·
 right-click = smart order (move, attack, garrison, repair, revive; never rotates the camera) · middle-drag = rotate/tilt · ⌥ + left-drag = rotate/tilt · wheel = zoom · arrows =
 scroll (no automatic edge scrolling) · Ctrl+1–9 set group, Shift+1–9 add, 1–9 select, double-tap to jump · A whole-army advance · Shift+A selected attack-move · S stop ·
+K defend (selected units stay home when the army attacks) ·
 F stim · R air strike · U promote · X salvage · F1 SCV · F2 all army · Space launch wave / jump to
 last alert · Esc cancel · Z redeploy last round's army · click a supply drop to collect it.
 Build hotkeys: W wall, M marine, B bunker, G goliath, T tank, V Falcon Gunship, and once unlocked
@@ -331,9 +354,11 @@ times; if files are changing, stop and coordinate rather than overwrite.
    faction, location, ability and voice text. See `BALANCE.md` for the current specs.
    Legacy code/save IDs stay stable to preserve checkpoints and model integrations.
    This naming pass is not an artwork review or legal clearance.
-2. **Map flow confirmed by user.** Enemy hives start at the beginning of the map and the
-   command center is always at the other end. Keep this full-map layout. Continue playtesting
-   pacing and boss balance; do not move hives toward the player base to shorten the march.
+2. **Map flow changed by user (Nov 15, 2026).** The earlier rule (hives in the west, command
+   center always at the far east end) is replaced: the base side is random and harder rounds
+   attack from two, three and four sides, which puts the base inland and shortens those marches.
+   Hives still sit on the map edge; do not move them toward the base. Rounds 16+ on three and
+   four fronts need playtesting for pacing and boss balance.
 3. **Hosting plan (proposed, not started).** Static site on Vercel, plus one function at
    `/api/scores` backed by Upstash Redis (a sorted set).
    - `GET /api/scores?limit=10` → `{ scores: [{ name, score, level, kills }] }`

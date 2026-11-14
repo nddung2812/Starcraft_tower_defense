@@ -500,13 +500,29 @@ function runCommand(id) {
   if (id === 'attack') {
     cancelModes();
     const count = game.commandAdvanceArmy();
+    const guards = game.gunners.filter((u) => u.defend && !u.dead).length;
     if (count) {
-      setSelection(game.gunners.filter(isUnit));
+      setSelection(game.gunners.filter((u) => isUnit(u) && !u.defend));
       voice.say('acquired');
       ui.say(`<b>Army advancing.</b> ${count} combat units will fight enemies on the way and destroy their bases. S stops the selected units.`);
-    } else sfx.deny();
+      if (guards) ui.toast('Defenders holding', `${guards} ${guards === 1 ? 'unit stays' : 'units stay'} home on Defend.`);
+    } else {
+      sfx.deny();
+      if (guards) ui.toast('Nobody to send', 'Every unit is set to Defend. Select some and press K to release them.');
+    }
   }
   else if (id === 'stop') { game.commandStop(army()); sfx.ui(); }
+  else if (id === 'defend') {
+    const units = army().filter((u) => UNITS[u.kind]);
+    const count = game.commandDefend(units);
+    if (!count) { sfx.deny(); ui.toast('Defend', 'Select the units that should stay home first.'); }
+    else {
+      sfx.ui();
+      const on = units[0].defend, who = `${count} ${count === 1 ? 'unit' : 'units'}`;
+      ui.toast(on ? 'Defending the base' : 'Defend released',
+        on ? `${who} will stay put when the army attacks (A).` : `${who} will join the next army attack (A).`);
+    }
+  }
   else if (id === 'stim') stimSelected();
   else if (id === 'yamato') {
     let fired = false;
@@ -779,6 +795,7 @@ window.addEventListener('keydown', (ev) => {
 
   if (k === 'a') { if (ev.shiftKey) setTargeting(targeting ? null : 'attack'); else runCommand('attack'); }
   else if (k === 's') runCommand('stop');
+  else if (k === 'k') runCommand('defend');
   else if (k === 'f') runCommand('stim');
   else if (k === 'y') runCommand('yamato');
   else if (k === 'r') runCommand('air');

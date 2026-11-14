@@ -115,15 +115,17 @@ const assert = require('node:assert/strict');
       g.update(10);
       const capped = g.laserCharge === 90;
       g.state = 'wave';
+      // Aim into the map: the base can now sit on any side, so west is not always open ground.
+      const inland = g.core.x > g.grid.COLS / 2 ? -1 : 1;
       const targets = [[-3, 0], [-6, 0], [-9, 0], [-5, 4], [2, 0]].map(([x, z]) => {
-        const bug = new Zergling(g.core.x + x, g.core.z + z, 'warrior', 1, 1);
+        const bug = new Zergling(g.core.x - inland * x, g.core.z + z, 'warrior', 1, 1);
         g.zerglings.push(bug); g.world.add(bug.obj); return bug;
       });
       const invalidAim = !g.fireLaser(g.core.x, g.core.z) && g.laserReady;
-      const fired = g.fireLaser(g.core.x - 10, g.core.z);
+      const fired = g.fireLaser(g.core.x + inland * 10, g.core.z);
       const hit = targets.map(b => b.dead);
       const drained = g.laserCharge === 0;
-      const single = !g.fireLaser(g.core.x - 10, g.core.z) && g.fx.beams.length === 1;
+      const single = !g.fireLaser(g.core.x + inland * 10, g.core.z) && g.fx.beams.length === 1;
       const red = g.fx.beams[0].group.children[0].material.color.getHex() === 0xff3020;
       g.fx.update(0.5, g.camera, g.viewport);
       const cleanup = g.fx.beams.length === 0;
