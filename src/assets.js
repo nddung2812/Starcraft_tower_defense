@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { MODEL_FILES } from './config.js';
-import { buildMarine, buildGoliath, buildTank, buildScv, buildBunker, buildBug, buildFalcon, buildSkyhunter, buildScorcher, buildDeadeye, buildMender } from './models.js';
+import { buildBattlecruiser, buildMarine, buildGoliath, buildTank, buildScv, buildBunker, buildBug, buildFalcon, buildSkyhunter, buildScorcher, buildDeadeye, buildMender } from './models.js';
 
 /*
  * Every unit model comes from makeModel(). If a .glb for that unit was found in
@@ -13,6 +13,7 @@ import { buildMarine, buildGoliath, buildTank, buildScv, buildBunker, buildBug, 
  */
 
 const PROCEDURAL = {
+  cruiser: (tier) => buildBattlecruiser(tier),
   falcon: (tier) => buildFalcon(tier),
   skyhunter: () => buildSkyhunter(),
   marine: (tier) => buildMarine(tier),
@@ -32,6 +33,7 @@ const PROCEDURAL = {
 
 /* Team-colour rim light: blue edges on our side, violet on the swarm. Bunkers mutate their own paint, so they are left alone. */
 const RIM = {
+  cruiser: [0xffbd69, 0.25],
   falcon: [0x71e7e0, 0.35], skyhunter: [0xc06bff, 0.3],
   scorcher: [0xffb070, 0.3], deadeye: [0xc9a8ff, 0.34], mender: [0x7dffb0, 0.3],
   marine: [0x5ad7ff, 0.32], goliath: [0x5ad7ff, 0.32], tank: [0x5ad7ff, 0.3], scv: [0x5ad7ff, 0.28],

@@ -247,7 +247,7 @@ const assert = require('node:assert/strict');
     await page.setViewportSize({ width: 390, height: 760 });
     const fit = await page.evaluate(() => {
       const dock = document.querySelector('.dock').getBoundingClientRect();
-      return [...document.querySelectorAll('[data-build]')].every(b => {
+      return [...document.querySelectorAll('[data-build]')].filter(b => !b.hidden).every(b => {
         const r = b.getBoundingClientRect();
         return r.width >= 24 && r.height >= 24 && r.left >= dock.left - 1 && r.right <= dock.right + 1 && r.top >= dock.top - 1 && r.bottom <= dock.bottom + 1;
       }) && document.documentElement.scrollWidth <= window.innerWidth;

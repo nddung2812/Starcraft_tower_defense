@@ -260,3 +260,26 @@ firing position instead of walking up to the enemy. Pursuit replans as targets m
 terrain occupancy changes, preserves ground collision, and halts if no route exists.
 `tests/attack-routing.mjs` compares routes against exhaustive shortest distances across
 50 maps; the ground and army-attack browser suites cover movement integration.
+
+## Yamato Battlecruiser
+
+Inspired by Blizzard's Battlecruiser guide (https://classic.battle.net/scc/terran/ub.shtml):
+a durable, slow flying fortress with air/ground batteries and a decisive charged weapon.
+The model and synthesized sounds are built locally; tuning below is for Ridgewatch.
+
+- Unlocks in round 5; costs 900 minerals. Build with J. Flies over terrain, remains vulnerable to anti-air.
+- Dreadnought: 1,400 HP, 6 armour, four 30-damage shots every 0.6s, 8 range, 2.1 movement speed.
+- Flagship promotion costs 700: 2,100 HP, four 42-damage shots every 0.5s, 8.8 range.
+- Yamato: 1.4s charge, 12 range, 18s cooldown from charge start. Deals 1,400 armour-ignoring
+  damage to the lock and 260 splash to other enemies within 2.6 tiles, including aircraft.
+  Damage scales with weapon promotions and base research (1,960 direct damage on a Flagship).
+- Auto-targets bosses, hives and enemies with at least 300 maximum HP. Select a cruiser and
+  press Y, or use its inspector button, for a manual shot. Explicit attack orders take priority;
+  otherwise the strongest enemy in range is chosen. The cannon never damages allies.
+- Normal batteries pause during charging. A dead or out-of-range lock, or silence, cancels the
+  shot with a short retry delay. Pause freezes charge/cooldown. Checkpoints preserve cooldown;
+  earlier saves without it still load. The ship supports normal selection, repair, promotion,
+  army orders, salvage and next-round redeployment.
+
+`tests/browser-battlecruiser.cjs` covers damage, charge timing, target cancellation, cooldown,
+air splash, friendly-fire exclusion, upgrades, flight, saves, hotkeys and mobile build targets.

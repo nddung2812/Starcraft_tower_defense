@@ -1059,3 +1059,48 @@ export function buildCrate() {
   root.userData = { crate, beam, ring };
   return root;
 }
+
+/** Capital ship: broad armoured prow, layered keel, engine pods and a spinal cannon. */
+export function buildBattlecruiser(tier = 0) {
+  const root = new THREE.Group(), torso = new THREE.Group(), weapon = new THREE.Group();
+  root.add(torso); torso.add(weapon);
+  const plate = tier ? MAT.tankSteel : MAT.steelDark;
+  const add = (w, h, d, material, x, y, z) => torso.add(mesh(box(w, h, d, 0.05), material, x, y, z));
+  add(2.65, 0.42, 0.78, plate, -0.2, 0.18, 0);
+  add(1.2, 0.48, 2.1, plate, 0.75, 0.2, 0);
+  add(0.75, 0.25, 1.75, MAT.armor, 0.85, 0.52, 0);
+  add(1.7, 0.14, 0.43, MAT.gunmetal, -0.2, -0.14, 0);
+  add(0.7, 0.35, 0.6, MAT.armor, -0.5, 0.52, 0);
+  add(0.42, 0.12, 0.5, MAT.visor, -0.42, 0.74, 0);
+  add(0.16, 0.4, 0.12, MAT.steel, -0.72, 0.9, 0);
+  for (const side of [-1, 1]) {
+    add(1.9, 0.3, 0.4, plate, -0.55, 0.08, side * 0.85);
+    add(0.75, 0.12, 0.46, MAT.armor, -0.78, 0.3, side * 0.85);
+    for (let i = 0; i < 4; i++) add(0.12, 0.05, 0.34, MAT.gunmetal, -1.15 + i * 0.2, 0.39, side * 0.85);
+    torso.add(mesh(new THREE.CylinderGeometry(0.15, 0.19, 0.18, 12).rotateZ(Math.PI / 2), MAT.coreGlow, -1.57, 0.1, side * 0.85));
+    for (const x of [0.05, 0.95]) {
+      weapon.add(mesh(box(0.35, 0.16, 0.2), MAT.gunmetal, x, 0.45, side * 0.92));
+      weapon.add(mesh(box(0.4, 0.06, 0.06), MAT.steel, x + 0.2, 0.47, side * 0.92));
+    }
+    add(0.12, 0.06, 0.55, MAT.hazard, 1.3, 0.48, side * 0.63);
+    for (let i = 0; i < 3; i++) add(0.08, 0.06, 0.025, MAT.coreGlow, 0.55 + i * 0.22, 0.25, side * 1.065);
+  }
+  // Inset seams and layered armour keep the capital silhouette readable from above.
+  for (const side of [-1, 1]) {
+    for (let i = 0; i < 3; i++) {
+      add(0.5, 0.06, 0.42, MAT.steelDark, 0.7, 0.67, side * (0.25 + i * 0.25));
+      add(0.32, 0.035, 0.035, MAT.steel, 0.7, 0.71, side * (0.25 + i * 0.25));
+    }
+    add(0.85, 0.06, 0.055, MAT.hazard, -0.55, 0.26, side * 1.06);
+    add(0.5, 0.1, 0.14, MAT.gunmetal, -0.25, 0.43, side * 0.39);
+  }
+  for (let i = 0; i < 3; i++) add(0.18, 0.04, 0.48, MAT.steelDark, -1.25 + i * 0.25, 0.41, 0);
+  const cannon = mesh(new THREE.CylinderGeometry(0.16, 0.23, 0.75, 12).rotateZ(-Math.PI / 2), MAT.gunmetal, 1.35, 0.13, 0);
+  weapon.add(cannon);
+  const charge = mesh(new THREE.SphereGeometry(0.18, 14, 10), new THREE.MeshBasicMaterial({ color: 0xffb24b }), 1.76, 0.13, 0);
+  weapon.add(charge);
+  weapon.userData.muzzles = [-1, 1].flatMap(side => [0.05, 0.95].map(x => new THREE.Vector3(x + 0.43, 0.47, side * 0.92)));
+  weapon.userData.muzzle = weapon.userData.muzzles[0];
+  root.userData.torso = torso; root.userData.weapon = weapon; root.userData.yamato = charge;
+  return root;
+}

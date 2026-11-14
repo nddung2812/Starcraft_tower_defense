@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { packHeading, swarmStepClear } from './swarm.js';
+import { updateBattlecruiser } from './battlecruiser.js';
 import { CELL, UNITS, BREEDS, UNIT_SCALE, BUG_SCALE, OVERDRIVE, applyBaseUpgrade, HIVE_RAID, BASE_LASER, SUPPLY } from './config.js';
 import { buildWall, buildCore, buildHatchery, buildCrate } from './models.js';
 import { makeModel } from './assets.js';
@@ -84,6 +85,9 @@ export class Marine {
     this.spawnT = 0;
     this.invested = 0;
     this.stimT = 0;
+    this.yamatoCd = 0;
+    this.yamatoCharge = 0;
+    this.yamatoLock = null;
     this.blindT = 0;
     this.silenceT = 0;
     this.bunker = null;
@@ -116,7 +120,7 @@ export class Marine {
     this.ring.material.opacity = 0.55;
     this.obj.add(this.ring);
 
-    const barY = (kind === 'goliath' ? 1.62 : kind === 'tank' ? 0.98 : 1.28) * this.visualScale;
+    const barY = (kind === 'cruiser' ? 1.4 : kind === 'goliath' ? 1.62 : kind === 'tank' ? 0.98 : 1.28) * this.visualScale;
     this.bar = new HealthBar(this.obj, kind === 'tank' ? 0.78 : 0.62, 0.08, barY);
     this.applyStats(armory);
     this.hp = this.stats.hp;
@@ -344,6 +348,8 @@ export class Marine {
       return;
     }
 
+    if (this.kind === 'cruiser') updateBattlecruiser(this, dt, game);
+
     let o = this.order;
     if (o?.type === 'attack' && !game.isEnemy(o.target)) this.order = o = null;
     if (o?.type === 'advance') {
@@ -406,7 +412,7 @@ export class Marine {
       this.yaw = angleLerp(this.yaw, want, Math.min(1, dt * 9));
       this.cooldown -= dt;
       const aligned = Math.abs(normAngle(want - this.yaw)) < 0.3;
-      if (this.cooldown <= 0 && aligned && this.silenceT <= 0) {
+      if (this.cooldown <= 0 && aligned && this.silenceT <= 0 && !this.yamatoLock) {
         this.fire(game);
         this.cooldown = this.stats.attackSpeed * (this.stimT > 0 ? 1 / OVERDRIVE.fireRate : 1)
           / (this.bunker?.lastStandT > 0 ? EVOLUTION_RULES.standFireRate : 1);
@@ -546,7 +552,10 @@ export class Marine {
         game.spawnShell(muzzle, this.target.x, this.target.z, this.stats.damage, splash);
         if (this.siegeDeployed) game.fx.ring(this, 1.1, 0xf0b23c);
       }
-      else game.spawnTracer(muzzle, this.target, this.stats.damage, this);
+      else {
+        game.spawnTracer(muzzle, this.target, this.stats.damage, this);
+        if (this.kind === 'cruiser') game.fx.link(muzzle, { x: this.target.x, y: (this.target.altitude || 0) + 0.5, z: this.target.z }, 0xffb858, 0.12, 0.025);
+      }
     }
     game.stage.kick(this.spec.shell ? 1.3 : 0.45);
     if (this.spec.shell) game.sfx.cannon();

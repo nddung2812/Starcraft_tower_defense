@@ -35,6 +35,7 @@ export const BUILD = {
   // Specialists join the build bar one round at a time (`unlock` is the first round they can be built).
   scorcher: { id: 'scorcher', name: 'Scorcher', cost: 110, icon: 'C', key: 'C', unlock: 2, desc: 'Flame trooper. Burns every ground bug in a short cone. Weak against armour.' },
   deadeye: { id: 'deadeye', name: 'Deadeye', cost: 150, icon: 'D', key: 'D', unlock: 3, desc: 'Marksman. Very long range, ignores armour, picks the biggest target. Fragile.' },
+  cruiser: { id: 'cruiser', name: 'Yamato Battlecruiser', cost: 900, icon: 'Y', key: 'J', unlock: 5, desc: 'Armoured capital ship. Four batteries hit ground and air. Charges Yamato automatically against heavy targets; Y fires manually. Flies over terrain.' },
   mender: { id: 'mender', name: 'Mender', cost: 100, icon: '+', key: 'H', unlock: 4, desc: 'Field medic. Heals the most injured unit nearby. Carries no weapon.' }
 };
 export const unlockRound = id => BUILD[id]?.unlock || 1;
@@ -134,7 +135,24 @@ export const MENDER_INFO = {
   quote: '"Hold still. Almost done."'
 };
 
+export const YAMATO = { damage: 1400, splashDamage: 260, radius: 2.6, range: 12, charge: 1.4, cooldown: 18 };
+export const CRUISER_TIERS = [
+  { rank: 'Dreadnought', hp: 1400, damage: 30, attackSpeed: 0.6, range: 8, upgradeCost: 700 },
+  { rank: 'Flagship', hp: 2100, damage: 42, attackSpeed: 0.5, range: 8.8, upgradeCost: null }
+];
+export const CRUISER_INFO = {
+  id: 'cruiser', name: 'Yamato Battlecruiser', faction: 'Compact Capital Fleet', role: 'Heavy Capital Ship',
+  armor: 6, accent: '#ffbd69',
+  bio: 'A flying fortress with four rapid-fire batteries, heavy armour and a charged Yamato cannon. Automatically targets bosses, hives and heavy enemies. Select it and press Y to strike the strongest enemy in range; an explicit attack target takes priority. Yamato scales with promotions and base research.',
+  quote: '"Bring the full battery to bear."'
+};
+
 export const UNITS = {
+  cruiser: {
+    id: 'cruiser', shots: 4, tiers: CRUISER_TIERS, info: CRUISER_INFO, visualScale: 1,
+    flying: true, targetsAir: true, shell: false, splash: 0, canBunker: false, canStim: false,
+    armory: false, turret: true, mobile: true, speed: 2.1, accent: 0xffbd69
+  },
   marine: {
     id: 'marine', shots: 1, tiers: MARINE_TIERS, info: MARINE_INFO, visualScale: 0.448,
     shell: false, splash: 0, canBunker: true, canStim: true, armory: true, turret: false,

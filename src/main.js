@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { startYamato } from './battlecruiser.js';
 import { BUILD, UNITS, AIR_STRIKE } from './config.js';
 import { Stage } from './scene.js';
 import { Game } from './game.js';
@@ -70,7 +71,7 @@ stage.scene.add(focusRing);
 /* ---------------- selection decals: one ring under everything selected ---------------- */
 
 const RING_GEO = new THREE.RingGeometry(0.44, 0.52, 36).rotateX(-Math.PI / 2);
-const RING_SIZE = { core: 2.1, tank: 1.35, goliath: 1.2, bunker: 1.15 };
+const RING_SIZE = { cruiser: 2.4, core: 2.1, tank: 1.35, goliath: 1.2, bunker: 1.15 };
 const decals = [];
 
 function decal(i) {
@@ -395,6 +396,7 @@ const PLACE_TIP = {
   wall: 'Walls redirect the swarm, and bugs stop to chew them. Drag to lay a run. Right-click cancels.',
   marine: 'Place a Lineguard. Right-click the ground to move him later.',
   goliath: 'Anchor Walker. Twin autocannons, long reach. Advances with the army; too big for a bunker.',
+  cruiser: 'Yamato Battlecruiser. Four batteries, heavy armour, and auto Yamato against heavy targets. J builds; select and press Y to fire manually.',
   falcon: 'Kestrel. Attacks ground and air. Right-click to fly over any terrain. V to deploy another.',
   tank: 'Cinder Crawler. Twin cannons, wide blast. Right-click the ground to drive it.',
   bunker: 'Bunker faces the bugs. Select Lineguards and right-click it to garrison.',
@@ -506,6 +508,11 @@ function runCommand(id) {
   }
   else if (id === 'stop') { game.commandStop(army()); sfx.ui(); }
   else if (id === 'stim') stimSelected();
+  else if (id === 'yamato') {
+    let fired = false;
+    for (const unit of army()) if (startYamato(unit, game, true)) fired = true;
+    if (!fired) ui.toast('Yamato unavailable', 'Select a Battlecruiser with a ready cannon and an enemy within 12 tiles.');
+  }
   else if (id === 'air') setAirAim(!airAim);
   else if (id === 'promote') { if (game.selected?.upgrade) game.upgradeGunner(game.selected); }
   else if (id === 'salvage') { if (game.selected && game.selected.kind !== 'core' && game.selected.kind !== 'zergling' && game.selected.kind !== 'hive') game.sell(game.selected); }
@@ -773,6 +780,7 @@ window.addEventListener('keydown', (ev) => {
   if (k === 'a') { if (ev.shiftKey) setTargeting(targeting ? null : 'attack'); else runCommand('attack'); }
   else if (k === 's') runCommand('stop');
   else if (k === 'f') runCommand('stim');
+  else if (k === 'y') runCommand('yamato');
   else if (k === 'r') runCommand('air');
   else if (k === 'l') setLaserAim(!laserAim);
   else if (k === 'u') runCommand('promote');

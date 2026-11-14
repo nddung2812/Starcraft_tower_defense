@@ -59,6 +59,8 @@ export const sfx = {
 
   gauss() { noise(0.1, 'bandpass', 2600, 1.1, 0.55, 6); tone('square', 320, 90, 0.08, 0.1); },
   cannon() { noise(0.16, 'lowpass', 420, 0.55, 0.5, 3); tone('sawtooth', 96, 38, 0.2, 0.14); },
+  yamatoCharge() { tone('sine', 90, 950, 1.4, 0.16); tone('triangle', 140, 1400, 1.3, 0.07); },
+  yamatoFire() { noise(0.45, 'lowpass', 1000, 0.6, 0.55, 8); tone('sawtooth', 220, 35, 0.65, 0.18); tone('sine', 60, 24, 0.8, 0.2); },
   cannonHit() { noise(0.26, 'lowpass', 300, 0.45, 0.55, 2); tone('triangle', 68, 28, 0.28, 0.1); },
   airstrike() {
     tone('sawtooth', 220, 90, 0.35, 0.12);

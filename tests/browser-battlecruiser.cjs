@@ -1,0 +1,97 @@
+const { chromium } = require(process.argv[2] || 'playwright-core');
+const assert = require('node:assert/strict');
+(async () => {
+  const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true, args: ['--enable-unsafe-swiftshader'] });
+  try {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    const errors = []; page.on('pageerror', e => errors.push(e.message));
+    await page.addInitScript(() => { window.requestAnimationFrame = () => 1; });
+    await page.goto(process.env.TEST_URL || 'http://127.0.0.1:8765/?seed=12345');
+    await page.waitForFunction(() => window.game?.stage, null, { polling: 50 });
+    await page.locator('#btnDaily').click();
+    assert.equal(await page.locator('[data-build="cruiser"]').isVisible(), false);
+    const results = await page.evaluate(async () => {
+      const { Marine, Zergling } = await import('/src/entities.js');
+      const { YAMATO, BUILD } = await import('/src/config.js');
+      const { startYamato, updateBattlecruiser } = await import('/src/battlecruiser.js');
+      const { captureCheckpoint, validateCheckpoint, restoreCheckpoint } = await import('/src/checkpoints.js');
+      const check = (ok, message) => { if (!ok) throw Error(message); };
+      const g = game; g.reset(12345); g.level = 5; g.loadLevel(); g.state = 'wave'; g.minerals = 5000;
+      g.assault.plan = null; g.assault.pending = false;
+      const [x,y] = g.layout.open.find(([x,y]) => g.canBuildAt(x,y) && x > 10 && x < g.grid.COLS - 12);
+      check(g.placeGunner('cruiser',x,y), 'Cannot build unlocked cruiser');
+      const u = g.gunners.at(-1);
+      check(u.maxHp === 1400 && u.stats.armor === 6 && u.flying && !u.isPlaced(g), 'Capital stats or flying occupancy');
+      check(g.minerals === 5000 - BUILD.cruiser.cost, 'Wrong build price');
+      const enemy = (dx, dz, breed = 'warrior', hp = 5000) => {
+        const b = new Zergling(u.x+dx, u.z+dz, breed, 1, 1); b.hp = b.maxHp = hp;
+        b.obj.position.set(b.x, b.altitude, b.z); g.zerglings.push(b); g.world.add(b.obj); return b;
+      };
+      const heavy = enemy(6,0), flyer = enemy(6,1,'skyhunter'), far = enemy(6,5), friend = new Marine('marine',x+6,y,[]);
+      g.gunners.push(friend); g.world.add(friend.obj); const friendHp = friend.hp;
+      g.focus = heavy;
+      check(startYamato(u,g,true), 'Ready cannon refused');
+      check(!startYamato(u,g,true), 'Duplicate charge accepted');
+      updateBattlecruiser(u, 1, g);
+      check(heavy.hp === 5000, 'Fired before charge completed');
+      updateBattlecruiser(u, 0.5, g);
+      check(heavy.hp === 3600 && flyer.hp === 4740 && far.hp === 5000, 'Direct/splash/air/radius damage wrong');
+      check(friend.hp === friendHp, 'Friendly fire');
+      check(u.yamatoCd > 0 && !startYamato(u,g,true), 'Cooldown not enforced');
+      u.yamatoCd = 0; g.paused = true; check(!startYamato(u,g,true), 'Fired while paused'); g.paused = false;
+      u.silenceT = 2; check(!startYamato(u,g,true), 'Fired while silenced'); u.silenceT = 0;
+      startYamato(u,g,true); heavy.dead = true; updateBattlecruiser(u,2,g);
+      check(!u.yamatoLock && flyer.hp === 4740, 'Dead lock caused a ghost blast'); heavy.dead = false;
+      u.yamatoCd = 0; startYamato(u,g,true); heavy.x += 30; updateBattlecruiser(u,2,g);
+      check(!u.yamatoLock && heavy.hp === 3600, 'Out-of-range lock fired'); heavy.x -= 30;
+      u.yamatoCd = 0; g.focus = null; updateBattlecruiser(u,0.01,g);
+      check(u.yamatoLock, 'Auto Yamato did not choose a heavy target'); u.yamatoLock = null;
+      // Four batteries, correct air target handling, and no change to terrain occupancy.
+      u.target = flyer; const count = g.tracers.length; u.fire(g);
+      check(g.tracers.length - count === 4 && g.tracers.slice(count).every(t => t.target === flyer), 'Four air batteries failed');
+      u.upgrade(g.marineUpgrades); check(u.maxHp === 2100 && u.stats.damage === 42, 'Flagship promotion failed');
+      u.yamatoCd = 0; g.focus = heavy; const hp = heavy.hp;
+      startYamato(u,g,true); updateBattlecruiser(u,1.5,g);
+      check(Math.abs(hp - heavy.hp - 1960) < 0.01, 'Promoted Yamato does not scale');
+      check(u.orderMove(0,0,g), 'Capital ship cannot fly over terrain');
+      for(let i=0;i<2000&&u.driving;i++) u.stepMove(.1,g);
+      check(u.x === .5 && u.z === .5, 'Flight failed');
+      // Checkpoint cooldown must survive reload; older saves without the field still load.
+      g.state = 'build'; u.yamatoCd = 9; g.gunners = [u];
+      const save = captureCheckpoint(g,{player:'Cruiser',quickDeployment:true,guideDismissed:true});
+      check(validateCheckpoint(save), 'Cruiser checkpoint rejected');
+      restoreCheckpoint(g,save); check(g.gunners[0].yamatoCd === 9 && g.gunners[0].tier === 1, 'Cooldown or promotion lost');
+      const old = structuredClone(save); delete old.units[0].yamatoCd;
+      check(validateCheckpoint(old), 'Optional cooldown broke older saves');
+      const invalid = structuredClone(save); invalid.units[0].yamatoCd = -1;
+      check(!validateCheckpoint(invalid), 'Invalid cooldown accepted');
+      g.paused = false; g.state = 'wave'; g.gunners[0].yamatoCd = 0; g.emit('change');
+      return { hp:1400, flagshipHp:2100, batteries:4, direct:1400, splash:260, flagshipYamato:1960, cooldown:YAMATO.cooldown };
+    });
+    assert.equal(await page.locator('[data-build="cruiser"]').isVisible(), true);
+    await page.keyboard.press('j');
+    assert.equal(await page.locator('.card--on').getAttribute('data-build'), 'cruiser');
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => game.emit('selectOnly',game.gunners[0]));
+    assert.match(await page.locator('#stats').textContent(), /42 ×4/);
+    assert.equal(await page.locator('#btnYamato').isVisible(), true);
+    await page.evaluate(async () => {
+      const { Zergling } = await import('/src/entities.js');
+      const g=game,u=g.gunners[0];
+      g.state='wave';g.paused=false;u.yamatoCd=0;u.x=20;u.z=20;u.spawnT=1;u.driving=false;u.yamatoLock=null;
+      u.altitude=g.heightAt(20,20)+2.6;u.obj.position.set(20,u.altitude,20);u.model.scale.setScalar(u.visualScale);
+      const enemy=new Zergling(26,20,'warrior',1,1);enemy.hp=enemy.maxHp=5000;g.zerglings.push(enemy);g.world.add(enemy.obj);g.focus=enemy;
+      g.stage.focus.set(21,u.altitude,20);g.stage.dist=15;g.stage.updateCamera();g.stage.render();g.emit('change');
+    });
+    await page.keyboard.press('y');
+    assert.equal(await page.evaluate(()=>!!game.gunners[0].yamatoLock),true,'Y hotkey does not charge');
+    await page.evaluate(()=>{game.gunners[0].update(0.5,game);game.stage.render();});
+    await page.screenshot({ path:'/tmp/ridgewatch-battlecruiser.png' });
+    await page.setViewportSize({width:390,height:844});
+    const fits = await page.locator('[data-build="cruiser"]').evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.bottom<=innerHeight;});
+    assert.ok(fits,'Mobile build card outside viewport');
+    assert.ok(await page.locator('#buildBar').evaluate(el => [...el.querySelectorAll('button')].filter(b=>!b.hidden).every(b=>{const r=b.getBoundingClientRect();return r.width>=24&&r.height>=24;})), 'Build targets too small');
+    assert.deepEqual(errors,[]);
+    console.log('PASS: Battlecruiser combat, charge, cooldown, targeting, flight, upgrade, save compatibility, build hotkey and mobile card',results);
+  } finally { await browser.close(); }
+})().catch(e=>{console.error(e);process.exitCode=1;});

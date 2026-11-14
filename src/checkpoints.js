@@ -1,4 +1,4 @@
-import { ARMORY, TREASURE, TREASURE_RULES, BUILD, UNITS, CELL, applyBaseUpgrade, BASE_LASER } from './config.js';
+import { ARMORY, TREASURE, TREASURE_RULES, BUILD, UNITS, CELL, applyBaseUpgrade, BASE_LASER, YAMATO } from './config.js';
 import { Grid } from './grid.js';
 import { carveLevel, SUPPORTED_MAP_VERSIONS } from './levels.js';
 import { Marine, Wall, Bunker } from './entities.js';
@@ -9,7 +9,7 @@ export const SAVE_KEY = 'td.checkpoint.v1';
 const number = (v, min = 0, max = 1e12) => Number.isFinite(v) && v >= min && v <= max;
 const integer = (v, min = 0, max = 1e9) => Number.isInteger(v) && number(v, min, max);
 const fields = ['tx', 'ty', 'x', 'z', 'hp', 'tier', 'invested', 'yaw', 'restYaw', 'cooldown',
-  'stimT', 'blindT', 'silenceT', 'goalTx', 'goalTy', 'wp', 'driving', 'waypoints'];
+  'yamatoCd', 'stimT', 'blindT', 'silenceT', 'goalTx', 'goalTy', 'wp', 'driving', 'waypoints'];
 
 /** Only peaceful planning/countdown states can become checkpoints. Combat replays the round. */
 export function captureCheckpoint(g, meta) {
@@ -79,6 +79,7 @@ export function validateCheckpoint(s) {
     if (!Array.isArray(s.units) || s.units.length > 5000 || !s.units.every(u => {
       if (!u || !Object.hasOwn(UNITS, u.kind) || !pos(u) || !tile(u) ||
         !integer(u.tier, 0, UNITS[u.kind].tiers.length - 1) || !number(u.hp, 0.001, 1e7) ||
+        (u.yamatoCd !== undefined && !number(u.yamatoCd, 0, YAMATO.cooldown)) ||
         !number(u.invested) || !number(u.yaw, -100, 100) ||
         (u.restYaw != null && !number(u.restYaw, -100, 100)) ||
         !['cooldown', 'stimT', 'blindT', 'silenceT'].every(k => number(u[k])) ||

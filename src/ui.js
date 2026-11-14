@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { installScouting } from './scouting.js';
-import { BUILD, ZERG_INFO, BREEDS, ECON, UNITS, AIR_STRIKE, OVERDRIVE, BASE_UPGRADE, BASE_LASER, applyBaseUpgrade } from './config.js';
+import { startYamato, yamatoTarget } from './battlecruiser.js';
+import { BUILD, ZERG_INFO, BREEDS, ECON, UNITS, AIR_STRIKE, OVERDRIVE, BASE_UPGRADE, BASE_LASER, YAMATO, applyBaseUpgrade } from './config.js';
 import { buildZergling, buildWall, buildCore, buildHatchery } from './models.js';
 import { makeModel, loadedModels } from './assets.js';
 import { EVOLUTIONS, EVOLUTION_RULES } from './config.js';
@@ -51,8 +52,8 @@ class Portrait {
       this.current = model('goliath');
       this.camera.position.set(1.5, 1.2, 3.3);
       this.camera.lookAt(0.05, 0.7, 0);
-    } else if (kind === 'falcon') {
-      this.current = model('falcon');
+    } else if (kind === 'falcon' || kind === 'cruiser') {
+      this.current = model(kind);
       this.camera.position.set(2.0, 1.4, 3.2);
       this.camera.lookAt(0.1, 0.15, 0);
     } else if (kind === 'tank') {
@@ -66,7 +67,7 @@ class Portrait {
     }
     this.current.traverse((o) => { o.castShadow = false; o.receiveShadow = false; });
     this.pivot.add(this.current);
-    if (this.current.userData.fromFile) this.frame(this.current);
+    if (this.current.userData.fromFile || kind === 'cruiser') this.frame(this.current);
   }
 
   /** Fit the camera to a model file, whatever its proportions. */
@@ -212,7 +213,7 @@ function buildIcons(renderer) {
   return icons;
 }
 
-const CHIP = { marine: 'M', goliath: 'G', tank: 'H', falcon: 'V', scorcher: 'C', deadeye: 'D', mender: '+', scv: 'S' };
+const CHIP = { cruiser: 'Y', marine: 'M', goliath: 'G', tank: 'H', falcon: 'V', scorcher: 'C', deadeye: 'D', mender: '+', scv: 'S' };
 
 function unitLike(e) {
   if (!e || e.dead) return false;
@@ -277,6 +278,11 @@ export class UI {
     $('btnAir').addEventListener('click', () => game.emit('airstrike'));
     $('btnUpgrade').addEventListener('click', () => {
       if (this.inspect.entity?.upgrade) game.upgradeGunner(this.inspect.entity);
+    });
+    $('btnYamato').addEventListener('click', () => {
+      const unit = this.inspect.entity;
+      if (unit) startYamato(unit, game, true);
+      this.syncYamato();
     });
     $('btnStim').addEventListener('click', () => {
       if (this.inspect.entity?.kind === 'marine') this.inspect.entity.stim(game);
@@ -467,12 +473,13 @@ export class UI {
       const accent = spec.info.accent;
       $('stats').innerHTML =
         statRow('Hit Points', Math.round(s.hp), s.hp / 380, '#5ef08a') +
-        statRow(spec.heals ? 'Heal' : 'Damage', shots > 1 ? Number(s.damage.toFixed(1)) + ' ×2' : Number(s.damage.toFixed(1)), (s.damage * shots) / 50, spec.heals ? '#7dffb0' : '#f0b23c') +
+        statRow(spec.heals ? 'Heal' : 'Damage', shots > 1 ? Number(s.damage.toFixed(1)) + ' ×' + shots : Number(s.damage.toFixed(1)), (s.damage * shots) / 50, spec.heals ? '#7dffb0' : '#f0b23c') +
         statRow('Armour', s.armor, s.armor / 4, '#9aa3a8') +
         statRow(spec.heals ? 'Heal Rate' : 'Fire Rate', (1 / s.attackSpeed).toFixed(2) + '/s', (1 / s.attackSpeed) / 3.5, '#f0b23c') +
         statRow('Range', s.range.toFixed(1) + ' tiles', s.range / 8, accent) +
         (spec.splash ? statRow('Blast', (spec.splash + (entity?.siegeDeployed ? EVOLUTION_RULES.siegeSplash : 0)).toFixed(2) + ' tiles', spec.splash / 2, accent) : '') +
         statRow('Targets', spec.heals ? 'Allies' : spec.flame ? 'Ground · cone' : spec.pierce ? 'Largest · ignores armour' : spec.targetsAir === false ? 'Ground' : 'Ground + Air', 1, accent) +
+        (kind === 'cruiser' ? statRow('Yamato', `${Math.round(YAMATO.damage * s.damage / 30)} + splash · ${YAMATO.cooldown}s`, 1, '#ffbd69') : '') +
         statRow('Move Speed', spec.mobile ? s.moveSpeed.toFixed(1) + ' t/s' : 'Emplaced', s.moveSpeed / 3, accent);
     } else {
       const b = entity?.breed || BREEDS.zergling;
@@ -497,6 +504,7 @@ export class UI {
   syncActions() {
     const e = this.inspect.entity;
     const g = this.game;
+    this.syncYamato();
     const up = $('btnUpgrade'), sell = $('btnSell'), stim = $('btnStim'), eject = $('btnEject');
     const isGun = e && UNITS[e.kind];
     const isMine = e && (isGun || e.kind === 'wall' || e.kind === 'bunker');
@@ -534,6 +542,7 @@ export class UI {
     $('rWave').textContent = g.level;
     this.updateAssault();
     this.syncBase();
+    this.syncYamato();
     $('rKills').textContent = g.kills;
     this.syncRoster();
     this.syncStreak();
@@ -703,6 +712,16 @@ export class UI {
     this.setArmed('air', on);
   }
 
+  syncYamato() {
+    const u = this.inspect.entity, g = this.game, btn = $('btnYamato');
+    btn.hidden = !u || u.kind !== 'cruiser' || u.dead;
+    if (btn.hidden) return;
+    btn.textContent = u.yamatoLock ? `Yamato charging · ${u.yamatoCharge.toFixed(1)}s`
+      : u.yamatoCd > 0 ? `Yamato · ${Math.ceil(u.yamatoCd)}s` : 'Fire Yamato (Y)';
+    btn.disabled = g.paused || !!g.pendingEvolution || !['wave', 'raid'].includes(g.state) || u.downed || u.silenceT > 0 || u.yamatoCd > 0 || !!u.yamatoLock || !yamatoTarget(u, g, true);
+    btn.title = 'Auto-fires against heavy targets. Y: attack target first, otherwise strongest enemy within 12 tiles. 1.4s charge, 18s cooldown. Damage scales with upgrades.';
+  }
+
   syncAir() {
     const g = this.game;
     const btn = $('btnAir');
@@ -776,6 +795,7 @@ export class UI {
     this.pendingHudTime = 0;
     this.updateAssault();
     this.syncBase();
+    this.syncYamato();
     const g = this.game;
     const pct = Math.max(0, g.core.hp / g.core.maxHp);
     $('rCore').textContent = Math.ceil(pct * 100) + '%';
