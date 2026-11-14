@@ -16,6 +16,13 @@ built-in shape. Reload the page; the browser console says which files were picke
 
 Any unit without a file keeps its built-in model, so you can add them one at a time.
 
+The shipped Anchor Walker uses a customized Quaternius mech: steel-blue mechanical armour,
+paired cannons and a new enclosed cockpit in place of the original animal pilot. The cockpit,
+barrel sleeves and rank plates are attached to the torso bone so they follow all four retained
+animations (Idle, Walk, Shoot_Big and Death). The GLB contains its palette texture and all
+materials; it has no external texture dependencies. Promotion colours target `RankPlate`
+meshes. Size, animation selection and the two barrel origins live in `MODEL_FILES.goliath`.
+
 ## What the game does with a file
 
 - **Size:** scales it so a Marine is about 1.2 tiles tall, a tank about 1.45 tiles long, and

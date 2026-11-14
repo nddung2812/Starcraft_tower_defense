@@ -20,12 +20,14 @@ and surface detail come from `src/scenery.js`.
 
 ## Unit models (`assets/models/`)
 
-All by Quaternius, from Poly Pizza. Colours are replaced in the game (`tint` in `MODEL_FILES`).
+All base models are by Quaternius, from Poly Pizza. Most colours are replaced in the game
+(`tint` in `MODEL_FILES`); the customized walker has its palette baked into the file.
 
 | File | Source model | Page | Changes to the file |
 |---|---|---|---|
 | `soldier.glb` | Character Soldier | https://poly.pizza/m/PpLF4rt4ah | Kept three of its guns and five animation clips; welded and quantized. Used by the Lineguard, Scorcher, Deadeye and Mender. |
 | `tank.glb` | Tank | https://poly.pizza/m/jWS1CLA0RO | Kept the forward track animation; welded and quantized. |
+| `goliath.glb` | Mech (Finn the Frog chassis) | https://poly.pizza/m/o3Ps8z8ByP | Removed animal pilot; added armoured cockpit, emissive visor, vents, antenna and cannon sleeves. Recoloured the atlas steel-blue/graphite, welded geometry, retained Idle/Walk/Shoot_Big/Death clips. CC0 verified 14 Nov 2026. |
 | `falcon.glb` | Spaceship | https://poly.pizza/m/PQzePrvBCD | None. |
 
 ## Textures (`assets/textures/`)

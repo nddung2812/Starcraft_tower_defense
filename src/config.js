@@ -269,7 +269,12 @@ export const MODEL_FILES = {
   scorcher: soldier('ShortCannon', 0xc8571f, 0x3d2a20, { muzzle: [1.15, 1.12, 0] }),
   deadeye:  soldier('Sniper', 0x6a4bb0, 0x2b2540, { muzzle: [1.55, 1.22, 0] }),
   mender:   soldier(null, 0xe8eef2, 0x4d8f6a),
-  goliath:  { file: 'assets/models/goliath.glb',  fit: 'height', size: 1.45 },
+  goliath:  {
+    file: 'assets/models/goliath.glb', fit: 'height', size: 1.65,
+    clips: { idle: 'Idle', walk: 'Walk', shoot: 'Shoot_Big', death: 'Death' },
+    muzzles: [[0.58, 1.04, 0.51], [0.58, 1.04, -0.51]],
+    tierTint: { nodes: '^RankPlate', colors: [null, 0x9fd8ff, 0xff5a4a] }
+  },
   tank:     {
     file: 'assets/models/tank.glb', fit: 'length', size: 1.2, yaw: Math.PI,
     turret: { parts: '^Tank_(Turret|Gun)$', pivot: '^Tank_Turret$' },
