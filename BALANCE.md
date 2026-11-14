@@ -172,6 +172,15 @@ balance as permanent treasure stacks and enemy HP grow.
   bosses and multiple hives, laser damage/charging/carryover, mouse controls and mobile layout.
 
 
+## Hammer shells (Nov 15, 2026)
+
+- A Hammer round is no longer drawn in flight: the guns flash and smoke, and the round lands as
+  an explosion, shock ring, debris and a scorch mark sized to its blast radius.
+- It also lands sooner: shell speed went from 14 to 48 tiles a second (about 0.15 s at 7 tiles
+  instead of 0.5 s). Damage, splash radius and fall-off are unchanged, but a round aimed at a
+  moving target now misses less, so the Hammer is somewhat stronger against fast bugs. Not
+  re-tuned and not playtested.
+
 ## Opening, story and sky (Nov 15, 2026)
 
 Presentation only: no spawn, route, stat, economy or score change.

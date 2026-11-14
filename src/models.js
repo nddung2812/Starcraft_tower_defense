@@ -287,81 +287,127 @@ export function buildGoliath(tier = 0) {
 /*  SIEGE TANK — faces +X. Hull stays put; the turret is the torso.    */
 /* ------------------------------------------------------------------ */
 
-export function buildTank() {
-  const root = new THREE.Group();
-  const body = new THREE.Group();
-  root.add(body);
+/* A side view (x forward, y up) pushed out across the hull, with chamfered edges. */
+function profileGeometry(points, width, bevel = 0) {
+  const shape = new THREE.Shape(points.map(([x, y]) => new THREE.Vector2(x, y)));
+  const depth = width - bevel * 2;
+  return new THREE.ExtrudeGeometry(shape, {
+    depth, steps: 1, curveSegments: 1,
+    bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: bevel, bevelOffset: -bevel, bevelSegments: 1
+  }).translate(0, 0, -depth / 2);
+}
 
+let tankParts = null;
+
+/** Built once; every Hammer shares it. Hull, turret and guns are merged per material. */
+function tankGeometry() {
+  const steel = MAT.tankSteel, trim = MAT.tankTrim, dark = MAT.gunmetal, mid = MAT.steelDark, red = MAT.tankRed, lamp = MAT.tankBlue;
+  const groups = { hull: new Map(), turret: new Map(), guns: new Map() };
+  let into = groups.hull;
+  const add = (mat, geo, matrix = null, smooth = false) => {
+    if (!into.has(mat)) into.set(mat, []);
+    into.get(mat).push([geo, matrix, smooth]);
+  };
+  const blk = (mat, w, h, d, x, y, z, rz = 0) => add(mat, new THREE.BoxGeometry(w, h, d), TR(x, y, z, 0, 0, rz));
+  const wheel = (mat, r, thick, sides, x, y, z) => add(mat, new THREE.CylinderGeometry(r, r, thick, sides).rotateX(Math.PI / 2), T(x, y, z));
+  const tube = (mat, front, back, len, x, y, z) => add(mat, new THREE.CylinderGeometry(front, back, len, 10).rotateZ(-Math.PI / 2), T(x, y, z), true);
+  const post = (mat, top, bottom, h, sides, x, y, z) => add(mat, new THREE.CylinderGeometry(top, bottom, h, sides), T(x, y, z));
+  const mirror = (half) => [...half, ...half.filter(([, z]) => z > 0).reverse().map(([x, z]) => [x, -z])];
+
+  // hull: a tub between the tracks under a wedge of armour, blunt prow beam in front
+  blk(mid, 1.0, 0.16, 0.5, 0, 0.15, 0);
+  add(steel, profileGeometry([[-0.6, 0.22], [0.6, 0.22], [0.66, 0.29], [0.3, 0.43], [-0.52, 0.43], [-0.62, 0.34]], 0.6, 0.025));
+  blk(dark, 0.07, 0.13, 0.76, 0.66, 0.15, 0);
+  const slope = -Math.atan2(0.14, 0.36);                                  // the glacis
+  blk(red, 0.3, 0.012, 0.15, 0.483, 0.369, 0, slope);
+  for (const s of [-1, 1]) {
+    blk(lamp, 0.035, 0.012, 0.1, 0.37, 0.413, s * 0.17, slope);           // vision slits
+    blk(lamp, 0.02, 0.04, 0.07, 0.698, 0.19, s * 0.27);                   // driving lamps
+    blk(dark, 0.05, 0.04, 0.05, 0.69, 0.1, s * 0.16);                     // tow eyes
+  }
+  // engine deck, louvres and exhaust stacks
+  blk(dark, 0.3, 0.035, 0.46, -0.36, 0.447, 0);
+  for (let i = 0; i < 4; i++) blk(trim, 0.035, 0.014, 0.4, -0.47 + i * 0.07, 0.468, 0);
+  blk(mid, 0.06, 0.11, 0.42, -0.635, 0.3, 0);
+  for (const s of [-1, 1]) {
+    post(dark, 0.034, 0.04, 0.17, 8, -0.57, 0.5, s * 0.22);
+    post(red, 0.037, 0.037, 0.02, 8, -0.57, 0.575, s * 0.22);
+  }
+
+  for (const s of [-1, 1]) {
+    const z = s * 0.39;
+    // track pod, road wheels on its outer face, a fender over the inner two thirds
+    add(dark, profileGeometry([[-0.56, 0.02], [0.52, 0.02], [0.62, 0.13], [0.56, 0.25], [-0.52, 0.25], [-0.62, 0.14]], 0.2, 0.02), T(0, 0, z));
+    for (const x of [-0.4, -0.2, 0, 0.2, 0.4]) {
+      wheel(mid, 0.075, 0.03, 10, x, 0.105, z + s * 0.1);
+      wheel(trim, 0.03, 0.045, 6, x, 0.105, z + s * 0.1);
+    }
+    blk(steel, 1.16, 0.03, 0.17, 0, 0.275, s * 0.345);
+    blk(steel, 0.13, 0.03, 0.17, 0.62, 0.245, s * 0.345, -0.5);
+    blk(red, 0.22, 0.012, 0.17, 0.3, 0.292, s * 0.345);
+    blk(trim, 0.17, 0.055, 0.12, -0.22, 0.317, s * 0.345);                // stowage
+    blk(mid, 0.1, 0.045, 0.12, -0.42, 0.312, s * 0.345);
+  }
+
+  // turret: faceted shell on a ring, mantlet in front, rack behind
+  into = groups.turret;
+  post(dark, 0.25, 0.27, 0.05, 12, 0, 0.025, 0);
+  add(steel, deckGeometry(mirror([[-0.36, 0.19], [-0.2, 0.27], [0.14, 0.25], [0.36, 0.12]]), 0.05, 0.21, 0.035));
+  add(trim, deckGeometry(mirror([[-0.28, 0.13], [-0.16, 0.19], [0.1, 0.17], [0.24, 0.07]]), 0.21, 0.235, 0.01));
+  blk(dark, 0.1, 0.15, 0.34, 0.39, 0.125, 0);
+  blk(mid, 0.13, 0.1, 0.34, -0.42, 0.12, 0);
+  blk(red, 0.135, 0.03, 0.345, -0.42, 0.152, 0);
+  post(mid, 0.07, 0.075, 0.05, 10, -0.12, 0.26, 0.09);                    // commander's cupola
+  post(trim, 0.05, 0.05, 0.012, 10, -0.12, 0.29, 0.09);
+  blk(mid, 0.09, 0.06, 0.08, 0.06, 0.265, -0.1);                          // gunner's sight
+  blk(lamp, 0.012, 0.035, 0.055, 0.108, 0.268, -0.1);
+  blk(trim, 0.012, 0.34, 0.012, -0.3, 0.4, -0.17);                        // aerial
+  for (const s of [-1, 1]) for (let i = 0; i < 3; i++) {
+    add(dark, new THREE.CylinderGeometry(0.018, 0.018, 0.07, 6).rotateZ(-1.0), T(0.1 + i * 0.045, 0.2, s * 0.245));
+  }
+
+  // twin long guns, tied together by a clamp so they read as one weapon
+  into = groups.guns;
+  for (const s of [-1, 1]) {
+    const z = s * 0.09;
+    tube(dark, 0.052, 0.058, 0.24, 0.12, 0, z);
+    tube(steel, 0.033, 0.036, 0.52, 0.31, 0, z);
+    tube(trim, 0.046, 0.046, 0.09, 0.3, 0, z);
+    blk(dark, 0.1, 0.085, 0.085, 0.6, 0, z);
+    blk(mid, 0.02, 0.095, 0.05, 0.6, 0, z);
+  }
+  blk(mid, 0.06, 0.05, 0.2, 0.2, 0, 0);
+
+  const bake = (map) => [...map].map(([mat, parts]) => [fuse(parts), mat]);
+  return { hull: bake(groups.hull), turret: bake(groups.turret), guns: bake(groups.guns), cleat: new THREE.BoxGeometry(0.05, 0.035, 0.21) };
+}
+
+/**
+ * Hammer: a low siege crawler. Wedge hull between two armoured track pods, a set-back
+ * faceted turret with twin long guns, engine deck and exhausts behind. Only the turret, the
+ * guns and the tread cleats are separate meshes, because they are what moves.
+ */
+export function buildTank() {
+  const parts = tankParts || (tankParts = tankGeometry());
+  const root = new THREE.Group(), body = new THREE.Group(), torso = new THREE.Group(), weapon = new THREE.Group();
+  root.add(body, torso);
+  for (const [geo, mat] of parts.hull) body.add(mesh(geo, mat));
   const treads = [];
   for (const s of [-1, 1]) {
-    body.add(mesh(box(1.02, 0.18, 0.18, 0.03), MAT.gunmetal, 0, 0.11, s * 0.36));
-    body.add(mesh(box(1.06, 0.05, 0.2, 0.012), MAT.steelDark, 0, 0.03, s * 0.36));
-    body.add(mesh(box(0.1, 0.16, 0.2, 0.02), MAT.tankTrim, 0.46, 0.12, s * 0.36));
-    body.add(mesh(box(0.1, 0.16, 0.2, 0.02), MAT.tankTrim, -0.46, 0.12, s * 0.36));
     for (let i = 0; i < 6; i++) {
-      const tread = mesh(box(0.06, 0.2, 0.2, 0.01), MAT.steelDark, -0.4 + i * 0.16, 0.12, s * 0.36);
-      tread.userData.baseX = tread.position.x;
-      body.add(tread);
-      treads.push(tread);
+      const cleat = mesh(parts.cleat, MAT.steelDark, -0.4 + i * 0.16, 0.25, s * 0.39);
+      cleat.userData.baseX = cleat.position.x;
+      body.add(cleat);
+      treads.push(cleat);
     }
   }
-
-  body.add(mesh(box(0.78, 0.16, 0.5, 0.04), MAT.tankSteel, -0.04, 0.24, 0));
-  const nose = mesh(box(0.32, 0.1, 0.46, 0.03), MAT.tankSteel, 0.4, 0.2, 0);
-  nose.rotation.z = -0.42;
-  body.add(nose);
-  body.add(mesh(box(0.16, 0.08, 0.5, 0.02), MAT.tankTrim, -0.42, 0.26, 0));
-
-  for (const s of [-1, 1]) {
-    const plate = mesh(box(0.2, 0.035, 0.12, 0.008), MAT.tankRed, 0.46, 0.28, s * 0.12);
-    plate.rotation.z = -0.55;
-    plate.rotation.y = s * 0.55;
-    body.add(plate);
-  }
-
-  const torso = new THREE.Group();
-  torso.position.set(-0.06, 0.34, 0);
-  body.add(torso);
-  torso.add(mesh(box(0.46, 0.16, 0.42, 0.05), MAT.tankSteel, 0.02, 0.08, 0));
-  torso.add(mesh(box(0.22, 0.08, 0.28, 0.02), MAT.tankTrim, -0.08, 0.18, 0));
-
-  const dome = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 12), MAT.tankRed);
-  dome.scale.set(1.05, 0.62, 0.95);
-  dome.position.set(-0.02, 0.2, 0.02);
-  dome.castShadow = true;
-  torso.add(dome);
-  const glass = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 8), MAT.visor);
-  glass.scale.set(1.1, 0.45, 0.7);
-  glass.position.set(0.08, 0.24, 0.02);
-  torso.add(glass);
-
-  for (let i = 0; i < 3; i++) {
-    torso.add(mesh(box(0.05, 0.02, 0.2, 0.004), i % 2 ? MAT.gunmetal : MAT.hazard, -0.2, 0.2, -0.08 + i * 0.06));
-  }
-  torso.add(mesh(new THREE.SphereGeometry(0.03, 8, 6), MAT.tankBlue, 0.12, 0.16, 0.18));
-  torso.add(mesh(new THREE.SphereGeometry(0.03, 8, 6), MAT.tankBlue, 0.12, 0.16, -0.18));
-  torso.add(mesh(new THREE.SphereGeometry(0.025, 8, 6), MAT.lamp, -0.22, 0.14, 0.16));
-
-  const weapon = new THREE.Group();
-  weapon.position.set(0.18, 0.12, 0);
+  torso.position.set(-0.06, 0.43, 0);
+  for (const [geo, mat] of parts.turret) torso.add(mesh(geo, mat));
+  weapon.position.set(0.44, 0.125, 0);
+  for (const [geo, mat] of parts.guns) weapon.add(mesh(geo, mat));
   torso.add(weapon);
-  weapon.add(mesh(box(0.16, 0.12, 0.28, 0.03), MAT.tankTrim, 0.02, 0, 0));
-  const barrel = new THREE.CylinderGeometry(0.055, 0.062, 0.7, 10);
-  barrel.rotateZ(Math.PI / 2);
-  barrel.translate(0.4, 0, 0);
-  for (const s of [-1, 1]) {
-    const gun = new THREE.Mesh(barrel, MAT.tankSteel);
-    gun.position.set(0, 0.02, s * 0.09);
-    gun.castShadow = true;
-    weapon.add(gun);
-    const brake = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.08, 8), MAT.gunmetal);
-    brake.rotateZ(Math.PI / 2);
-    brake.position.set(0.74, 0.02, s * 0.09);
-    weapon.add(brake);
-  }
-  weapon.userData.muzzle = new THREE.Vector3(0.78, 0.02, 0);
-  weapon.userData.muzzles = [-1, 1].map(side => new THREE.Vector3(0.78, 0.02, side * 0.09));
-
+  weapon.userData.muzzle = new THREE.Vector3(0.66, 0, 0);
+  weapon.userData.muzzles = [-1, 1].map((side) => new THREE.Vector3(0.66, 0, side * 0.09));
   root.userData = { body, torso, weapon, treads };
   return root;
 }

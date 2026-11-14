@@ -287,12 +287,6 @@ export const MODEL_FILES = {
     muzzles: [[0.58, 1.04, 0.51], [0.58, 1.04, -0.51]],
     tierTint: { nodes: '^RankPlate', colors: [null, 0x9fd8ff, 0xff5a4a] }
   },
-  tank:     {
-    file: 'assets/models/tank.glb', fit: 'length', size: 1.2, yaw: Math.PI,
-    turret: { parts: '^Tank_(Turret|Gun)$', pivot: '^Tank_Turret$' },
-    tint: { Main: 0x8f9aa3, Main_Light: 0xb7c1c9, Main_Dark: 0x5c666e, Main_Details: 0xb3262b, Wheels: 0x2b2f33 },
-    muzzles: [[0.77, 0.27, 0]]
-  },
   falcon:   {
     file: 'assets/models/falcon.glb', fit: 'length', size: 1.9, turret: 'all',
     tint: { White: 0xc9d3dc, Orange: 0x2f7fd0 },

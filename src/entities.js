@@ -1468,8 +1468,6 @@ export class Acid {
 /*  SIEGE SHELL                                                        */
 /* ------------------------------------------------------------------ */
 
-const SHELL_GEO = new THREE.SphereGeometry(0.09, 8, 6);
-const SHELL_MAT = new THREE.MeshBasicMaterial({ color: 0xffc14a });
 
 const BOMB_GEO = new THREE.CylinderGeometry(0.07, 0.11, 0.42, 6);
 const BOMB_MAT = new THREE.MeshBasicMaterial({ color: 0xff7a3a });
@@ -1538,11 +1536,10 @@ export class Shell {
     this.tx = tx; this.tz = tz;
     this.damage = damage;
     this.radius = radius;
-    this.speed = 14;
+    // A tank round is never seen in flight: the guns flash, and a beat later the ground erupts.
+    this.speed = 48;
     this.dead = false;
-    this.travel = Math.max(0.001, Math.hypot(tx - from.x, tz - from.z));
-    this.mesh = new THREE.Mesh(SHELL_GEO, SHELL_MAT);
-    this.mesh.position.set(this.x, this.y, this.z);
+    this.mesh = new THREE.Object3D();   // nothing is drawn; kept so the scene bookkeeping is unchanged
   }
 
   update(dt, game) {
@@ -1556,13 +1553,16 @@ export class Shell {
     }
     this.x += (dx / d) * step;
     this.z += (dz / d) * step;
-    const k = 1 - d / this.travel;
-    this.y = 0.4 + Math.sin(Math.min(1, Math.max(0, k)) * Math.PI) * 0.85;
-    this.mesh.position.set(this.x, this.y, this.z);
   }
 
   boom(game) {
-    game.fx.explosion({ x: this.tx, y: 0.35, z: this.tz }, 1.15);
+    // The impact is the whole show, so it scales with the blast and leaves a mark.
+    const at = { x: this.tx, y: 0.35, z: this.tz };
+    game.fx.explosion(at, 1.15 * this.radius / 1.65);
+    game.fx.ring(at, this.radius, 0xffb060);
+    game.fx.decal(this.tx, this.tz, this.radius * 0.55, 0x1a130d, 0.5);
+    game.fx.chunks(at, 5, 0x5a4a3a);
+    game.fx.smoke({ x: this.tx, y: 0.6, z: this.tz }, 5, [0.3, 0.28, 0.26]);
     game.sfx.cannonHit();
     game.stage.kick(2.2);
     for (const bug of game.combatTargets) {

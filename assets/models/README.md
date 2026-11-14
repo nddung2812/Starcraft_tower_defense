@@ -7,7 +7,7 @@ built-in shape. Reload the page; the browser console says which files were picke
 |---|---|
 | `soldier.glb` | Trooper, Torch, Spectre and Medic (one file, each with its own gun and colours) |
 | `goliath.glb` | Atlas |
-| `tank.glb` | Hammer |
+| `tank.glb` | Not loaded any more: the Hammer uses the built-in model. Add a `tank` entry back to `MODEL_FILES` to use a file. |
 | `falcon.glb` | Vector |
 | `scv.glb` | Patch Rig |
 | `bunker.glb` | Bunker |

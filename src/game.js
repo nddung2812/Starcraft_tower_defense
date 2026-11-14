@@ -738,6 +738,7 @@ export class Game {
 
   spawnShell(from, tx, tz, damage, radius) {
     const s = new Shell(from, tx, tz, damage, radius);
+    this.fx.smoke(from, 4, [0.6, 0.57, 0.52]);   // the shell itself is invisible: gun smoke, then the impact
     this.scene.add(s.mesh);
     this.shells.push(s);
   }
