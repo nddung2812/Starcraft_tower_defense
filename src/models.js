@@ -1061,47 +1061,200 @@ export function buildCrate() {
   return root;
 }
 
-/** Capital ship: broad armoured prow, layered keel, engine pods and a spinal cannon. */
+/* ------------------------------------------------------------------ */
+/*  CAPITAL SHIP                                                       */
+/*  Faces +X. A fork-prowed lance ship: two armoured tines hold the    */
+/*  spinal cannon between them, swept wings carry the engine nacelles, */
+/*  and a stepped citadel with the bridge sits aft of centre.          */
+/* ------------------------------------------------------------------ */
+
+// Hull paint is less mirror-like than the shared steels, which go near black without reflections to catch.
+const SHIP = {
+  hull: new THREE.MeshStandardMaterial({ color: 0x74828e, metalness: 0.42, roughness: 0.5 }),
+  dark: new THREE.MeshStandardMaterial({ color: 0x39434c, metalness: 0.5, roughness: 0.56 }),
+  trim: new THREE.MeshStandardMaterial({ color: 0xbcc6cd, metalness: 0.55, roughness: 0.36 }),
+  ivory: new THREE.MeshStandardMaterial({ color: 0xe4e9ec, metalness: 0.28, roughness: 0.42 }),
+  gold: new THREE.MeshStandardMaterial({ color: 0xe0a92a, metalness: 0.6, roughness: 0.34 }),
+  amber: new THREE.MeshStandardMaterial({ color: 0xff9a30, emissive: 0xff6f0a, emissiveIntensity: 1.7 }),
+  charge: new THREE.MeshBasicMaterial({ color: 0xffb24b }),
+  plume: new THREE.MeshBasicMaterial({
+    color: 0x2a7dff, transparent: true, opacity: 0.42, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide
+  })
+};
+const SHIP_MOUNTS = [[-0.02, 0.49], [-0.02, -0.49], [-0.98, 0.47], [-0.98, -0.47]];   // battery turrets: x, z
+const shipCache = {};
+
+/** A plan-view outline (x forward, z across) raised between two heights, with chamfered edges. */
+function deckGeometry(outline, y0, y1, bevel) {
+  const shape = new THREE.Shape(outline.map(([x, z]) => new THREE.Vector2(x, z)));
+  return new THREE.ExtrudeGeometry(shape, {
+    depth: y1 - y0 - bevel * 2, steps: 1, curveSegments: 1,
+    bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelOffset: -bevel, bevelSegments: 1
+  }).rotateX(Math.PI / 2).translate(0, y1 - bevel, 0);
+}
+
+/** Bake each part's transform and merge them: one mesh per material instead of one per plate. */
+function fuse(parts) {
+  const geos = parts.map(([geo, matrix, smooth]) => {
+    const g = geo.index ? geo.toNonIndexed() : geo;
+    if (matrix) g.applyMatrix4(matrix);
+    for (const name of Object.keys(g.attributes)) if (name !== 'position' && name !== 'normal') g.deleteAttribute(name);
+    if (!smooth) g.computeVertexNormals();   // unindexed, so this gives hard armour facets
+    return g;
+  });
+  return mergeGeometries(geos, false);
+}
+
+/** Built once per paint scheme; every ship of that scheme shares the geometry. */
+function shipGeometry(flagship) {
+  const steel = SHIP.hull, dark = SHIP.dark, trim = SHIP.trim, amber = SHIP.amber;
+  const plate = flagship ? SHIP.ivory : MAT.armor;
+  const accent = flagship ? SHIP.gold : MAT.decal;
+  const hull = new Map(), guns = new Map();
+  let into = hull;
+  const add = (mat, geo, matrix = null, smooth = false) => {
+    if (!into.has(mat)) into.set(mat, []);
+    into.get(mat).push([geo, matrix, smooth]);
+  };
+  const mirror = (half) => [...half, ...half.filter(([, z]) => z > 0).reverse().map(([x, z]) => [x, -z])];
+  const side = (pts, s) => pts.map(([x, z]) => [x, z * s]);
+  const slab = (mat, outline, y0, y1, bevel) => add(mat, deckGeometry(outline, y0, y1, bevel));
+  const blk = (mat, w, h, d, x, y, z, ry = 0) => add(mat, new THREE.BoxGeometry(w, h, d), TR(x, y, z, 0, ry, 0));
+  // a prism along the ship's length, flat face up
+  const tube = (mat, front, back, len, sides, x, y, z, smooth = false) => add(mat,
+    new THREE.CylinderGeometry(front, back, len, sides).rotateZ(-Math.PI / 2).rotateX(Math.PI / sides), T(x, y, z), smooth);
+
+  // keel, main hull and the ventral sensor fin
+  slab(dark, mirror([[-1.4, 0.22], [-0.5, 0.4], [0.5, 0.3], [1.15, 0.18]]), -0.2, 0.03, 0.06);
+  slab(steel, mirror([[-1.5, 0.3], [-1.32, 0.56], [-0.25, 0.64], [0.5, 0.48], [1.05, 0.34]]), 0, 0.3, 0.05);
+  blk(dark, 0.9, 0.16, 0.05, -0.25, -0.26, 0);
+  tube(dark, 0.045, 0.075, 0.6, 8, 0.45, -0.22, 0);
+  blk(amber, 0.05, 0.03, 0.05, 0.76, -0.22, 0);
+
+  // spinal cannon: breech housing on the foredeck, barrel and coils out between the tines
+  slab(dark, mirror([[0.1, 0.17], [0.85, 0.17], [0.97, 0.1]]), 0.3, 0.42, 0.03);
+  for (let i = 0; i < 4; i++) blk(amber, 0.028, 0.02, 0.18, 0.3 + i * 0.14, 0.422, 0);
+  tube(dark, 0.07, 0.085, 1.0, 10, 1.1, 0.2, 0, true);
+  for (const x of [1.14, 1.31, 1.48]) tube(amber, 0.098, 0.098, 0.025, 10, x, 0.2, 0);
+  tube(trim, 0.095, 0.08, 0.1, 10, 1.62, 0.2, 0);
+
+  for (const s of [-1, 1]) {
+    // prow tine: the foredeck armour running on past the bow
+    slab(plate, side([[0.2, 0.2], [0.2, 0.5], [0.5, 0.45], [1.1, 0.34], [1.98, 0.25], [1.98, 0.13], [1.0, 0.13], [0.9, 0.2]], s), 0.06, 0.36, 0.03);
+    blk(trim, 0.08, 0.2, 0.135, 1.975, 0.21, s * 0.19);
+    blk(amber, 0.78, 0.04, 0.012, 1.5, 0.2, s * 0.126);
+    for (const x of [1.22, 1.58]) {   // armour bands
+      const zo = 0.34 - (x - 1.1) * 0.1023;
+      blk(dark, 0.022, 0.305, zo - 0.124, x, 0.21, s * (0.128 + zo) / 2);
+    }
+    blk(accent, 0.3, 0.012, 0.028, 1.4, 0.362, s * 0.22, s * 0.051);
+    blk(accent, 0.24, 0.012, 0.028, 1.8, 0.362, s * 0.199, s * 0.051);
+    for (const x of [0.6, 0.76]) blk(accent, 0.06, 0.012, 0.17, x, 0.362, s * (0.33 - (x - 0.6) * 0.1), s * -0.35);
+    for (let i = 0; i < 4; i++) {
+      const x = 0.6 + i * 0.13;
+      blk(MAT.coreGlow, 0.06, 0.03, 0.012, x, 0.2, s * (0.452 - (x - 0.5) * 0.1833), s * 0.181);
+    }
+
+    // shoulder armour beside the citadel
+    slab(plate, side([[-1.24, 0.41], [-1.26, 0.5], [-0.25, 0.575], [0.14, 0.49], [0.14, 0.41]], s), 0.3, 0.335, 0.012);
+    for (let i = 0; i < 5; i++) blk(MAT.coreGlow, 0.05, 0.022, 0.012, -0.92 + i * 0.16, 0.385, s * 0.372);
+
+    // swept wing and its engine nacelle
+    slab(steel, side([[0.3, 0.5], [-0.45, 0.98], [-1.15, 0.98], [-0.95, 0.5]], s), 0.09, 0.2, 0.03);
+    slab(plate, side([[0.08, 0.57], [-0.5, 0.93], [-1.02, 0.93], [-0.86, 0.57]], s), 0.2, 0.235, 0.012);
+    blk(accent, 0.5, 0.014, 0.045, -0.29, 0.238, s * 0.75, s * 0.555);
+    const z = s * 0.96;
+    tube(steel, 0.15, 0.17, 1.15, 8, -0.75, 0.15, z);
+    tube(plate, 0.035, 0.15, 0.32, 8, -0.015, 0.15, z);
+    blk(plate, 0.62, 0.04, 0.2, -0.78, 0.32, z);
+    tube(trim, 0.175, 0.185, 0.07, 8, -0.3, 0.15, z);
+    tube(trim, 0.185, 0.185, 0.07, 8, -1.2, 0.15, z);
+    tube(dark, 0.17, 0.125, 0.18, 8, -1.41, 0.15, z);
+    tube(MAT.tankBlue, 0.1, 0.1, 0.02, 10, -1.505, 0.15, z);
+    blk(s > 0 ? MAT.lampGreen : MAT.lamp, 0.07, 0.03, 0.07, -0.4, 0.345, z);   // starboard green, port red
+    if (flagship) {   // flagship tail fins
+      const fin = new THREE.Shape([[-1.28, 0.33], [-0.7, 0.33], [-1.0, 0.6], [-1.28, 0.6]].map(([x, y]) => new THREE.Vector2(x, y)));
+      add(plate, new THREE.ExtrudeGeometry(fin, { depth: 0.03, bevelEnabled: false }), T(0, 0, z - 0.015));
+      blk(accent, 0.3, 0.025, 0.04, -1.13, 0.605, z);
+    }
+  }
+
+  // stern: engine block and three main thrusters
+  blk(dark, 0.3, 0.3, 0.84, -1.56, 0.14, 0);
+  blk(plate, 0.24, 0.04, 0.7, -1.5, 0.31, 0);
+  for (const [z, r] of [[-0.27, 0.11], [0, 0.14], [0.27, 0.11]]) {
+    tube(steel, r + 0.02, r - 0.01, 0.16, 10, -1.77, 0.14, z);
+    tube(MAT.tankBlue, r - 0.03, r - 0.03, 0.02, 10, -1.855, 0.14, z);
+  }
+
+  // citadel: two armoured steps, the bridge with its wrapped windscreen, masts and heat stack
+  slab(steel, mirror([[-1.22, 0.26], [-1.08, 0.37], [-0.1, 0.37], [0.14, 0.2]]), 0.3, 0.46, 0.04);
+  slab(plate, mirror([[-1.1, 0.2], [-1.0, 0.29], [-0.16, 0.29], [0.04, 0.15]]), 0.46, 0.495, 0.012);
+  slab(steel, mirror([[-0.98, 0.15], [-0.9, 0.22], [-0.46, 0.22], [-0.3, 0.12]]), 0.49, 0.66, 0.03);
+  slab(steel, mirror([[-0.94, 0.14], [-0.87, 0.2], [-0.5, 0.2], [-0.36, 0.1]]), 0.66, 0.8, 0.03);
+  slab(MAT.visor, mirror([[-0.62, 0.212], [-0.49, 0.212], [-0.345, 0.108]]), 0.7, 0.765, 0.008);
+  slab(plate, mirror([[-0.9, 0.11], [-0.84, 0.16], [-0.53, 0.16], [-0.43, 0.08]]), 0.8, 0.835, 0.012);
+  blk(accent, 0.05, 0.012, 0.2, -0.5, 0.838, 0);
+  blk(trim, 0.03, 0.09, 0.03, -0.66, 0.875, 0);
+  blk(trim, 0.025, 0.3, 0.025, -0.84, 0.98, 0.07);
+  blk(trim, 0.014, 0.2, 0.014, -0.88, 0.93, -0.08);
+  blk(dark, 0.2, 0.1, 0.34, -1.08, 0.54, 0);
+  for (let i = 0; i < 3; i++) blk(amber, 0.025, 0.012, 0.26, -1.13 + i * 0.05, 0.594, 0);
+
+  // four battery turrets, in the recoiling weapon group
+  into = guns;
+  for (const [x, z] of SHIP_MOUNTS) {
+    add(dark, new THREE.CylinderGeometry(0.075, 0.09, 0.05, 8), T(x, 0.36, z));
+    blk(steel, 0.17, 0.075, 0.14, x + 0.01, 0.42, z);
+    blk(plate, 0.1, 0.02, 0.1, x - 0.02, 0.467, z);
+    for (const o of [-0.035, 0.035]) tube(trim, 0.014, 0.018, 0.2, 6, x + 0.19, 0.425, z + o, true);
+  }
+
+  const plume = (spots) => mergeGeometries(spots.map(([r, len, y, z]) =>
+    new THREE.ConeGeometry(r, len, 10, 1, true).rotateZ(Math.PI / 2).translate(-len / 2, y, z)), false);
+  const bake = (map) => [...map].map(([mat, parts]) => [fuse(parts), mat]);
+  return {
+    hull: bake(hull), guns: bake(guns),
+    radar: fuse([[new THREE.BoxGeometry(0.05, 0.035, 0.32)], [new THREE.BoxGeometry(0.02, 0.07, 0.24), T(-0.03, 0.03, 0)]]),
+    beacon: new THREE.BoxGeometry(0.045, 0.035, 0.045),
+    charge: new THREE.SphereGeometry(0.18, 14, 10),
+    plumes: [
+      [plume([[0.09, 0.3, 0.15, 0.96], [0.09, 0.3, 0.15, -0.96]]), -1.51],
+      [plume([[0.075, 0.32, 0.14, 0.27], [0.105, 0.42, 0.14, 0], [0.075, 0.32, 0.14, -0.27]]), -1.86]
+    ]
+  };
+}
+
 export function buildBattlecruiser(tier = 0) {
+  const scheme = tier > 0 ? 1 : 0;
+  const parts = shipCache[scheme] || (shipCache[scheme] = shipGeometry(scheme === 1));
   const root = new THREE.Group(), torso = new THREE.Group(), weapon = new THREE.Group();
   root.add(torso); torso.add(weapon);
-  const plate = tier ? MAT.tankSteel : MAT.steelDark;
-  const add = (w, h, d, material, x, y, z) => torso.add(mesh(box(w, h, d, 0.05), material, x, y, z));
-  add(2.65, 0.42, 0.78, plate, -0.2, 0.18, 0);
-  add(1.2, 0.48, 2.1, plate, 0.75, 0.2, 0);
-  add(0.75, 0.25, 1.75, MAT.armor, 0.85, 0.52, 0);
-  add(1.7, 0.14, 0.43, MAT.gunmetal, -0.2, -0.14, 0);
-  add(0.7, 0.35, 0.6, MAT.armor, -0.5, 0.52, 0);
-  add(0.42, 0.12, 0.5, MAT.visor, -0.42, 0.74, 0);
-  add(0.16, 0.4, 0.12, MAT.steel, -0.72, 0.9, 0);
-  for (const side of [-1, 1]) {
-    add(1.9, 0.3, 0.4, plate, -0.55, 0.08, side * 0.85);
-    add(0.75, 0.12, 0.46, MAT.armor, -0.78, 0.3, side * 0.85);
-    for (let i = 0; i < 4; i++) add(0.12, 0.05, 0.34, MAT.gunmetal, -1.15 + i * 0.2, 0.39, side * 0.85);
-    torso.add(mesh(new THREE.CylinderGeometry(0.15, 0.19, 0.18, 12).rotateZ(Math.PI / 2), MAT.coreGlow, -1.57, 0.1, side * 0.85));
-    for (const x of [0.05, 0.95]) {
-      weapon.add(mesh(box(0.35, 0.16, 0.2), MAT.gunmetal, x, 0.45, side * 0.92));
-      weapon.add(mesh(box(0.4, 0.06, 0.06), MAT.steel, x + 0.2, 0.47, side * 0.92));
-    }
-    add(0.12, 0.06, 0.55, MAT.hazard, 1.3, 0.48, side * 0.63);
-    for (let i = 0; i < 3; i++) add(0.08, 0.06, 0.025, MAT.coreGlow, 0.55 + i * 0.22, 0.25, side * 1.065);
-  }
-  // Inset seams and layered armour keep the capital silhouette readable from above.
-  for (const side of [-1, 1]) {
-    for (let i = 0; i < 3; i++) {
-      add(0.5, 0.06, 0.42, MAT.steelDark, 0.7, 0.67, side * (0.25 + i * 0.25));
-      add(0.32, 0.035, 0.035, MAT.steel, 0.7, 0.71, side * (0.25 + i * 0.25));
-    }
-    add(0.85, 0.06, 0.055, MAT.hazard, -0.55, 0.26, side * 1.06);
-    add(0.5, 0.1, 0.14, MAT.gunmetal, -0.25, 0.43, side * 0.39);
-  }
-  for (let i = 0; i < 3; i++) add(0.18, 0.04, 0.48, MAT.steelDark, -1.25 + i * 0.25, 0.41, 0);
-  const cannon = mesh(new THREE.CylinderGeometry(0.16, 0.23, 0.75, 12).rotateZ(-Math.PI / 2), MAT.gunmetal, 1.35, 0.13, 0);
-  weapon.add(cannon);
-  const charge = mesh(new THREE.SphereGeometry(0.18, 14, 10), new THREE.MeshBasicMaterial({ color: 0xffb24b }), 1.76, 0.13, 0);
-  weapon.add(charge);
-  weapon.userData.muzzles = [-1, 1].flatMap(side => [0.05, 0.95].map(x => new THREE.Vector3(x + 0.43, 0.47, side * 0.92)));
+  for (const [geo, mat] of parts.hull) torso.add(mesh(geo, mat));
+  for (const [geo, mat] of parts.guns) weapon.add(mesh(geo, mat));
+  const radar = mesh(parts.radar, SHIP.trim, -0.66, 0.935, 0);
+  const beacon = mesh(parts.beacon, MAT.lamp, -0.84, 1.145, 0.07);
+  const charge = mesh(parts.charge, SHIP.charge, 1.75, 0.2, 0);
+  charge.scale.setScalar(0.65);
+  const plumes = parts.plumes.map(([geo, x]) => {
+    const p = new THREE.Mesh(geo, SHIP.plume);
+    p.position.x = x; p.scale.x = 0.75;
+    return p;
+  });
+  torso.add(radar, beacon, charge, ...plumes);
+  weapon.userData.muzzles = SHIP_MOUNTS.map(([x, z]) => new THREE.Vector3(x + 0.3, 0.425, z));
   weapon.userData.muzzle = weapon.userData.muzzles[0];
+
+  // Radar sweep, a blinking masthead light, and exhaust that stretches under way.
+  let t = Math.random() * 10, thrust = 0.3;
+  root.userData.anim = (state, dt) => {
+    t += dt;
+    radar.rotation.y += dt * 1.8;
+    beacon.visible = t % 1.6 < 0.22;
+    thrust += ((state === 'walk' ? 1 : 0.3) - thrust) * Math.min(1, dt * 4);
+    const flicker = 1 + Math.sin(t * 31) * 0.06 + Math.sin(t * 47) * 0.04;
+    for (const p of plumes) p.scale.x = (0.5 + thrust * 0.9) * flicker;
+  };
   root.userData.torso = torso; root.userData.weapon = weapon; root.userData.yamato = charge;
   return root;
 }

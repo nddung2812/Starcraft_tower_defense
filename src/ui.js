@@ -67,17 +67,18 @@ class Portrait {
     }
     this.current.traverse((o) => { o.castShadow = false; o.receiveShadow = false; });
     this.pivot.add(this.current);
-    if (this.current.userData.fromFile || kind === 'cruiser' || kind === 'ultralisk') this.frame(this.current);
+    if (kind === 'cruiser') this.frame(this.current, { close: 0.4, rise: 0.42 });   // look down on the deck
+    else if (this.current.userData.fromFile || kind === 'ultralisk') this.frame(this.current);
   }
 
   /** Fit the camera to a model file, whatever its proportions. */
-  frame(obj) {
+  frame(obj, { close = 0.62, rise = 0 } = {}) {
     obj.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(obj, true);
     const size = box.getSize(new THREE.Vector3());
     const c = box.getCenter(new THREE.Vector3());
-    const d = Math.max(size.y * 1.45, Math.max(size.x, size.z) * 1.15) / Math.tan((this.camera.fov * Math.PI) / 360) * 0.62;
-    this.camera.position.set(c.x + d * 0.35, c.y + size.y * 0.12, c.z + d);
+    const d = Math.max(size.y * 1.45, Math.max(size.x, size.z) * 1.15) / Math.tan((this.camera.fov * Math.PI) / 360) * close;
+    this.camera.position.set(c.x + d * 0.35, c.y + size.y * 0.12 + d * rise, c.z + d);
     this.camera.lookAt(c.x, c.y, c.z);
   }
 
