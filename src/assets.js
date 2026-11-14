@@ -14,6 +14,7 @@ import { buildBattlecruiser, buildMarine, buildGoliath, buildTank, buildScv, bui
 
 const PROCEDURAL = {
   ultralisk: () => buildBug('ultralisk'),
+  maw: () => buildBug('maw'),
   cruiser: (tier) => buildBattlecruiser(tier),
   falcon: (tier) => buildFalcon(tier),
   skyhunter: () => buildSkyhunter(),
@@ -34,7 +35,7 @@ const PROCEDURAL = {
 
 /* Team-colour rim light: blue edges on our side, violet on the swarm. Bunkers mutate their own paint, so they are left alone. */
 const RIM = {
-  ultralisk: [0xc06bff, 0.25],
+  ultralisk: [0xc06bff, 0.25], maw: [0xc06bff, 0.28],
   cruiser: [0xffbd69, 0.25],
   falcon: [0x71e7e0, 0.35], skyhunter: [0xc06bff, 0.3],
   scorcher: [0xffb070, 0.3], deadeye: [0xc9a8ff, 0.34], mender: [0x7dffb0, 0.3],

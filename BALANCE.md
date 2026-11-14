@@ -172,6 +172,29 @@ balance as permanent treasure stacks and enemy HP grow.
   bosses and multiple hives, laser damage/charging/carryover, mouse controls and mobile layout.
 
 
+## Tunnel Maw (Nov 15, 2026)
+
+A burrowing worm that ambushes instead of marching. Tuning is `MAW` in `src/config.js`.
+
+- From round 9, during a wave: first ambush 16 s in, then every `24 - 0.6 × (round - 9)` seconds
+  (never under 12). From round 18 it marks two units at once. No new ambush starts while a Maw
+  is still up, or once the marching wave is dead.
+- It picks a random exposed ground unit. Aircraft, bunker troops, downed units, walls, bunkers
+  and the Patch Rig are never chosen or swallowed.
+- Warning: an amber ring 1.25 tiles wide churns under the unit for 2.4 s, with a "GROUND SHAKING"
+  label, a rumble and a minimap ping. The ring stays where it was drawn.
+- It then erupts and swallows the nearest exposed ground unit still inside the ring. If nobody is
+  there it comes up empty for 3.5 s and dives.
+- A swallowed unit is off the field (it frees its tile and cannot be selected) and loses 6% of
+  its maximum health per second, but cannot die inside. The Maw holds it for 7 s.
+- Kill the Maw in time and the unit is spat onto the nearest free tile. The kill scores and
+  pays a bounty of 6. If it dives first, the unit is lost and no kill is scored.
+- 240 HP × the round's wave health multiplier (432 at round 9), armour 2. It deals no damage
+  of its own and never moves.
+- Counterplay: move the marked unit; keep infantry in bunkers; keep enough guns near exposed
+  units to burn it down; aircraft are immune.
+- Not playtested by a person: whether 2.4 s is enough warning and 7 s enough to rescue.
+
 ## Base side and attack fronts (Nov 15, 2026)
 
 Map version 4. The seed picks which side the main front attacks from, so the base is no longer

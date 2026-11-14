@@ -1,4 +1,4 @@
-import { BUILD, BREEDS, wavePlan, milestonePlan, unlockRound } from './config.js';
+import { BUILD, BREEDS, MAW, wavePlan, milestonePlan, unlockRound } from './config.js';
 
 // Advice follows actual weapon roles; scouting never changes wave generation or combat stats.
 const COUNTERS = {
@@ -25,7 +25,9 @@ export function scoutRound(level) {
   });
   // Put specialist threats before the familiar swarm.
   threats.sort((a, b) => (a.id === 'zergling') - (b.id === 'zergling'));
-  return { threats, total: [...counts.values()].reduce((a, b) => a + b, 0), boss: milestonePlan(level) };
+  // Tunnel Maws are ambushes, not part of the marching column, so they are reported separately.
+  return { threats, total: [...counts.values()].reduce((a, b) => a + b, 0), boss: milestonePlan(level),
+    maws: level >= MAW.pairRound ? 2 : level >= MAW.firstRound ? 1 : 0 };
 }
 
 export function installScouting(game) {
@@ -36,7 +38,7 @@ export function installScouting(game) {
     if (dialog.open || game.pendingEvolution || game.state === 'defeat') return;
     const report = scoutRound(game.level);
     document.getElementById('scoutTitle').textContent = `Round ${game.level} · Scouting report`;
-    document.getElementById('scoutSummary').textContent = `${report.total} planned enemies · ${game.grid.spawns.length} approaches. Full round composition, including enemies already spawned; destroying a hive prevents its remaining spawns.`;
+    document.getElementById('scoutSummary').textContent = `${report.total} planned enemies · ${game.grid.spawns.length} approaches. Full round composition, including enemies already spawned; destroying a hive prevents its remaining spawns.${report.maws ? ` Tunnel Maws also ambush exposed ground units, ${report.maws === 2 ? 'two at a time' : 'one at a time'}: move when the ground shakes, or kill the Maw to free a swallowed unit.` : ''}`;
     document.getElementById('scoutThreats').innerHTML = report.threats.map(t => {
       const owned = game.gunners.filter(u => u.kind === t.unit && !u.dead && !u.downed).length;
       return `<article class="scout-threat"><div class="scout-threat__heading"><strong>${t.threat}</strong><span>${t.count} × ${t.name}</span></div><p>${t.why}</p><button class="btn" type="button" data-counter="${t.unit}">Select ${t.counter} · ${t.cost} minerals</button><small>${owned} active in your army${game.minerals < t.cost ? ' · Save more minerals to build' : ''}</small></article>`;

@@ -11,6 +11,7 @@ import { Fx } from './fx.js';
 import { sfx } from './audio.js';
 import { voice } from './voice.js';
 import { MilestoneAssault } from './milestones.js';
+import { MawAmbush } from './maw.js';
 import { EVOLUTIONS } from './config.js';
 import { syncEvolutionVisual } from './evolutions.js';
 
@@ -47,6 +48,7 @@ export class Game {
     this.crates = [];
     this.listeners = {};
     this.assault = new MilestoneAssault(this);
+    this.ambush = new MawAmbush(this);
     this.reset();
   }
 
@@ -84,6 +86,7 @@ export class Game {
   reset(seed = null) {
     this.wipeUnits();
     this.level = 1;
+    this.mawSeen = false;
     this.mapVersion = MAP_VERSION;
     this.mapSeed = Number.isInteger(seed) ? seed >>> 0 : (Math.random() * 0x7fffffff) >>> 0;
     this.minerals = ECON.startMinerals;
@@ -129,6 +132,7 @@ export class Game {
   loadLevel() {
     this.ultraliskWarned = false;
     this.assault.reset();
+    this.ambush.reset();
     this.raidT = 0;
     this.raidEarned = 0;
     for (const z of this.zerglings) this.world.remove(z.obj);
@@ -998,6 +1002,7 @@ export class Game {
       }
     }
     if (this.streak && this.time - this.lastKillT > STREAK.window) this.streak = 0;
+    this.ambush.update(dt);
 
     for (const m of this.gunners) m.update(dt, this);
     for (const w of this.walls) w.update(dt, this);

@@ -61,14 +61,14 @@ class Portrait {
       this.camera.position.set(1.7, 1.05, 3.15);
       this.camera.lookAt(0.05, 0.32, 0);
     } else {
-      this.current = kind === 'ultralisk' ? model('ultralisk') : loadedModels().includes('zergling') ? model('zergling') : buildZergling();
+      this.current = kind === 'ultralisk' || kind === 'maw' ? model(kind) : loadedModels().includes('zergling') ? model('zergling') : buildZergling();
       this.camera.position.set(0, 0.62, 1.7);
       this.camera.lookAt(0, 0.22, 0);
     }
     this.current.traverse((o) => { o.castShadow = false; o.receiveShadow = false; });
     this.pivot.add(this.current);
     if (kind === 'cruiser') this.frame(this.current, { close: 0.4, rise: 0.42 });   // look down on the deck
-    else if (this.current.userData.fromFile || kind === 'ultralisk') this.frame(this.current);
+    else if (this.current.userData.fromFile || kind === 'ultralisk' || kind === 'maw') this.frame(this.current);
   }
 
   /** Fit the camera to a model file, whatever its proportions. */
@@ -333,6 +333,11 @@ export class UI {
       this.callout('ULTRALISK INBOUND', 'Heavy armour · sweeping tusks · deploy aircraft or Deadeyes', 'unit');
       this.toast('Ultralisk at the breach', 'Spread ground troops. Walls take bonus damage; Yamato and Deadeyes pierce its armour.', 'warn', 6000);
     });
+    game.on('maw', () => {
+      this.callout('TUNNEL MAW', 'The ground is shaking · move that unit out of the ring', 'unit');
+      this.toast('Tunnel Maw underfoot', 'It swallows a ground unit standing in the ring. Move to dodge, or kill it before it dives to free the unit. Aircraft and bunker troops are safe.', 'warn', 9000);
+    });
+    game.on('mawTook', (unit) => this.toast('Unit lost to a Tunnel Maw', `Your ${unit.spec.info.name} was dragged under. Kill the Maw while it is up to free a swallowed unit.`, 'warn', 6000));
     game.on('supply', () => {
       this.callout('Supply drop', 'Click the crate or walk a unit onto it', 'supply');
       this.toast('Supply drop near your base', 'Gold marker on the minimap. It leaves in 18 seconds.', 'supply');
@@ -423,7 +428,7 @@ export class UI {
     this.inspect = { kind, tier, entity };
     document.querySelectorAll('.tab').forEach((b) => b.classList.toggle('tab--active', b.dataset.unit === kind));
     document.querySelector('.panel').dataset.faction = kind;
-    this.portrait.show(entity?.breedId === 'ultralisk' ? 'ultralisk' : entity?.kind === 'core' || entity?.kind === 'hive' ? entity.kind : kind, tier);
+    this.portrait.show(entity?.breedId === 'ultralisk' || entity?.breedId === 'maw' ? entity.breedId : entity?.kind === 'core' || entity?.kind === 'hive' ? entity.kind : kind, tier);
     this.renderStats();
   }
 
@@ -493,7 +498,7 @@ export class UI {
       $('pName').textContent = b.name;
       $('pRole').textContent = b.role;
       $('pFaction').textContent = ZERG_INFO.faction;
-      $('pBio').textContent = b.id === 'ultralisk' ? 'Armoured siege beast. Sweeping tusks hit exposed ground defenders in a frontal arc and deal 60% bonus damage to walls and bunkers. Cannot hit aircraft. Counter with Yamato and armour-piercing Deadeyes; keep infantry spread out.' : ZERG_INFO.bio;
+      $('pBio').textContent = b.id === 'maw' ? 'Burrowing ambusher. The ground shakes under an exposed ground unit, then it erupts and swallows the nearest one still standing there. Move out of the ring to dodge. Kill it before it dives and the unit is spat back out; aircraft and bunker troops are out of its reach.' : b.id === 'ultralisk' ? 'Armoured siege beast. Sweeping tusks hit exposed ground defenders in a frontal arc and deal 60% bonus damage to walls and bunkers. Cannot hit aircraft. Counter with Yamato and armour-piercing Deadeyes; keep infantry spread out.' : ZERG_INFO.bio;
       $('pQuote').textContent = ZERG_INFO.quote;
       const hp = entity ? entity.maxHp : b.hp;
       $('stats').innerHTML =

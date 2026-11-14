@@ -638,7 +638,94 @@ export function buildNeedler() {
   return root;
 }
 
+const MAW_SKIN = [
+  new THREE.MeshStandardMaterial({ color: 0x8d5f7c, metalness: 0.05, roughness: 0.62 }),
+  new THREE.MeshStandardMaterial({ color: 0x744a6c, metalness: 0.05, roughness: 0.68 })
+];
+const MAW_THROAT = new THREE.MeshStandardMaterial({ color: 0xb8320f, emissive: 0xd63a0c, emissiveIntensity: 0.9, roughness: 0.45 });
+
+/**
+ * Burrowing ambusher: a ringed trunk that rises out of a churned mound and ends in a
+ * four-petal maw. The trunk is a chain of nested rings so it can sway and bend; `userData.maw`
+ * hands the rings, jaws and height to the entity that animates it.
+ */
+export function buildMaw() {
+  const root = new THREE.Group(), body = new THREE.Group(), head = new THREE.Group();
+  root.add(body);
+  // churned earth where it broke the surface; stays put while the trunk rises through it
+  const mound = new THREE.Group();
+  const lip = mesh(new THREE.TorusGeometry(0.46, 0.14, 5, 11).rotateX(Math.PI / 2), MAT.rockDark, 0, 0.03, 0);
+  lip.scale.y = 0.7;
+  mound.add(lip);
+  for (let i = 0; i < 7; i++) {
+    const a = i * 0.9 + 0.3, r = 0.52 + (i % 3) * 0.07;
+    const clod = mesh(new THREE.DodecahedronGeometry(0.07 + (i % 2) * 0.035, 0), i % 2 ? MAT.rock : MAT.rockLite, Math.cos(a) * r, 0.05, Math.sin(a) * r);
+    clod.rotation.set(a, a * 2, 0);
+    mound.add(clod);
+  }
+  root.add(mound);
+
+  const ringGeo = new THREE.SphereGeometry(1, 12, 6).scale(1, 0.62, 1);
+  const bandGeo = new THREE.CylinderGeometry(1, 1, 0.045, 12);
+  const spineGeo = new THREE.ConeGeometry(0.035, 0.15, 5).rotateZ(-Math.PI / 2);
+  const rings = [];
+  let parent = body, top = 0;
+  for (let i = 0; i < 8; i++) {
+    const seg = new THREE.Group();
+    seg.position.y = i ? 0.19 : 0.1;
+    top += seg.position.y;
+    const r = 0.37 - i * 0.012 + (i === 6 ? 0.02 : 0);
+    const ring = mesh(ringGeo, MAW_SKIN[i % 2]);
+    ring.scale.setScalar(r);
+    seg.add(ring);
+    const band = mesh(bandGeo, MAT.fleshDark, 0, 0.095, 0);
+    band.scale.set(r * 0.9, 1, r * 0.9);
+    seg.add(band);
+    if (i % 2 === 0 && i > 0) {
+      for (const a of [0.6, 2.2, 3.8, 5.4]) {   // bristles it drags itself along with
+        const spine = mesh(spineGeo, MAT.bone, Math.cos(a) * (r + 0.04), 0, Math.sin(a) * (r + 0.04));
+        spine.rotation.y = -a;
+        seg.add(spine);
+      }
+    }
+    parent.add(seg);
+    parent = seg;
+    rings.push(seg);
+  }
+  // the maw: four hinged petals around a glowing throat
+  head.position.y = 0.16;
+  parent.add(head);
+  top += 0.16;
+  head.add(mesh(new THREE.CylinderGeometry(0.24, 0.28, 0.1, 12), MAT.fleshDark, 0, 0, 0));
+  head.add(mesh(new THREE.CircleGeometry(0.23, 12).rotateX(-Math.PI / 2), MAW_THROAT, 0, 0.055, 0));
+  const petalGeo = new THREE.ConeGeometry(0.18, 0.5, 4).scale(1, 1, 0.5).translate(0, 0.25, 0);
+  const toothGeo = new THREE.ConeGeometry(0.022, 0.1, 4);
+  const jaws = [];
+  for (let i = 0; i < 4; i++) {
+    const turn = new THREE.Group(), jaw = new THREE.Group();
+    turn.rotation.y = i * Math.PI / 2 + Math.PI / 4;
+    jaw.position.set(0, 0.03, 0.2);             // hinge on the rim
+    jaw.add(mesh(petalGeo, i % 2 ? MAT.flesh : MAT.fleshDark));
+    jaw.add(mesh(new THREE.ConeGeometry(0.035, 0.16, 5), MAT.boneLit, 0, 0.55, 0));
+    for (const [x, y] of [[-0.07, 0.16], [0.07, 0.16], [-0.045, 0.3], [0.045, 0.3]]) {
+      const tooth = mesh(toothGeo, MAT.bone, x, y, -0.07);
+      tooth.rotation.x = -Math.PI / 2;
+      jaw.add(tooth);
+    }
+    jaw.rotation.x = 0.55;                      // resting half open; the entity animates it
+    turn.add(jaw);
+    head.add(turn);
+    jaws.push(jaw);
+  }
+  root.userData.torso = body;
+  root.userData.weapon = head;
+  head.userData.muzzle = new THREE.Vector3(0, 0.3, 0);
+  root.userData.maw = { rings, jaws, mound, height: top + 0.55 };
+  return root;
+}
+
 export function buildBug(breed) {
+  if (breed === 'maw') return buildMaw();
   if (breed === 'ultralisk') return buildUltralisk();
   if (breed === 'needler') return buildNeedler();
   const tint = { warrior: 0x3d2038, hopper: 0x8a5a32, tanker: 0x2c4a28 }[breed] || null;

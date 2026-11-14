@@ -37,6 +37,7 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 | `src/main.js` | Entry point. Loads models, then owns all input: selection, orders, control groups, hotkeys, camera, minimap wiring, start screen and game-over flow, the frame loop. |
 | `src/game.js` | Game state and rules: placing and selling, levels, waves, kills and score, group commands (`commandMove/Attack/Garrison/Stop`), alerts, terrain rebuild. |
 | `src/entities.js` | `Marine` (all player units: marine/goliath/tank/falcon plus the scorcher/deadeye/mender specialists), `Zergling` (all bug strains), `Wall`, `Bunker`, `Scv`, `Core`, `SupplyCrate`, projectiles. |
+| `src/maw.js` | Tunnel Maw: `MawAmbush` (timing, warning marks, eruption) and the `TunnelMaw` entity that swallows, holds and releases a unit. Tuning is `MAW` in config. |
 | `src/evolutions.js` | Boss reward abilities: automatic tank siege, walker chain lightning, bunker Last Stand, descriptions and model additions. Tuning lives in config. |
 | `src/grid.js` | Tile grid, A* for player units, the shared bug route field, line-of-sight helpers. |
 | `src/levels.js` | Generates the seeded map: 2–4 approaches from 1–4 sides (`attackFronts(level)`) converging on the base, with boulders, rock depth and spires. Early level names come from `LEVELS`. |
@@ -54,6 +55,22 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 | `src/daily.js` | Daily challenge: one seed per UTC day, today's best and day streak in `td.daily.v1`, share text. |
 | `src/fx.js`, `audio.js`, `voice.js` | Particles and decals, synthesised sound effects, speech-synthesis voice lines. |
 | `assets/models/README.md` | How to drop in `.glb` unit models. |
+
+## Tunnel Maw (Nov 15, 2026)
+
+- A burrowing worm from round 9 (`MAW.firstRound`) that swallows an exposed ground unit. Rules
+  and numbers are in `BALANCE.md`; `game.ambush` (`MawAmbush`) runs it every tick.
+- **It is a `Zergling` subclass in `game.zerglings`** (`isMaw`), so weapons, blasts, kills and
+  bounties treat it like any bug, but it overrides `update` and never paths. A Maw that dives
+  marks itself `dead` with `escaped` set and skips `onKill`, so it scores nothing.
+- **A swallowed unit is removed from `game.gunners` and the scene**, not flagged in place:
+  `unit.swallowed` is true and the Maw holds it in `meal`. `gulp()` clears its tile only if it
+  is the occupant; `release()` puts it back on a free tile and re-adds it. Nothing else needs a
+  "swallowed" check except `isUnit()` in `main.js`, which keeps it out of control groups.
+- Ambushes only start in `wave` while the marching wave is alive, so a Maw cannot hold a cleared
+  round open for longer than its own surfacing. Marks are cleared by `loadLevel()`.
+- Maws are not in `wavePlan()`; the scouting report mentions them through `scoutRound().maws`.
+- `tests/browser-maw.cjs` covers warning, swallow, rescue, dodge, loss and round end.
 
 ## Random base side, attack fronts and Defend mode (Nov 15, 2026)
 

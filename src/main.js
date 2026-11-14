@@ -169,7 +169,7 @@ function isGun(e) { return !!(e && UNITS[e.kind]); }
 
 /** Things you can box-select, group, and order around. */
 function isUnit(e) {
-  if (!e || e.dead) return false;
+  if (!e || e.dead || e.swallowed) return false;
   if (e.kind === 'scv') return e === game.scv;
   return isGun(e) && !e.downed && !e.bunker;
 }

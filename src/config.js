@@ -227,7 +227,17 @@ export const ECON = {
 };
 
 export const ULTRALISK = { firstRound: 8, cleaveRadius: 2.2, cleaveArc: 1.05, structureMultiplier: 1.6 };
+/*
+ * Tunnel Maw: every `interval` seconds of a wave it marks an exposed ground unit, erupts under
+ * the mark after `telegraph`, and swallows the nearest one still inside `radius`. It stays up
+ * for `hold` seconds (`empty` if it missed); killing it in time frees the unit.
+ */
+export const MAW = {
+  firstRound: 9, pairRound: 18, first: 16, interval: 24, intervalStep: 0.6, minInterval: 12,
+  telegraph: 2.4, radius: 1.25, hold: 7, empty: 3.5, digest: 0.06, rise: 0.45, dive: 0.7
+};
 export const BREEDS = {
+  maw: { id: 'maw', name: 'Tunnel Maw', role: 'Burrowing Ambusher', hp: 240, armor: 2, damage: 0, attackSpeed: 1, range: 1.25, speed: 0, scale: 1.0, bounty: 6, melee: true, aggro: 0 },
   ultralisk: { id: 'ultralisk', name: 'Ultralisk', role: 'Armoured Siege Beast', hp: 1300, armor: 7, damage: 48, attackSpeed: 1.15, range: 1.65, speed: 1.6, scale: 2, bounty: 18, melee: true, aggro: 3.8 },
   zergling: { id: 'zergling', name: 'Rift Skitter', role: 'Melee Swarm', hp: 37, armor: 0, damage: 6, attackSpeed: 0.55, range: 0.95, speed: 2.4, scale: 1, bounty: 1, melee: true, aggro: 2.6 },
   warrior:  { id: 'warrior', name: 'Ironback', role: 'Armored Strain', hp: 150, armor: 3, damage: 12, attackSpeed: 0.9, range: 1.05, speed: 1.35, scale: 1.32, bounty: 3, melee: true, aggro: 2.2 },
