@@ -2,13 +2,13 @@ import { BUILD, BREEDS, MAW, wavePlan, milestonePlan, unlockRound } from './conf
 
 // Advice follows actual weapon roles; scouting never changes wave generation or combat stats.
 const COUNTERS = {
-  ultralisk: { unit: 'cruiser', threat: 'Ultralisk siege beast', why: 'Heavy armour shrugs off rifles; sweeping tusks shred clustered ground units and barricades. Battlecruisers attack safely from the air. Use Yamato and armour-piercing Deadeyes; spread your frontline.' },
-  zergling: { unit: 'scorcher', fallback: 'marine', threat: 'Swarm', why: 'Flames hit every ground enemy in a short cone. Keep the pack in front.', early: 'Overlap Lineguard firing ranges at the shared approach. Bunkers protect the firing line.' },
-  warrior: { unit: 'deadeye', threat: 'Armour', why: 'Deadeye rounds ignore armour and prioritise large targets. Keep a frontline ahead of them.' },
-  hopper: { unit: 'scorcher', threat: 'Wall vaulters', why: 'Vaultlings jump a single wall. Keep short-range flames behind your barricades to catch them.' },
-  skyhunter: { unit: 'goliath', threat: 'Air attack', why: 'Anchor Walkers shoot ground and air. Walls, Scorchers and Cinder Crawlers cannot stop aircraft.' },
-  needler: { unit: 'deadeye', threat: 'Ranged fire', why: 'Deadeyes outrange spine launchers. Screen the fragile marksmen with tougher units.' },
-  tanker: { unit: 'deadeye', threat: 'Acid siege', why: 'Deadeyes prioritise large targets and outrange acid siege. Spread your frontline to limit splash damage.' }
+  ultralisk: { unit: 'cruiser', threat: 'Behemoth siege beast', why: 'Heavy armour shrugs off rifles; sweeping tusks shred clustered ground units and barricades. Titans attack safely from the air. Use Yamato and armour-piercing Spectres; spread your frontline.' },
+  zergling: { unit: 'scorcher', fallback: 'marine', threat: 'Swarm', why: 'Flames hit every ground enemy in a short cone. Keep the pack in front.', early: 'Overlap Trooper firing ranges at the shared approach. Bunkers protect the firing line.' },
+  warrior: { unit: 'deadeye', threat: 'Armour', why: 'Spectre rounds ignore armour and prioritise large targets. Keep a frontline ahead of them.' },
+  hopper: { unit: 'scorcher', threat: 'Wall vaulters', why: 'Leapers jump a single wall. Keep short-range flames behind your barricades to catch them.' },
+  skyhunter: { unit: 'goliath', threat: 'Air attack', why: 'Atlas mechs shoot ground and air. Walls, Torches and Hammers cannot stop aircraft.' },
+  needler: { unit: 'deadeye', threat: 'Ranged fire', why: 'Spectres outrange spine launchers. Screen the fragile marksmen with tougher units.' },
+  tanker: { unit: 'deadeye', threat: 'Acid siege', why: 'Spectres prioritise large targets and outrange acid siege. Spread your frontline to limit splash damage.' }
 };
 
 /** Full planned column, not a misleading live count; boss reinforcements are separate. */

@@ -37,13 +37,13 @@ const assert = require('node:assert/strict');
       g.grid.set(21,20,CELL.OPEN);g.gunners=[];g.walls=[];g.bunkers=[];
       u.takeDamage(20,g,0,true);check(u.hp===2197,'Armour not applied');
       u.hp=2210;const c=new Marine('cruiser',16,20,[]);g.gunners=[c];g.focus=u;
-      check(startYamato(c,g,true),'Yamato failed to lock Ultralisk');updateBattlecruiser(c,1.5,g);
-      check(u.hp===810&&!u.dead,'First-wave Ultralisk should survive standard Yamato');
-      check(!u.preyOk(c,g),'Ultralisk hunted aircraft');
+      check(startYamato(c,g,true),'Yamato failed to lock Behemoth');updateBattlecruiser(c,1.5,g);
+      check(u.hp===810&&!u.dead,'First-wave Behemoth should survive standard Yamato');
+      check(!u.preyOk(c,g),'Behemoth hunted aircraft');
       // Real wave spawn and one warning, rather than a model-only addition.
       g.reset(12345);g.level=8;g.loadLevel();g.startWave();g.assault.plan=null;g.assault.pending=false;
       let warnings=0;g.on('ultralisk',()=>warnings++);g.state='wave';g.spawnTimer=5.99;g.update(.05);
-      check(g.zerglings.some(e=>e.breedId==='ultralisk'),'Wave did not spawn Ultralisk');check(warnings===1,'Missing arrival warning');
+      check(g.zerglings.some(e=>e.breedId==='ultralisk'),'Wave did not spawn Behemoth');check(warnings===1,'Missing arrival warning');
       const beast=g.zerglings.find(e=>e.breedId==='ultralisk');
       // Walk actual large model through the canyon to combat range without terrain crossings.
       beast.bar.set=()=>{};let reached=false;
@@ -58,8 +58,8 @@ const assert = require('node:assert/strict');
       g.stage.focus.set(beast.x,.8,beast.z);g.stage.dist=14;g.stage.updateCamera();g.stage.render();g.emit('selectOnly',beast);g.emit('change');
       return {firstRound:8,firstHp:2210,armor:7,cleaveDamage:48,structureDamage:76.8,reached};
     });
-    assert.match(await page.locator('#pName').textContent(),/Ultralisk/);
+    assert.match(await page.locator('#pName').textContent(),/Behemoth/);
     await page.screenshot({path:'/tmp/ridgewatch-ultralisk.png'});
-    assert.deepEqual(errors,[]);console.log('PASS: Ultralisk wave progression, cleave, siege, armour, air immunity, Yamato survival, scouting and canyon traversal',result);
+    assert.deepEqual(errors,[]);console.log('PASS: Behemoth wave progression, cleave, siege, armour, air immunity, Yamato survival, scouting and canyon traversal',result);
   }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

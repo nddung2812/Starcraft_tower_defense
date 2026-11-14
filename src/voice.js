@@ -2,7 +2,7 @@ const LINES = {
   acquired: ['Target acquired.', 'Engaging.', 'Weapons free.'],
   stim: ['Overdrive engaged.', 'Power reserves engaged.'],
   hit: ["I'm hit!", 'Armor is breached!'],
-  down: ['Lineguard down!'],
+  down: ['Trooper down!'],
   kill: ['Got one.', 'One less at the breach.'],
   breach: ['Breach! Hold the line!'],
   repair: ['Repairing.', 'On it.'],

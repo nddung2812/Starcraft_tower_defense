@@ -394,15 +394,15 @@ let modeTip = false;   // is the status line showing a mode hint we should clear
 
 const PLACE_TIP = {
   wall: 'Walls redirect the swarm, and bugs stop to chew them. Drag to lay a run. Right-click cancels.',
-  marine: 'Place a Lineguard. Right-click the ground to move him later.',
-  goliath: 'Anchor Walker. Twin autocannons, long reach. Advances with the army; too big for a bunker.',
-  cruiser: 'Yamato Battlecruiser. Four batteries, heavy armour, and auto Yamato against heavy targets. J builds; select and press Y to fire manually.',
-  falcon: 'Kestrel. Attacks ground and air. Right-click to fly over any terrain. V to deploy another.',
-  tank: 'Cinder Crawler. Twin cannons, wide blast. Right-click the ground to drive it.',
-  bunker: 'Bunker faces the bugs. Select Lineguards and right-click it to garrison.',
-  scorcher: 'Scorcher. Burns every ground bug in a short cone. Put it where the swarm bunches up.',
-  deadeye: 'Deadeye. Very long range, ignores armour, shoots the biggest target. Keep it behind the line.',
-  mender: 'Mender. Heals the most injured unit nearby. Place it just behind your fighters.'
+  marine: 'Place a Trooper. Right-click the ground to move him later.',
+  goliath: 'Atlas. Twin autocannons, long reach. Advances with the army; too big for a bunker.',
+  cruiser: 'Titan. Four batteries, heavy armour, and auto Yamato against heavy targets. J builds; select and press Y to fire manually.',
+  falcon: 'Vector. Attacks ground and air. Right-click to fly over any terrain. V to deploy another.',
+  tank: 'Hammer. Twin cannons, wide blast. Right-click the ground to drive it.',
+  bunker: 'Bunker faces the bugs. Select Troopers and right-click it to garrison.',
+  scorcher: 'Torch. Burns every ground bug in a short cone. Put it where the swarm bunches up.',
+  deadeye: 'Spectre. Very long range, ignores armour, shoots the biggest target. Keep it behind the line.',
+  mender: 'Medic. Heals the most injured unit nearby. Place it just behind your fighters.'
 };
 
 function updateTip() {
@@ -527,7 +527,7 @@ function runCommand(id) {
   else if (id === 'yamato') {
     let fired = false;
     for (const unit of army()) if (startYamato(unit, game, true)) fired = true;
-    if (!fired) ui.toast('Yamato unavailable', 'Select a Battlecruiser with a ready cannon and an enemy within 12 tiles.');
+    if (!fired) ui.toast('Yamato unavailable', 'Select a Titan with a ready cannon and an enemy within 12 tiles.');
   }
   else if (id === 'air') setAirAim(!airAim);
   else if (id === 'promote') { if (game.selected?.upgrade) game.upgradeGunner(game.selected); }

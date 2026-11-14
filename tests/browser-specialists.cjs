@@ -44,7 +44,7 @@ const assert = require('node:assert/strict');
     assert.deepEqual(await visible(), ['wall', 'marine', 'bunker', 'goliath', 'falcon', 'tank']);
     await page.keyboard.press('c');
     assert.equal(await page.locator('.card--on').count(), 0, 'Locked hotkey must not arm placement');
-    assert.match(await page.locator('#toasts').textContent(), /Scorcher is locked/);
+    assert.match(await page.locator('#toasts').textContent(), /Torch is locked/);
 
     const result = await page.evaluate(async () => {
       const { UNITS, BUILD, STREAK, SUPPLY } = await import('/src/config.js');
@@ -70,9 +70,9 @@ const assert = require('node:assert/strict');
       check(!g.isUnlocked('scorcher') && !g.placeGunner('scorcher', g.grid.core.x - 3, g.grid.core.y), 'Round 1 must not build specialists');
       out.unlock = ['scorcher', 'deadeye', 'mender'].map(id => BUILD[id].unlock);
 
-      // Scorcher: every ground bug in the cone burns each tick; aircraft and bugs behind it do not.
+      // Torch: every ground bug in the cone burns each tick; aircraft and bugs behind it do not.
       let [x, y] = fresh(2);
-      check(g.placeGunner('scorcher', x, y) && !g.placeGunner('deadeye', x + 1, y), 'Round 2 unlocks only the Scorcher');
+      check(g.placeGunner('scorcher', x, y) && !g.placeGunner('deadeye', x + 1, y), 'Round 2 unlocks only the Torch');
       const torch = g.gunners[0];
       const front = [bug(torch.x + 1.2, torch.z), bug(torch.x + 2, torch.z + 0.5), bug(torch.x + 2.2, torch.z - 0.6)];
       const behind = bug(torch.x - 1.6, torch.z), far = bug(torch.x + 4.5, torch.z), flyer = bug(torch.x + 1.5, torch.z, 'skyhunter');
@@ -81,30 +81,30 @@ const assert = require('node:assert/strict');
       check(front.every(b => 10000 - b.hp === torch.stats.damage), 'Cone must hit every ground bug in front');
       check(10000 - plated.hp === torch.stats.damage - plated.armor, 'Flames are reduced by armour');
       check(behind.hp === 10000 && far.hp === 10000 && flyer.hp === 10000, 'Cone must spare bugs behind, out of reach, or flying');
-      check(!g.tracers.length && !g.shells.length, 'Scorcher fires no projectile');
-      check(!torch.orderAttack(flyer, g), 'Scorcher cannot be ordered onto aircraft');
+      check(!g.tracers.length && !g.shells.length, 'Torch fires no projectile');
+      check(!torch.orderAttack(flyer, g), 'Torch cannot be ordered onto aircraft');
       out.scorcher = { damage: torch.stats.damage, range: torch.attackRange };
 
-      // Deadeye: biggest target first, armour ignored, air included.
+      // Spectre: biggest target first, armour ignored, air included.
       [x, y] = fresh(3);
-      check(g.placeGunner('deadeye', x, y) && !g.placeGunner('mender', x + 1, y), 'Round 3 unlocks the Deadeye, not the Mender');
+      check(g.placeGunner('deadeye', x, y) && !g.placeGunner('mender', x + 1, y), 'Round 3 unlocks the Spectre, not the Medic');
       const eye = g.gunners[0];
       const small = bug(eye.x + 2, eye.z, 'zergling', 40), big = bug(eye.x + 6, eye.z, 'warrior', 900), sky = bug(eye.x + 4, eye.z + 1, 'skyhunter', 300);
-      check(eye.acquire(g) === big, 'Deadeye must prefer the largest target');
+      check(eye.acquire(g) === big, 'Spectre must prefer the largest target');
       eye.target = big; eye.yaw = 0; eye.obj.updateMatrixWorld(true); eye.fire(g);
-      check(g.tracers.length === 1 && g.tracers[0].pierce, 'Deadeye fires one piercing round');
+      check(g.tracers.length === 1 && g.tracers[0].pierce, 'Spectre fires one piercing round');
       for (let i = 0; i < 200; i++) for (const t of g.tracers) if (!t.dead) t.update(0.02, g);
-      check(900 - big.hp === eye.stats.damage, `Deadeye must ignore armour (dealt ${900 - big.hp})`);
+      check(900 - big.hp === eye.stats.damage, `Spectre must ignore armour (dealt ${900 - big.hp})`);
       big.dead = true;
-      check(eye.acquire(g) === sky && small.hp === 40, 'Deadeye can target aircraft');
+      check(eye.acquire(g) === sky && small.hp === 40, 'Spectre can target aircraft');
       out.deadeye = { damage: eye.stats.damage, range: eye.attackRange };
 
-      // Mender: heals the most injured ally in reach, never shoots, cannot overheal or raise the downed.
+      // Medic: heals the most injured ally in reach, never shoots, cannot overheal or raise the downed.
       [x, y] = fresh(4);
       check(g.placeGunner('mender', x, y) && g.placeGunner('marine', x + 1, y) && g.placeGunner('goliath', x + 2, y) && g.placeGunner('marine', x + 1, y + 1), 'Round 4 squad');
       const [medic, a, walker, c] = g.gunners;
       const enemy = bug(medic.x + 2, medic.z - 1);
-      check(medic.acquire(g) === null && !medic.orderAttack(enemy, g), 'Mender never attacks');
+      check(medic.acquire(g) === null && !medic.orderAttack(enemy, g), 'Medic never attacks');
       check(medic.seek(g) === null, 'Nothing to heal at full health');
       a.hp = a.maxHp - 5; walker.hp = walker.maxHp * 0.3; c.downed = true; c.hp = 0;
       check(medic.seek(g) === walker, 'Most injured ally first');
@@ -116,10 +116,10 @@ const assert = require('node:assert/strict');
       check(medic.seek(g) === null && c.downed, 'Downed units still need the Patch Rig');
       a.hp = 1; g.zerglings.length = 0;
       for (let i = 0; i < 400 && a.hp < a.maxHp; i++) g.update(0.05);
-      check(a.hp === a.maxHp, 'Mender heals on its own during play');
+      check(a.hp === a.maxHp, 'Medic heals on its own during play');
       out.mender = { heal: medic.stats.damage, range: medic.attackRange };
       // A promotion and base research scale the specialists like every other unit.
-      g.upgradeBase(); check(g.upgradeGunner(medic) && medic.rank === 'Chief Mender' && medic.stats.damage === 20 * 1.15, 'Mender promotion and research');
+      g.upgradeBase(); check(g.upgradeGunner(medic) && medic.rank === 'Chief Medic' && medic.stats.damage === 20 * 1.15, 'Medic promotion and research');
 
       // Kill streaks: each tier pays once, and the streak lapses after the window.
       fresh(1); g.state = 'wave';
@@ -215,9 +215,9 @@ const assert = require('node:assert/strict');
     await page.keyboard.press('h');
     assert.equal(await page.locator('.card--on').getAttribute('data-build'), 'mender');
     await page.keyboard.press('Escape');
-    for (const tab of ['scorcher', 'deadeye', 'mender']) {
+    for (const [tab, name] of [['scorcher', 'Torch'], ['deadeye', 'Spectre'], ['mender', 'Medic']]) {
       await page.locator(`.tab[data-unit="${tab}"]`).click();
-      assert.equal(await page.locator('#pName').textContent(), tab[0].toUpperCase() + tab.slice(1));
+      assert.equal(await page.locator('#pName').textContent(), name);
     }
     assert.match(await page.locator('#stats').textContent(), /Heal\s*12/);
     await page.evaluate(() => { game.minerals = 2000; game.lastArmy = [{ kind: 'marine', tier: 2, invested: 250 }, { kind: 'deadeye', tier: 1, invested: 320 }]; game.emit('change'); });

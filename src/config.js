@@ -26,17 +26,17 @@ export const CELL = { OPEN: 0, WALL: 1, TOWER: 2, CORE: 3, SPAWN: 4, ROCK: 5, BU
 export const BREAK_COST = 9;
 
 export const BUILD = {
-  wall: { id: 'wall', name: 'Ridge Wall', cost: 25, hp: 320, icon: 'W', key: 'W', desc: 'Plasteel barricade. The swarm chews through it or goes around.' },
-  marine: { id: 'marine', name: 'Lineguard', cost: 60, icon: 'M', key: 'M', desc: 'Lineguard. Right-click the canyon to move him. Promote, engage Overdrive, or garrison a bunker.' },
-  bunker: { id: 'bunker', name: 'Bunker', cost: 80, hp: 300, icon: 'B', key: 'B', desc: 'Holds two Lineguards. Extra armour, a firing slit, and a facing you set by where you build it.' },
-  goliath: { id: 'goliath', name: 'Anchor Walker', cost: 160, icon: 'G', key: 'G', desc: 'Walker with twin autocannons. Long reach. Too big for a bunker.' },
-  falcon: { id: 'falcon', name: 'Kestrel', cost: 240, icon: 'V', key: 'V', desc: 'Flying gunship. Twin cannons attack ground and air. Flies over terrain; vulnerable to spines and flying hunters.' },
-  tank: { id: 'tank', name: 'Cinder Crawler', cost: 280, icon: 'H', key: 'T', desc: 'Silver heavy tank. Twin cinder launchers. Right-click the canyon to drive it.' },
+  wall: { id: 'wall', name: 'Barrier', cost: 25, hp: 320, icon: 'W', key: 'W', desc: 'Plasteel barricade. The swarm chews through it or goes around.' },
+  marine: { id: 'marine', name: 'Trooper', cost: 60, icon: 'M', key: 'M', desc: 'Trooper. Right-click the canyon to move him. Promote, engage Overdrive, or garrison a bunker.' },
+  bunker: { id: 'bunker', name: 'Bunker', cost: 80, hp: 300, icon: 'B', key: 'B', desc: 'Holds two Troopers. Extra armour, a firing slit, and a facing you set by where you build it.' },
+  goliath: { id: 'goliath', name: 'Atlas', cost: 160, icon: 'G', key: 'G', desc: 'Walker with twin autocannons. Long reach. Too big for a bunker.' },
+  falcon: { id: 'falcon', name: 'Vector', cost: 240, icon: 'V', key: 'V', desc: 'Flying gunship. Twin cannons attack ground and air. Flies over terrain; vulnerable to spines and flying hunters.' },
+  tank: { id: 'tank', name: 'Hammer', cost: 280, icon: 'H', key: 'T', desc: 'Silver heavy tank. Twin cinder launchers. Right-click the canyon to drive it.' },
   // Specialists join the build bar one round at a time (`unlock` is the first round they can be built).
-  scorcher: { id: 'scorcher', name: 'Scorcher', cost: 110, icon: 'C', key: 'C', unlock: 2, desc: 'Flame trooper. Burns every ground bug in a short cone. Weak against armour.' },
-  deadeye: { id: 'deadeye', name: 'Deadeye', cost: 150, icon: 'D', key: 'D', unlock: 3, desc: 'Marksman. Very long range, ignores armour, picks the biggest target. Fragile.' },
-  cruiser: { id: 'cruiser', name: 'Yamato Battlecruiser', cost: 900, icon: 'Y', key: 'J', unlock: 5, desc: 'Armoured capital ship. Four batteries hit ground and air. Charges Yamato automatically against heavy targets; Y fires manually. Flies over terrain.' },
-  mender: { id: 'mender', name: 'Mender', cost: 100, icon: '+', key: 'H', unlock: 4, desc: 'Field medic. Heals the most injured unit nearby. Carries no weapon.' }
+  scorcher: { id: 'scorcher', name: 'Torch', cost: 110, icon: 'C', key: 'C', unlock: 2, desc: 'Flame trooper. Burns every ground bug in a short cone. Weak against armour.' },
+  deadeye: { id: 'deadeye', name: 'Spectre', cost: 150, icon: 'D', key: 'D', unlock: 3, desc: 'Marksman. Very long range, ignores armour, picks the biggest target. Fragile.' },
+  cruiser: { id: 'cruiser', name: 'Titan', cost: 900, icon: 'Y', key: 'J', unlock: 5, desc: 'Armoured capital ship. Four batteries hit ground and air. Charges Yamato automatically against heavy targets; Y fires manually. Flies over terrain.' },
+  mender: { id: 'mender', name: 'Medic', cost: 100, icon: '+', key: 'H', unlock: 4, desc: 'Field medic. Heals the most injured unit nearby. Carries no weapon.' }
 };
 export const unlockRound = id => BUILD[id]?.unlock || 1;
 
@@ -50,8 +50,8 @@ export const MARINE_TIERS = [
 
 export const MARINE_INFO = {
   id: 'marine',
-  name: 'Lineguard',
-  faction: 'Ridgewatch Compact',
+  name: 'Trooper',
+  faction: 'Breachline Compact',
   role: 'Rifle Infantry',
   armor: 1,
   accent: '#5ad7ff',
@@ -67,8 +67,8 @@ export const GOLIATH_TIERS = [
 
 export const GOLIATH_INFO = {
   id: 'goliath',
-  name: 'Anchor Walker',
-  faction: 'Ridgewatch Compact',
+  name: 'Atlas',
+  faction: 'Breachline Compact',
   role: 'Combat Walker',
   armor: 2,
   accent: '#c6e07a',
@@ -82,8 +82,8 @@ export const TANK_TIERS = [
 
 export const TANK_INFO = {
   id: 'tank',
-  name: 'Cinder Crawler',
-  faction: 'Ridgewatch Compact',
+  name: 'Hammer',
+  faction: 'Breachline Compact',
   role: 'Heavy Armor',
   armor: 3,
   accent: '#e2a84a',
@@ -96,7 +96,7 @@ export const FALCON_TIERS = [
   { rank: 'Flight II', hp: 200, damage: 15, attackSpeed: 0.72, range: 6.2, upgradeCost: null }
 ];
 export const FALCON_INFO = {
-  id: 'falcon', name: 'Kestrel', faction: 'Compact Air Service', role: 'Air / Ground Assault',
+  id: 'falcon', name: 'Vector', faction: 'Compact Air Service', role: 'Air / Ground Assault',
   armor: 1, accent: '#71e7e0',
   bio: 'Twin-engine attack craft with tracking cannons for ground and air targets. Flies over mountains and walls without blocking ground troops. Enemy spines and flying hunters can shoot it down.',
   quote: '"Sky clear. Guns ready."'
@@ -107,7 +107,7 @@ export const SCORCHER_TIERS = [
   { rank: 'Inferno', hp: 185, damage: 11, attackSpeed: 0.32, range: 3.1, upgradeCost: null }
 ];
 export const SCORCHER_INFO = {
-  id: 'scorcher', name: 'Scorcher', faction: 'Ridgewatch Compact', role: 'Flame Trooper',
+  id: 'scorcher', name: 'Torch', faction: 'Breachline Compact', role: 'Flame Trooper',
   armor: 2, accent: '#ff8a3c',
   bio: 'Slag-furnace crew in heat plating, carrying a pressurised burner. Every ground bug inside the short cone burns at once, so packs melt; plated strains shrug off most of the heat and aircraft stay out of reach.',
   quote: '"Stand behind me."'
@@ -118,18 +118,18 @@ export const DEADEYE_TIERS = [
   { rank: 'Marksman', hp: 85, damage: 100, attackSpeed: 2.1, range: 10.5, upgradeCost: null }
 ];
 export const DEADEYE_INFO = {
-  id: 'deadeye', name: 'Deadeye', faction: 'Ridgewatch Compact', role: 'Marksman',
+  id: 'deadeye', name: 'Spectre', faction: 'Breachline Compact', role: 'Marksman',
   armor: 0, accent: '#c9a8ff',
   bio: 'Survey scout with a long coil rifle. One slow, armour-ignoring round at the largest thing in sight, from further away than anything else on the ridge. Thin suit: keep bugs off them.',
   quote: '"Biggest one first."'
 };
 
 export const MENDER_TIERS = [
-  { rank: 'Field Mender', hp: 80, damage: 12, attackSpeed: 0.8, range: 4.2, upgradeCost: 120 },
-  { rank: 'Chief Mender', hp: 115, damage: 20, attackSpeed: 0.7, range: 4.8, upgradeCost: null }
+  { rank: 'Field Medic', hp: 80, damage: 12, attackSpeed: 0.8, range: 4.2, upgradeCost: 120 },
+  { rank: 'Chief Medic', hp: 115, damage: 20, attackSpeed: 0.7, range: 4.8, upgradeCost: null }
 ];
 export const MENDER_INFO = {
-  id: 'mender', name: 'Mender', faction: 'Ridgewatch Compact', role: 'Field Medic',
+  id: 'mender', name: 'Medic', faction: 'Breachline Compact', role: 'Field Medic',
   armor: 1, accent: '#7dffb0',
   bio: 'Outpost medic with a repair-foam projector. Automatically patches the most injured soldier, walker, crawler or aircraft in reach. Unarmed, and cannot raise the fallen; that is still Patch Rig work.',
   quote: '"Hold still. Almost done."'
@@ -141,7 +141,7 @@ export const CRUISER_TIERS = [
   { rank: 'Flagship', hp: 2100, damage: 42, attackSpeed: 0.5, range: 8.8, upgradeCost: null }
 ];
 export const CRUISER_INFO = {
-  id: 'cruiser', name: 'Yamato Battlecruiser', faction: 'Compact Capital Fleet', role: 'Heavy Capital Ship',
+  id: 'cruiser', name: 'Titan', faction: 'Compact Capital Fleet', role: 'Heavy Capital Ship',
   armor: 6, accent: '#ffbd69',
   bio: 'A flying fortress with four rapid-fire batteries, heavy armour and a charged Yamato cannon. Automatically targets bosses, hives and heavy enemies. Select it and press Y to strike the strongest enemy in range; an explicit attack target takes priority. Yamato scales with promotions and base research.',
   quote: '"Bring the full battery to bear."'
@@ -149,7 +149,7 @@ export const CRUISER_INFO = {
 
 export const UNITS = {
   cruiser: {
-    id: 'cruiser', shots: 4, tiers: CRUISER_TIERS, info: CRUISER_INFO, visualScale: 1,
+    id: 'cruiser', shots: 4, tiers: CRUISER_TIERS, info: CRUISER_INFO, visualScale: 0.75,
     flying: true, targetsAir: true, shell: false, splash: 0, canBunker: false, canStim: false,
     armory: false, turret: true, mobile: true, speed: 2.1, accent: 0xffbd69
   },
@@ -193,7 +193,7 @@ export const UNITS = {
 
 export const ZERG_INFO = {
   id: 'zergling',
-  name: 'Rift Skitter',
+  name: 'Ripper',
   faction: 'The Rift Brood',
   role: 'Melee Swarm Breeder',
   hp: 37,
@@ -238,13 +238,13 @@ export const MAW = {
 };
 export const BREEDS = {
   maw: { id: 'maw', name: 'Tunnel Maw', role: 'Burrowing Ambusher', hp: 240, armor: 2, damage: 0, attackSpeed: 1, range: 1.25, speed: 0, scale: 1.0, bounty: 6, melee: true, aggro: 0 },
-  ultralisk: { id: 'ultralisk', name: 'Ultralisk', role: 'Armoured Siege Beast', hp: 1300, armor: 7, damage: 48, attackSpeed: 1.15, range: 1.65, speed: 1.6, scale: 2, bounty: 18, melee: true, aggro: 3.8 },
-  zergling: { id: 'zergling', name: 'Rift Skitter', role: 'Melee Swarm', hp: 37, armor: 0, damage: 6, attackSpeed: 0.55, range: 0.95, speed: 2.4, scale: 1, bounty: 1, melee: true, aggro: 2.6 },
-  warrior:  { id: 'warrior', name: 'Ironback', role: 'Armored Strain', hp: 150, armor: 3, damage: 12, attackSpeed: 0.9, range: 1.05, speed: 1.35, scale: 1.32, bounty: 3, melee: true, aggro: 2.2 },
-  hopper:   { id: 'hopper', name: 'Vaultling', role: 'Wall Vaulter', hp: 55, armor: 0, damage: 7, attackSpeed: 0.65, range: 0.9, speed: 2.7, scale: 0.82, bounty: 2, melee: true, jump: true, aggro: 3 },
-  skyhunter: { id: 'skyhunter', name: 'Duskwing', role: 'Flying Assault', flying: true, targetsAir: true, hp: 100, armor: 1, damage: 10, attackSpeed: 1.15, range: 4.2, speed: 3.1, scale: 1.1, bounty: 4, ranged: true, projectile: 'spine', muzzle: [0.5, 0.3] },
-  needler:  { targetsAir: true, id: 'needler', name: 'Thornspitter', role: 'Spine Launcher', hp: 76, armor: 1, damage: 10, attackSpeed: 1.1, range: 4.0, speed: 1.85, scale: 1, bounty: 3, ranged: true, projectile: 'spine', muzzle: [0.42, 0.62] },
-  tanker:   { id: 'tanker', name: 'Mirebelly', role: 'Acid Siege', hp: 276, armor: 1, damage: 18, attackSpeed: 1.7, range: 3.6, speed: 1.05, scale: 1.7, bounty: 5, ranged: true }
+  ultralisk: { id: 'ultralisk', name: 'Behemoth', role: 'Armoured Siege Beast', hp: 1300, armor: 7, damage: 48, attackSpeed: 1.15, range: 1.65, speed: 1.6, scale: 1.5, bounty: 18, melee: true, aggro: 3.8 },
+  zergling: { id: 'zergling', name: 'Ripper', role: 'Melee Swarm', hp: 37, armor: 0, damage: 6, attackSpeed: 0.55, range: 0.95, speed: 2.4, scale: 1, bounty: 1, melee: true, aggro: 2.6 },
+  warrior:  { id: 'warrior', name: 'Brute', role: 'Armored Strain', hp: 150, armor: 3, damage: 12, attackSpeed: 0.9, range: 1.05, speed: 1.35, scale: 1.32, bounty: 3, melee: true, aggro: 2.2 },
+  hopper:   { id: 'hopper', name: 'Leaper', role: 'Wall Vaulter', hp: 55, armor: 0, damage: 7, attackSpeed: 0.65, range: 0.9, speed: 2.7, scale: 0.82, bounty: 2, melee: true, jump: true, aggro: 3 },
+  skyhunter: { id: 'skyhunter', name: 'Wraith', role: 'Flying Assault', flying: true, targetsAir: true, hp: 100, armor: 1, damage: 10, attackSpeed: 1.15, range: 4.2, speed: 3.1, scale: 1.1, bounty: 4, ranged: true, projectile: 'spine', muzzle: [0.5, 0.3] },
+  needler:  { targetsAir: true, id: 'needler', name: 'Needler', role: 'Spine Launcher', hp: 76, armor: 1, damage: 10, attackSpeed: 1.1, range: 4.0, speed: 1.85, scale: 1, bounty: 3, ranged: true, projectile: 'spine', muzzle: [0.42, 0.62] },
+  tanker:   { id: 'tanker', name: 'Corroder', role: 'Acid Siege', hp: 276, armor: 1, damage: 18, attackSpeed: 1.7, range: 3.6, speed: 1.05, scale: 1.7, bounty: 5, ranged: true }
 };
 
 /*
@@ -361,11 +361,11 @@ export const LEVELS = [
   { name: 'Ember Reach Cut', radius: 1.55, path: [[1.5, 8.5], [8.5, 8.5], [14.5, 4.5], [20.5, 11.5], [24.5, 8.5]], blurb: 'A straight cut through the ridge. Hold the bends. The mountains do not move.' },
   { name: 'Switchback', radius: 1.52, path: [[1.5, 12.5], [12.5, 12.5], [12.5, 3.5], [22.5, 3.5], [22.5, 8.5]], blurb: 'They come along the high shelf, then drop. A wall on the corner catches the whole file.' },
   { name: 'South Hook', radius: 1.5, path: [[1.5, 3.5], [18.5, 3.5], [18.5, 12.5], [8.5, 12.5], [8.5, 8.5]], blurb: 'The lane hooks south and doubles back. Do not fortify the first stretch and forget the return.' },
-  { name: 'The Stairs', radius: 1.48, path: [[1.5, 13.5], [7.5, 13.5], [7.5, 9.5], [14.5, 9.5], [14.5, 5.5], [21.5, 5.5], [21.5, 2.5]], blurb: 'Ironbacks in the file. Plated bugs. Rifle fire skips off the carapace unless you focus them.' },
+  { name: 'The Stairs', radius: 1.48, path: [[1.5, 13.5], [7.5, 13.5], [7.5, 9.5], [14.5, 9.5], [14.5, 5.5], [21.5, 5.5], [21.5, 2.5]], blurb: 'Brutes in the file. Plated bugs. Rifle fire skips off the carapace unless you focus them.' },
   { name: 'Serpent', radius: 1.48, path: [[2.5, 8.5], [6.5, 3.5], [11.5, 3.5], [11.5, 12.5], [17.5, 12.5], [17.5, 4.5], [23.5, 8.5]], blurb: 'The cut snakes the whole sector. Overlap the straight sections.' },
-  { name: 'High Road', radius: 1.46, path: [[1.5, 2.5], [20.5, 2.5], [20.5, 13.5], [10.5, 13.5], [10.5, 8.5]], blurb: 'Vaultlings in the swarm. They vault a single wall. One thin line will not hold.' },
+  { name: 'High Road', radius: 1.46, path: [[1.5, 2.5], [20.5, 2.5], [20.5, 13.5], [10.5, 13.5], [10.5, 8.5]], blurb: 'Leapers in the swarm. They vault a single wall. One thin line will not hold.' },
   { name: 'Double Bend', radius: 1.46, path: [[1.5, 6.5], [8.5, 6.5], [8.5, 2.5], [16.5, 2.5], [16.5, 13.5], [23.5, 13.5]], blurb: 'Two long bends. The second one faces the ridge relay — put the heavy gun there.' },
-  { name: 'Box Canyon', radius: 1.44, path: [[2.5, 2.5], [8.5, 2.5], [8.5, 8.5], [16.5, 8.5], [16.5, 3.5], [22.5, 3.5], [22.5, 11.5]], blurb: 'A Mirebelly is with them. It will not close. It sits off the breach and melts whatever you built.' },
+  { name: 'Box Canyon', radius: 1.44, path: [[2.5, 2.5], [8.5, 2.5], [8.5, 8.5], [16.5, 8.5], [16.5, 3.5], [22.5, 3.5], [22.5, 11.5]], blurb: 'A Corroder is with them. It will not close. It sits off the breach and melts whatever you built.' },
   { name: 'The Weave', radius: 1.4, path: [[1.5, 10.5], [5.5, 10.5], [5.5, 5.5], [10.5, 5.5], [10.5, 12.5], [15.5, 12.5], [15.5, 4.5], [20.5, 4.5], [20.5, 10.5], [24.5, 8.5]], blurb: 'The narrowest cut so far. Random rock in the lane. Leave yourself a firing step.' },
   { name: 'Final Gauntlet', radius: 1.4, path: [[1.5, 8.5], [6.5, 4.5], [6.5, 12.5], [12.5, 12.5], [12.5, 3.5], [18.5, 3.5], [18.5, 12.5], [24.5, 9.5]], blurb: 'Last canyon. Every strain is in the column. The ridge relay is at the end of the weave.' }
 ];
@@ -404,11 +404,11 @@ export function wavePlan(n) {
 export const TREASURE_RULES = { silverRounds: 3, goldChance: 0.35 };
 // Boss evolutions last for one run; repeat picks improve a branch with diminishing returns.
 export const EVOLUTIONS = [
-  { id: 'siege', name: 'Walking Fortress', unit: 'Cinder Crawlers', icon: '⌖', color: '#f0b23c',
+  { id: 'siege', name: 'Walking Fortress', unit: 'Hammers', icon: '⌖', color: '#f0b23c',
     flavor: 'Plant your treads. Own the canyon.' },
-  { id: 'chain', name: 'Chain Lightning', unit: 'Anchor Walkers', icon: 'ϟ', color: '#71e7e0',
+  { id: 'chain', name: 'Chain Lightning', unit: 'Atlas mechs', icon: 'ϟ', color: '#71e7e0',
     flavor: 'One target becomes an entire swarm.' },
-  { id: 'stand', name: 'Last Stand', unit: 'Garrisoned Lineguards', icon: '▰', color: '#ff8066',
+  { id: 'stand', name: 'Last Stand', unit: 'Garrisoned Troopers', icon: '▰', color: '#ff8066',
     flavor: 'When the walls crack, the guns roar.' }
 ];
 export const EVOLUTION_RULES = {
@@ -417,12 +417,12 @@ export const EVOLUTION_RULES = {
   standThreshold: 0.3, standDuration: 6, standDurationStep: 1, standCooldown: 20, standFireRate: 3
 };
 export function evolutionPower(rank) { return Math.log2(Math.max(1, rank)); }
-// Treasure bonuses stack for all current and future Lineguards.
+// Treasure bonuses stack for all current and future Troopers.
 export const TREASURE = [
-  { id: 'gun', name: 'Pulse Rifle Kit', effect: '+15% Lineguard gun damage', apply: s => { s.damage *= 1.15; } },
-  { id: 'range', name: 'Targeting Scope', effect: '+0.5 Lineguard range', apply: s => { s.range += 0.5; } },
-  { id: 'fire', name: 'Rapid-fire Loader', effect: '+15% Lineguard firing speed', apply: s => { s.attackSpeed /= 1.15; } },
-  { id: 'speed', name: 'Servo Boosters', effect: '+10% Lineguard movement speed', apply: s => { s.moveSpeed *= 1.1; } }
+  { id: 'gun', name: 'Pulse Rifle Kit', effect: '+15% Trooper gun damage', apply: s => { s.damage *= 1.15; } },
+  { id: 'range', name: 'Targeting Scope', effect: '+0.5 Trooper range', apply: s => { s.range += 0.5; } },
+  { id: 'fire', name: 'Rapid-fire Loader', effect: '+15% Trooper firing speed', apply: s => { s.attackSpeed /= 1.15; } },
+  { id: 'speed', name: 'Servo Boosters', effect: '+10% Trooper movement speed', apply: s => { s.moveSpeed *= 1.1; } }
 ];
 
 /* Bosses every five levels; decade bosses are the harder encounters. */

@@ -81,7 +81,7 @@ const os = require('node:os');
     });
     await page.mouse.click(edgePoint.x,edgePoint.y);
     assert.equal(await page.evaluate(()=>game.selected?.kind),'falcon','Aircraft at the map edge must stay selectable');
-    assert.match(await page.locator('#pName').textContent(),/Kestrel/);
+    assert.match(await page.locator('#pName').textContent(),/Vector/);
     await page.keyboard.press('F2');
     assert.equal(await page.evaluate(()=>game.selection.some(u=>u.kind==='falcon')),true);
     await page.screenshot({path:path.join(os.tmpdir(),'td-air.png')});

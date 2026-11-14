@@ -109,7 +109,7 @@ export class Fx {
     this.beams.push({ group, life: 0.18, max: 0.18 });
   }
 
-  /** A thin straight line between two points: Deadeye shots and Mender foam. */
+  /** A thin straight line between two points: Spectre shots and Medic foam. */
   link(from, to, color, life = 0.16, width = 0.03) {
     const start = new THREE.Vector3(from.x, from.y, from.z), end = new THREE.Vector3(to.x, to.y, to.z);
     const direction = end.clone().sub(start);

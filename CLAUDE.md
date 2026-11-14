@@ -1,4 +1,4 @@
-# Ridgewatch
+# BREACHLINE: 29
 
 A browser 3D tower defense / RTS hybrid in plain JavaScript and three.js (r169, vendored). You
 hold a canyon against an endless bug swarm: build walls, bunkers and units, then command them
@@ -15,7 +15,7 @@ with StarCraft-style mouse controls while waves keep coming. Score is the number
   base fell.
 
 The aim is to capture that feel with original work. Gameplay mechanics and genre are fair game,
-but the names, characters, art and lines belong to their owners. Player-facing names and lines were replaced in the Ridgewatch naming pass.
+but the names, characters, art and lines belong to their owners. Player-facing names and lines were replaced in the BREACHLINE: 29 naming pass.
 
 **Status: active local development (Nov 2026).** The game is hosted on Vercel and GitHub Pages. See `BALANCE.md` for the current roster and tuning; the older gameplay notes below describe earlier revisions.
 
@@ -45,7 +45,7 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 | `src/scenery.js` | Optional scenery art from `SCENERY_FILES`: rock `.glb` shapes for lane boulders and spires, and photo textures for the canyon floor and mountains (world-space triplanar detail multiplied into the existing colours). A missing file falls back to the procedural rock or painted texture. Sources and licences are in `assets/CREDITS.md`. |
 | `src/config.js` | **All tuning lives here**: map size, costs, unit and bug stats, wave plan, level paths, model files. |
 | `src/models.js` | Procedural low-poly models (units, bugs including the Needler, buildings, boulders, spires). |
-| `src/assets.js` | `makeModel(kind)`: uses a `.glb` from `assets/models/` if present, else the procedural model; team rim light. The infantry (one shared `soldier.glb`), tank and Kestrel ship as files; `MODEL_FILES` options repaint materials (`tint`), drop parts (`hide`), mark promotions (`tierTint`) and name swivelling turret parts (`turret`). Delete a file to get the built-in model back. |
+| `src/assets.js` | `makeModel(kind)`: uses a `.glb` from `assets/models/` if present, else the procedural model; team rim light. The infantry (one shared `soldier.glb`), tank and Vector ship as files; `MODEL_FILES` options repaint materials (`tint`), drop parts (`hide`), mark promotions (`tierTint`) and name swivelling turret parts (`turret`). Delete a file to get the built-in model back. |
 | `src/scene.js` | Renderer, lights, camera rig, post-processing (GTAO ambient occlusion, MSAA, bloom), FX quality toggle. |
 | `src/ui.js` | Inspector panel, command card, selection chips, leaderboard rendering, HUD readouts. |
 | `src/minimap.js` | Minimap (1 px per tile, scaled), camera footprint, attack pings, click to look / right-click to send. |
@@ -97,7 +97,7 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 ## Specialists, streaks, supply drops, redeploy and daily challenge (Nov 11, 2026)
 
 - **Three specialists, one per round.** `BUILD[id].unlock` is the first round a unit can be built:
-  Scorcher (C, round 2), Deadeye (D, round 3), Mender (H, round 4). `game.isUnlocked(id)` gates
+  Torch (C, round 2), Spectre (D, round 3), Medic (H, round 4). `game.isUnlocked(id)` gates
   `placeGunner`; locked cards are hidden, so round 1 still shows six cards. `unitUnlocked` fires
   when the round arrives. All three are `Marine` instances driven by spec flags:
   `flame` (cone damage to every ground target, no projectile), `pierce` + `prefersBig` (tracer adds
@@ -298,7 +298,7 @@ K defend (selected units stay home when the army attacks) ·
 F stim · R air strike · U promote · X salvage · F1 SCV · F2 all army · Space launch wave / jump to
 last alert · Esc cancel · Z redeploy last round's army · click a supply drop to collect it.
 Build hotkeys: W wall, M marine, B bunker, G goliath, T tank, V Falcon Gunship, and once unlocked
-C Scorcher, D Deadeye, H Mender.
+C Torch, D Spectre, H Medic.
 
 ## Testing
 
@@ -367,7 +367,7 @@ times; if files are changing, stop and coordinate rather than overwrite.
 
 ## Open decisions (before going public)
 
-1. **Player-facing rebrand completed (Nov 9, 2026).** Ridgewatch uses original roster,
+1. **Player-facing rebrand completed (Nov 9, 2026).** BREACHLINE: 29 uses original roster,
    faction, location, ability and voice text. See `BALANCE.md` for the current specs.
    Legacy code/save IDs stay stable to preserve checkpoints and model integrations.
    This naming pass is not an artwork review or legal clearance.

@@ -306,7 +306,7 @@ export class UI {
     game.on('bossDown', ({ rewards }) => {
       const silver = rewards.filter(r => r.boxType === 'silver').length;
       const gold = rewards.length - silver;
-      this.toast('Upgrades automatically applied', `${silver} silver (next 3 rounds) · ${gold} gold (permanent this run) · all Lineguards`);
+      this.toast('Upgrades automatically applied', `${silver} silver (next 3 rounds) · ${gold} gold (permanent this run) · all Troopers`);
     });
     $('evolutionDialog').addEventListener('cancel', event => event.preventDefault());
     $('evolutionChoices').addEventListener('click', event => {
@@ -330,8 +330,8 @@ export class UI {
     });
     game.on('streak', (t) => this.callout(`${t.name} ×${t.streak}`, `Kill streak · +${t.bonus} minerals`));
     game.on('ultralisk', () => {
-      this.callout('ULTRALISK INBOUND', 'Heavy armour · sweeping tusks · deploy aircraft or Deadeyes', 'unit');
-      this.toast('Ultralisk at the breach', 'Spread ground troops. Walls take bonus damage; Yamato and Deadeyes pierce its armour.', 'warn', 6000);
+      this.callout('BEHEMOTH INBOUND', 'Heavy armour · sweeping tusks · deploy aircraft or Spectres', 'unit');
+      this.toast('Behemoth at the breach', 'Spread ground troops. Walls take bonus damage; Yamato and Spectres pierce its armour.', 'warn', 6000);
     });
     game.on('maw', () => {
       this.callout('TUNNEL MAW', 'The ground is shaking · move that unit out of the ring', 'unit');
@@ -440,7 +440,7 @@ export class UI {
       const hive = entity.kind === 'hive';
       $('pName').textContent = hive ? 'Rift Hive' : `Ridge Relay · Upgrade ${g.baseLevel}`;
       $('pRole').textContent = hive ? `Bonus target · ${entity.reward} minerals` : 'Army research / piercing laser';
-      $('pFaction').textContent = hive ? 'The Rift Brood' : 'Ridgewatch Compact';
+      $('pFaction').textContent = hive ? 'The Rift Brood' : 'Breachline Compact';
       $('pBio').textContent = hive ? 'Destroy this enemy base to stop its reinforcements and earn minerals. Attack (A) sends the whole army. After the swarm is cleared, you have up to 60 seconds to finish any surviving bases before the next round.' : 'Upgrade the base to boost every current and future unit. Charge the laser for 90 seconds, then aim one powerful piercing shot. Upgrades and energy carry across rounds.';
       $('pQuote').textContent = '';
       $('stats').innerHTML = statRow('Hit Points', Math.ceil(entity.hp) + ' / ' + entity.maxHp, entity.hp / entity.maxHp, '#5ef08a');
@@ -448,10 +448,10 @@ export class UI {
       const bunker = entity.kind === 'bunker';
       $('pName').textContent = bunker ? 'Bunker' : 'Patch Rig';
       $('pRole').textContent = bunker ? `${entity.garrison.length} / 2 garrisoned` : (entity.dead ? 'Destroyed' : 'Field Repair');
-      $('pFaction').textContent = 'Ridgewatch Compact';
+      $('pFaction').textContent = 'Breachline Compact';
       $('pBio').textContent = bunker
-        ? 'Select Lineguards, then right-click the bunker. They walk in and fire through the slit, with extra armour, along its facing.'
-        : 'Right-click a damaged wall or a downed Lineguard to fix it, or the ground to move. Keep it out of the breach.';
+        ? 'Select Troopers, then right-click the bunker. They walk in and fire through the slit, with extra armour, along its facing.'
+        : 'Right-click a damaged wall or a downed Trooper to fix it, or the ground to move. Keep it out of the breach.';
       $('pQuote').textContent = bunker ? '"Hold this corridor."' : '"Tools ready. Keep me covered."';
       $('stats').innerHTML = statRow('Hit Points', Math.ceil(entity.hp) + ' / ' + entity.maxHp, entity.hp / entity.maxHp, '#5ef08a');
     } else if (UNITS[kind]) {
@@ -498,7 +498,7 @@ export class UI {
       $('pName').textContent = b.name;
       $('pRole').textContent = b.role;
       $('pFaction').textContent = ZERG_INFO.faction;
-      $('pBio').textContent = b.id === 'maw' ? 'Burrowing ambusher. The ground shakes under an exposed ground unit, then it erupts and swallows the nearest one still standing there. Move out of the ring to dodge. Kill it before it dives and the unit is spat back out; aircraft and bunker troops are out of its reach.' : b.id === 'ultralisk' ? 'Armoured siege beast. Sweeping tusks hit exposed ground defenders in a frontal arc and deal 60% bonus damage to walls and bunkers. Cannot hit aircraft. Counter with Yamato and armour-piercing Deadeyes; keep infantry spread out.' : ZERG_INFO.bio;
+      $('pBio').textContent = b.id === 'maw' ? 'Burrowing ambusher. The ground shakes under an exposed ground unit, then it erupts and swallows the nearest one still standing there. Move out of the ring to dodge. Kill it before it dives and the unit is spat back out; aircraft and bunker troops are out of its reach.' : b.id === 'ultralisk' ? 'Armoured siege beast. Sweeping tusks hit exposed ground defenders in a frontal arc and deal 60% bonus damage to walls and bunkers. Cannot hit aircraft. Counter with Yamato and armour-piercing Spectres; keep infantry spread out.' : ZERG_INFO.bio;
       $('pQuote').textContent = ZERG_INFO.quote;
       const hp = entity ? entity.maxHp : b.hp;
       $('stats').innerHTML =

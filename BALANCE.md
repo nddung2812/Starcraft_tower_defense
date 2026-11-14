@@ -1,8 +1,8 @@
-# Ridgewatch balance pass — 9 November 2026
+# BREACHLINE: 29 balance pass — 9 November 2026
 
 The Compact roster uses affordable mobile infantry, durable slow-moving walkers,
 flexible but expensive aircraft, and slow ground artillery. Starting minerals remain
-480. Quick Deploy buys three Lineguards for 180, leaving 300 for any one support
+480. Quick Deploy buys three Troopers for 180, leaving 300 for any one support
 unit, fortifications, or promotions. Costs, timings and statistics live in
 `src/config.js`; attackSpeed is seconds **between volleys**, not attacks per second.
 
@@ -10,31 +10,31 @@ unit, fortifications, or promotions. Costs, timings and statistics live in
 
 | Unit | Cost | HP | Armor | Damage per volley | Interval | Raw DPS | Range | Speed |
 | --- | ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: |
-| Lineguard | 60 | 70 | 1 | 8 | 0.80 s | 10.0 | 4.4 | 2.15 |
-| Anchor Walker | 160 | 220 | 2 | 13 × 2 | 0.80 s | 32.5 | 6.2 | 1.5 |
-| Kestrel | 240 | 140 | 1 | 10 × 2 | 0.85 s | 23.5 | 5.8 | 4.4 |
-| Cinder Crawler | 280 | 340 | 3 | 38 × 2 | 2.40 s | 31.7 | 7.0 | 1.25 |
+| Trooper | 60 | 70 | 1 | 8 | 0.80 s | 10.0 | 4.4 | 2.15 |
+| Atlas | 160 | 220 | 2 | 13 × 2 | 0.80 s | 32.5 | 6.2 | 1.5 |
+| Vector | 240 | 140 | 1 | 10 × 2 | 0.85 s | 23.5 | 5.8 | 4.4 |
+| Hammer | 280 | 340 | 3 | 38 × 2 | 2.40 s | 31.7 | 7.0 | 1.25 |
 | Patch Rig | 60 rebuild | 70 | — | Repair / revive | — | — | — | 1.9 |
 
 Ranges and speeds use tiles and tiles/second. Raw DPS assumes every projectile hits
 one unarmored target, before armory, treasure, Overdrive, travel time and aiming.
 Armor subtracts from **each projectile**, minimum one damage. Crawler shells splash
 within 1.65 tiles with damage falloff; they cannot hit aircraft. All other combat
-units target ground and air. Only Lineguards can enter bunkers (two per bunker).
+units target ground and air. Only Troopers can enter bunkers (two per bunker).
 The Patch Rig's existing repair and revive behavior is unchanged.
 
-- **Lineguard:** base DPS stays at 10 but HP rises from 55 to 70. Price rises from
+- **Trooper:** base DPS stays at 10 but HP rises from 55 to 70. Price rises from
   50 to 60. The fully promoted investment falls from 640 to 440, making promotion
   useful when firing positions are scarce. Its short range and vulnerability to
   ranged enemies keep a mass of infantry from covering every role.
-- **Anchor Walker:** trades all movement for the best base single-target DPS per
+- **Atlas:** trades all movement for the best base single-target DPS per
   mineral and longer reach. Price falls from 175 to 160; HP rises from 160 to 220.
   Previously its paired weapons only produced 20.5 raw DPS.
-- **Kestrel:** terrain-free movement and flexible targeting command a premium.
+- **Vector:** terrain-free movement and flexible targeting command a premium.
   Cost rises from 220 to 240, damage falls from 36.9 to 23.5 DPS, range from 6.5 to
   5.8, and speed from 5.2 to 4.4. It can reposition quickly but cannot replace the
   ground line. Enemy ranged units still threaten it; destroyed aircraft stay dead.
-- **Cinder Crawler:** two real shells now match its twin barrels. Cost rises from
+- **Hammer:** two real shells now match its twin barrels. Cost rises from
   260 to 280 and volley interval from 2.2 to 2.4 seconds. Larger splash rewards
   clustered targets; long reload, slow movement and no anti-air leave clear gaps.
   Volley size now comes from the unit specification, so model replacements cannot
@@ -47,10 +47,10 @@ minerals. Combat freezes until a card is chosen. Choices affect existing and fut
 units for the rest of the run; later picks can unlock another branch or rank up one
 already owned. Rank scaling uses log2(rank), so repeat picks have diminishing gains.
 
-- Walking Fortress: Cinder Crawlers deploy after 1.2 seconds stationary, gaining
+- Walking Fortress: Hammers deploy after 1.2 seconds stationary, gaining
   +5 range and +0.6 splash radius. Additional ranks add 0.75 × log2(rank) range.
   Valid move orders immediately retract the gold stabilizers and remove the bonuses.
-- Chain Lightning: each Anchor Walker projectile jumps to two distinct nearby
+- Chain Lightning: each Atlas projectile jumps to two distinct nearby
   enemies, within 3.5 tiles of the previous target. Each jump deals 50% of the
   projectile damage, plus 10 percentage points × log2(rank), before target armor.
   Both ground and air enemies can be hit. Cyan coils and arc effects mark the upgrade.
@@ -72,15 +72,15 @@ Prices are incremental; total includes purchase and all preceding promotions.
 
 | Unit / rank | Upgrade price | Total investment | HP | Raw DPS | Range |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Lineguard / Sentry | 70 | 130 | 100 | 17.1 | 4.8 |
-| Lineguard / Warden | 120 | 250 | 140 | 30.0 | 5.2 |
-| Lineguard / Pathkeeper | 190 | 440 | 190 | 50.0 | 5.6 |
-| Anchor Walker / Mk II | 140 | 300 | 290 | 52.8 | 6.7 |
-| Anchor Walker / Mk III | 220 | 520 | 380 | 87.5 | 7.2 |
-| Kestrel / Flight II | 200 | 440 | 200 | 41.7 | 6.2 |
+| Trooper / Sentry | 70 | 130 | 100 | 17.1 | 4.8 |
+| Trooper / Warden | 120 | 250 | 140 | 30.0 | 5.2 |
+| Trooper / Pathkeeper | 190 | 440 | 190 | 50.0 | 5.6 |
+| Atlas / Mk II | 140 | 300 | 290 | 52.8 | 6.7 |
+| Atlas / Mk III | 220 | 520 | 380 | 87.5 | 7.2 |
+| Vector / Flight II | 200 | 440 | 200 | 41.7 | 6.2 |
 
 Promotions still restore full health. Existing salvage, kill income and boss reward
-rules remain unchanged. Treasure still benefits all current and future Lineguards.
+rules remain unchanged. Treasure still benefits all current and future Troopers.
 
 ## Overdrive and field salvage
 
@@ -98,23 +98,23 @@ the stronger base infantry and cheaper promotions.
 
 | Enemy | First round | HP | Armor | Damage / interval | Range | Speed | Bounty multiplier |
 | --- | ---: | ---: | ---: | --- | ---: | ---: | ---: |
-| Rift Skitter | 1 | 37 | 0 | 6 / 0.55 s | 0.95 | 2.4 | 1 |
-| Thornspitter | 3 | 76 | 1 | 10 / 1.10 s | 4.0 | 1.85 | 3 |
-| Ironback | 4 | 150 | 3 | 12 / 0.90 s | 1.05 | 1.35 | 3 |
-| Duskwing | 5 | 100 | 1 | 10 / 1.15 s | 4.2 | 3.1 | 4 |
-| Vaultling | 6 | 55 | 0 | 7 / 0.65 s | 0.9 | 2.7 | 2 |
-| Mirebelly | 8 | 276 | 1 | 18 / 1.70 s | 3.6 | 1.05 | 5 |
+| Ripper | 1 | 37 | 0 | 6 / 0.55 s | 0.95 | 2.4 | 1 |
+| Needler | 3 | 76 | 1 | 10 / 1.10 s | 4.0 | 1.85 | 3 |
+| Brute | 4 | 150 | 3 | 12 / 0.90 s | 1.05 | 1.35 | 3 |
+| Wraith | 5 | 100 | 1 | 10 / 1.15 s | 4.2 | 3.1 | 4 |
+| Leaper | 6 | 55 | 0 | 7 / 0.65 s | 0.9 | 2.7 | 2 |
+| Corroder | 8 | 276 | 1 | 18 / 1.70 s | 3.6 | 1.05 | 5 |
 
-Thornspitters give fresh infantry a small range advantage. Ironbacks remain armored
-blockers. Vaultlings trade some melee DPS for their wall-jumping mobility. Duskwings
-are slightly tougher but no longer outrange fresh infantry. Mirebellies now actually
+Needlers give fresh infantry a small range advantage. Brutes remain armored
+blockers. Leapers trade some melee DPS for their wall-jumping mobility. Wraiths
+are slightly tougher but no longer outrange fresh infantry. Corroders now actually
 appear in round eight; the previous count formula rounded their first wave to zero.
 Existing wave HP/speed growth, boss statistics, bounty multipliers and spawn counts
 otherwise remain intact. Boss names now include Rift Warden and The Hollow Queen.
 
 ## Naming and compatibility
 
-Ridgewatch replaces the former title. The Ridgewatch Compact fights the Rift Brood
+BREACHLINE: 29 replaces the former title. The Breachline Compact fights the Rift Brood
 at Ember Reach. All player-visible roster names, faction names, borrowed equipment
 lore and recognizable voice quotations have been replaced. Command Center becomes
 Ridge Relay; the repair vehicle is Patch Rig. Existing serialized unit IDs, armory
@@ -139,7 +139,7 @@ balance as permanent treasure stacks and enemy HP grow.
 
 - Base research costs 200 minerals initially, then 350, 500, and +150 per further level.
   Every research level adds 15 percentage points of health and damage to all current and
-  future combat units. Patch Rigs gain health too. Promotions and Lineguard loot apply first;
+  future combat units. Patch Rigs gain health too. Promotions and Trooper loot apply first;
   research multiplies the result. Existing health percentages are preserved. Research lasts
   for the run and is included in checkpoints, independently of hardware refunds.
 - After all queued enemies, bosses, and reinforcements are cleared, an optional 60-second phase
@@ -151,7 +151,7 @@ balance as permanent treasure stacks and enemy HP grow.
   seconds. The next canyon starts with the existing three-second briefing. A destroyed hive
   stops spawning its queued troops. Locate Hive jumps the camera to a live target.
 - Attack (A) immediately orders every living combat unit toward enemy bases, including bunker
-  troops and Anchor Walkers (1.5 tiles/second). Units fight enemies en route, then resume and
+  troops and Atlas mechs (1.5 tiles/second). Units fight enemies en route, then resume and
   retarget surviving bases. Friendly buildings and Patch Rigs are never attack targets.
   Stop and move orders override the advance; Shift+A retains selected-unit attack-move.
 - Defend (K) is a per-unit toggle on the command card. A defending unit is skipped by Attack (A):
@@ -237,23 +237,23 @@ Three specialists join the build bar one round at a time, so the opening roster 
 
 | Unit | Unlock | Cost | HP | Armor | Effect per pulse | Interval | Range | Speed |
 | --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: |
-| Scorcher | Round 2 | 110 | 130 | 2 | 7 to every ground enemy in the cone | 0.35 s | 2.7 | 2.0 |
-| Deadeye | Round 3 | 150 | 60 | 0 | 64, ignores armor | 2.5 s | 9.5 | 2.0 |
-| Mender | Round 4 | 100 | 80 | 1 | Heals 12 | 0.8 s | 4.2 | 2.05 |
+| Torch | Round 2 | 110 | 130 | 2 | 7 to every ground enemy in the cone | 0.35 s | 2.7 | 2.0 |
+| Spectre | Round 3 | 150 | 60 | 0 | 64, ignores armor | 2.5 s | 9.5 | 2.0 |
+| Medic | Round 4 | 100 | 80 | 1 | Heals 12 | 0.8 s | 4.2 | 2.05 |
 
 | Promotion | Price | Total | HP | Effect | Interval | Range |
 | --- | ---: | ---: | ---: | --- | ---: | ---: |
-| Scorcher / Inferno | 130 | 240 | 185 | 11 per enemy | 0.32 s | 3.1 |
-| Deadeye / Marksman | 170 | 320 | 85 | 100 | 2.1 s | 10.5 |
-| Mender / Chief Mender | 120 | 220 | 115 | Heals 20 | 0.7 s | 4.8 |
+| Torch / Inferno | 130 | 240 | 185 | 11 per enemy | 0.32 s | 3.1 |
+| Spectre / Marksman | 170 | 320 | 85 | 100 | 2.1 s | 10.5 |
+| Medic / Chief Medic | 120 | 220 | 115 | Heals 20 | 0.7 s | 4.8 |
 
-- **Scorcher:** 20 DPS against each unarmored ground enemy in a 63° cone, so it multiplies with
-  pack size. Armor applies to every tick (4 per tick into an Ironback), it cannot hit aircraft, and
-  its reach is shorter than a Thornspitter's.
-- **Deadeye:** 25.6 DPS with armor ignored, at the longest range in the roster, against ground
+- **Torch:** 20 DPS against each unarmored ground enemy in a 63° cone, so it multiplies with
+  pack size. Armor applies to every tick (4 per tick into an Brute), it cannot hit aircraft, and
+  its reach is shorter than a Needler's.
+- **Spectre:** 25.6 DPS with armor ignored, at the longest range in the roster, against ground
   and air. It always picks the highest max-HP target in reach, so it wastes shots when only
   Skitters are present, and it dies quickly to anything that reaches it.
-- **Mender:** 15 HP/s to the most injured soldier, walker, crawler, aircraft or Patch Rig in
+- **Medic:** 15 HP/s to the most injured soldier, walker, crawler, aircraft or Patch Rig in
   reach. It has no weapon, cannot be given attack orders, cannot overheal, and cannot revive downed
   units. Base research scales healing like damage.
 - None of the three can garrison, use Overdrive, or receive armory and treasure bonuses.
@@ -279,8 +279,8 @@ column, include already-spawned enemies, and exclude boss reinforcements. Destro
 hives can prevent planned spawns. Boss rounds carry an explicit warning.
 
 Each strain has practical counter advice and a button to select that unit for placement:
-Scorchers against packs and wall vaulters, Deadeyes against armour and ranged siege,
-and Anchor Walkers against aircraft. Round 1 recommends Lineguards because Scorchers
+Torches against packs and wall vaulters, Spectres against armour and ranged siege,
+and Atlas mechs against aircraft. Round 1 recommends Troopers because Torches
 are still locked. The report shows each counter's mineral cost and active army count;
 selecting it does not purchase a unit. Closing resumes a previously running battle and
 preserves a pre-existing pause. No damage, economy, wave, or save-format tuning changes.
@@ -312,11 +312,11 @@ terrain occupancy changes, preserves ground collision, and halts if no route exi
 `tests/attack-routing.mjs` compares routes against exhaustive shortest distances across
 50 maps; the ground and army-attack browser suites cover movement integration.
 
-## Yamato Battlecruiser
+## Titan
 
 Inspired by Blizzard's Battlecruiser guide (https://classic.battle.net/scc/terran/ub.shtml):
 a durable, slow flying fortress with air/ground batteries and a decisive charged weapon.
-The model and synthesized sounds are built locally; tuning below is for Ridgewatch.
+The model and synthesized sounds are built locally; tuning below is for BREACHLINE: 29.
 
 - Unlocks in round 5; costs 900 minerals. Build with J. Flies over terrain, remains vulnerable to anti-air.
 - Dreadnought: 1,400 HP, 6 armour, four 30-damage shots every 0.6s, 8 range, 2.1 movement speed.
@@ -335,9 +335,9 @@ The model and synthesized sounds are built locally; tuning below is for Ridgewat
 `tests/browser-battlecruiser.cjs` covers damage, charge timing, target cancellation, cooldown,
 air splash, friendly-fire exclusion, upgrades, flight, saves, hotkeys and mobile build targets.
 
-## Ultralisk siege beast
+## Behemoth siege beast
 
-The enemy roster now includes an Ultralisk, inspired by Blizzard's armoured melee
+The enemy roster now includes an Behemoth, inspired by Blizzard's armoured melee
 beast (https://classic.battle.net/scc/zerg/units/ultralisk.shtml). Its procedural model
 has four animated legs, overlapping chitin plates, dorsal spikes and paired scythe tusks.
 
@@ -350,7 +350,7 @@ has four animated legs, overlapping chitin plates, dorsal spikes and paired scyt
 - One per wave at round 8, two at 12, three at 16, capped at four from round 20.
   Appears 6 seconds into the wave, with later beasts spaced 4 seconds apart.
 - Pays 144 minerals. Standard Yamato deals 1,400 damage, leaving the first-wave beast
-  at 810 HP; aircraft, Deadeyes, and spreading ground defenders provide counterplay.
+  at 810 HP; aircraft, Spectres, and spreading ground defenders provide counterplay.
 - A warning announces its arrival once per round. Scout explains its threat and counters;
   selecting it displays its own model and stats.
 

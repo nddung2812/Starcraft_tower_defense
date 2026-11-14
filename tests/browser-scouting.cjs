@@ -13,7 +13,7 @@ const assert = require('node:assert/strict');
     await page.locator('#btnDaily').click();
     await page.locator('#btnScout').click();
     assert.equal(await page.evaluate(() => game.paused), true);
-    assert.match(await page.locator('#scoutThreats').textContent(), /Lineguard/);
+    assert.match(await page.locator('#scoutThreats').textContent(), /Trooper/);
     const before = await page.evaluate(() => { const before = game.time; game.update(3); return [before, game.time]; });
     assert.equal(before[0], before[1], 'Scouting freezes simulation');
     await page.locator('[data-counter="marine"]').click();

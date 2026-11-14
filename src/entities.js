@@ -499,7 +499,7 @@ export class Marine {
     return best;
   }
 
-  /** Mender: foam the target ally back toward full health. */
+  /** Medic: foam the target ally back toward full health. */
   heal(game) {
     const ally = this.target;
     if (this.silenceT > 0 || !this.canHeal(ally, game)) return;
@@ -517,7 +517,7 @@ export class Marine {
     game.sfx.heal();
   }
 
-  /** Scorcher: everything on the ground inside the cone burns. */
+  /** Torch: everything on the ground inside the cone burns. */
   burn(game) {
     if (this.silenceT > 0 || !game.isEnemy(this.target)) return;
     this.recoil = 0.6;
@@ -1544,7 +1544,7 @@ export class Tracer {
     this.dead = false;
     this.mesh = new THREE.Mesh(TRACER_GEO, TRACER_MAT);
     this.mesh.scale.x = 0.55;
-    // Deadeye rounds are fast, heavy, and ignore armour.
+    // Spectre rounds are fast, heavy, and ignore armour.
     this.pierce = !!owner?.spec?.pierce;
     if (this.pierce) { this.speed = 110; this.mesh.scale.set(1.6, 2, 2); }
   }

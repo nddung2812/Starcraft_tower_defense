@@ -54,5 +54,5 @@ export function recordDaily(run, now = new Date(), storage) {
 }
 
 export function dailyShareText(run, number) {
-  return `Ridgewatch Daily #${number}: I stopped ${run.score.toLocaleString()} bugs and held to round ${run.level}. Same canyons for everyone today. Beat me:`;
+  return `BREACHLINE: 29 Daily #${number}: I stopped ${run.score.toLocaleString()} bugs and held to round ${run.level}. Same canyons for everyone today. Beat me:`;
 }

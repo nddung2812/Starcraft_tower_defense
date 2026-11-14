@@ -5,18 +5,18 @@ built-in shape. Reload the page; the browser console says which files were picke
 
 | File | Unit |
 |---|---|
-| `soldier.glb` | Lineguard, Scorcher, Deadeye and Mender (one file, each with its own gun and colours) |
-| `goliath.glb` | Anchor Walker |
-| `tank.glb` | Cinder Crawler |
-| `falcon.glb` | Kestrel |
+| `soldier.glb` | Trooper, Torch, Spectre and Medic (one file, each with its own gun and colours) |
+| `goliath.glb` | Atlas |
+| `tank.glb` | Hammer |
+| `falcon.glb` | Vector |
 | `scv.glb` | Patch Rig |
 | `bunker.glb` | Bunker |
-| `zergling.glb` | Rift Skitter (also used for the other bugs unless they have their own file) |
+| `zergling.glb` | Ripper (also used for the other bugs unless they have their own file) |
 | `warrior.glb`, `hopper.glb`, `tanker.glb`, `needler.glb` | The other bug strains |
 
 Any unit without a file keeps its built-in model, so you can add them one at a time.
 
-The shipped Anchor Walker uses a customized Quaternius mech: steel-blue mechanical armour,
+The shipped Atlas uses a customized Quaternius mech: steel-blue mechanical armour,
 paired cannons and a new enclosed cockpit in place of the original animal pilot. The cockpit,
 barrel sleeves and rank plates are attached to the torso bone so they follow all four retained
 animations (Idle, Walk, Shoot_Big and Death). The GLB contains its palette texture and all

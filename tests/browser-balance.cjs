@@ -9,7 +9,7 @@ const assert = require('node:assert/strict');
     await page.goto(process.env.TEST_URL || 'http://127.0.0.1:8765/?seed=12345');
     await page.waitForFunction(() => window.game?.stage, null, { polling: 50 });
     await page.locator('#introBtn').click();
-    assert.match(await page.title(), /Ridgewatch/);
+    assert.match(await page.title(), /BREACHLINE: 29/);
     const result = await page.evaluate(async () => {
       const { UNITS, BUILD, ARMORY, OVERDRIVE, wavePlan } = await import('/src/config.js');
       const { Zergling } = await import('/src/entities.js');
@@ -37,7 +37,7 @@ const assert = require('node:assert/strict');
       } finally { g.stage.render=render; }
       g.reset(12345);
       const volleys = [];
-      // Every unit is unlocked by its last unlock round. The Scorcher and Mender fire no projectile; tests/browser-specialists.cjs covers them.
+      // Every unit is unlocked by its last unlock round. The Torch and Medic fire no projectile; tests/browser-specialists.cjs covers them.
       g.level = Math.max(...Object.values(BUILD).map(b => b.unlock || 1));
       for (const kind of Object.keys(UNITS).filter(k => !UNITS[k].flame && !UNITS[k].heals)) {
         g.wipeUnits(); g.loadLevel(); g.state = 'build'; g.minerals = 10000;
@@ -76,7 +76,7 @@ const assert = require('node:assert/strict');
     });
     console.table(result.volleys);
     console.log('Opening clears:',result.opening);
-    for (const [kind,name] of [['marine','Lineguard'],['goliath','Anchor Walker'],['tank','Cinder Crawler'],['falcon','Kestrel'],['zergling','Rift Skitter']]) {
+    for (const [kind,name] of [['marine','Trooper'],['goliath','Atlas'],['tank','Hammer'],['falcon','Vector'],['zergling','Ripper']]) {
       await page.locator(`[data-unit="${kind}"]`).click();
       assert.equal(await page.locator('#pName').textContent(),name);
       if(kind==='tank') assert.match(await page.locator('#stats').textContent(),/38 ×2/);
