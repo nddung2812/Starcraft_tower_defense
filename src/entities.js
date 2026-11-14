@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { packHeading, swarmStepClear } from './swarm.js';
 import { updateBattlecruiser } from './battlecruiser.js';
 import { cleaveDefenders } from './ultralisk.js';
-import { CELL, UNITS, BREEDS, UNIT_SCALE, BUG_SCALE, OVERDRIVE, applyBaseUpgrade, HIVE_RAID, BASE_LASER, SUPPLY } from './config.js';
+import { CELL, UNITS, BREEDS, UNIT_SCALE, BUG_SCALE, OVERDRIVE, applyBaseUpgrade, HIVE_RAID, BASE_LASER, SUPPLY, BUNKER_WEAPONS } from './config.js';
 import { buildWall, buildCore, buildHatchery, buildCrate } from './models.js';
 import { makeModel } from './assets.js';
 import { EVOLUTION_RULES, evolutionPower } from './config.js';
@@ -152,8 +152,10 @@ export class Marine {
 
   get attackRange() {
     const siege = this.siegeDeployed ? EVOLUTION_RULES.siegeRange + EVOLUTION_RULES.siegeRangeStep * evolutionPower(this.evolutionRank) : 0;
-    return (this.stats.range + siege) * (this.blindT > 0 ? 0.5 : 1);
+    return (this.stats.range + siege + (this.bunker ? BUNKER_WEAPONS.rangeBonus : 0)) * (this.blindT > 0 ? 0.5 : 1);
   }
+
+  get attackDamage() { return this.stats.damage * (this.bunker ? BUNKER_WEAPONS.damageMultiplier : 1); }
 
   get maxHp() { return this.stats.hp; }
   get upgradeCost() { return this.tiers[this.tier].upgradeCost; }
@@ -548,8 +550,16 @@ export class Marine {
     const ud = this.model.userData;
     const locals = [];
     if (this.bunker) {
-      const f = this.bunker.facing;
-      locals.push(new THREE.Vector3(this.x + Math.cos(f) * 0.55, 0.38, this.z + Math.sin(f) * 0.55));
+      const cannon = this.bunker.model.userData.cannons?.[this.bunker.garrison.indexOf(this)];
+      if (cannon) {
+        cannon.rotation.y = -normAngle(this.yaw - this.bunker.facing);
+        cannon.updateWorldMatrix(true, true);
+        locals.push(cannon.userData.muzzle.clone().applyMatrix4(cannon.matrixWorld));
+        cannon.userData.recoil = 1;
+      } else {
+        const f = this.yaw;
+        locals.push(new THREE.Vector3(this.x + Math.cos(f) * 0.55, 0.65, this.z + Math.sin(f) * 0.55));
+      }
     } else {
       ud.weapon.updateWorldMatrix(true, false);
       const pts = ud.weapon.userData.muzzles || [ud.weapon.userData.muzzle];
@@ -565,7 +575,7 @@ export class Marine {
         if (this.siegeDeployed) game.fx.ring(this, 1.1, 0xf0b23c);
       }
       else {
-        game.spawnTracer(muzzle, this.target, this.stats.damage, this);
+        game.spawnTracer(muzzle, this.target, this.attackDamage, this);
         if (this.kind === 'cruiser') game.fx.link(muzzle, { x: this.target.x, y: (this.target.altitude || 0) + 0.5, z: this.target.z }, 0xffb858, 0.12, 0.025);
       }
     }
@@ -1240,6 +1250,13 @@ export class Bunker {
     if (this.shake > 0) {
       this.shake = Math.max(0, this.shake - dt * 5);
       this.model.position.x = (Math.random() - 0.5) * this.shake * 0.04;
+    }
+    for (const [i, cannon] of (this.model.userData.cannons || []).entries()) {
+      const operator = this.garrison[i];
+      cannon.rotation.y = operator ? -normAngle(operator.yaw - this.facing) : 0;
+      cannon.userData.recoil = Math.max(0, (cannon.userData.recoil || 0) - dt * 6);
+      cannon.userData.barrel.position.x = 0.27 - cannon.userData.recoil * 0.08;
+      cannon.userData.light.material.emissiveIntensity = operator ? 1.8 : 0.15;
     }
     const dmg = 1 - this.hp / this.maxHp;
     const paint = this.model.userData.paint;

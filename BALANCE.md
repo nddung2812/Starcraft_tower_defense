@@ -356,3 +356,11 @@ has four animated legs, overlapping chitin plates, dorsal spikes and paired scyt
 
 `tests/browser-ultralisk.cjs` validates spawn progression, cleave boundaries, structure
 bonus, armour, aircraft/garrison protection, wall occlusion, Yamato survival and canyon traversal.
+
+## Twin-cannon bunker — 15 November 2026
+
+- Two roof cannons on an octagonal armoured bunker; select 1–2 Troopers and right-click to garrison.
+- Each occupant operates one cannon. An empty bunker cannot fire.
+- Garrisoned Troopers gain ×1.5 damage and +2 range (base: 12 damage, 6.4 range), with normal promotions and research retained.
+- Destruction ejects both occupants alive at their current health; they resume normal rifle combat without bunker bonuses.
+- `tests/browser-bunker.cjs` checks operator count, separate muzzles, capacity, bonuses, and survivor combat.

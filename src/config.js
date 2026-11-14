@@ -25,10 +25,12 @@ export const CELL = { OPEN: 0, WALL: 1, TOWER: 2, CORE: 3, SPAWN: 4, ROCK: 5, BU
 /* A* cost for routing through something the swarm has to chew through. */
 export const BREAK_COST = 9;
 
+export const BUNKER_WEAPONS = { damageMultiplier: 1.5, rangeBonus: 2 };
+
 export const BUILD = {
   wall: { id: 'wall', name: 'Barrier', cost: 25, hp: 320, icon: 'W', key: 'W', desc: 'Plasteel barricade. The swarm chews through it or goes around.' },
   marine: { id: 'marine', name: 'Trooper', cost: 60, icon: 'M', key: 'M', desc: 'Trooper. Right-click the canyon to move him. Promote, engage Overdrive, or garrison a bunker.' },
-  bunker: { id: 'bunker', name: 'Bunker', cost: 80, hp: 300, icon: 'B', key: 'B', desc: 'Holds two Troopers. Extra armour, a firing slit, and a facing you set by where you build it.' },
+  bunker: { id: 'bunker', name: 'Bunker', cost: 80, hp: 300, icon: 'B', key: 'B', desc: 'Two cannons, one per Trooper. Garrison up to two: +50% damage and +2 range. Troopers survive bunker destruction.' },
   goliath: { id: 'goliath', name: 'Atlas', cost: 160, icon: 'G', key: 'G', desc: 'Walker with twin autocannons. Long reach. Too big for a bunker.' },
   falcon: { id: 'falcon', name: 'Vector', cost: 240, icon: 'V', key: 'V', desc: 'Flying gunship. Twin cannons attack ground and air. Flies over terrain; vulnerable to spines and flying hunters.' },
   tank: { id: 'tank', name: 'Hammer', cost: 280, icon: 'H', key: 'T', desc: 'Silver heavy tank. Twin cinder launchers. Right-click the canyon to drive it.' },

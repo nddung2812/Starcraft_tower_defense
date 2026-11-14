@@ -450,7 +450,7 @@ export class UI {
       $('pRole').textContent = bunker ? `${entity.garrison.length} / 2 garrisoned` : (entity.dead ? 'Destroyed' : 'Field Repair');
       $('pFaction').textContent = 'Breachline Compact';
       $('pBio').textContent = bunker
-        ? 'Select Troopers, then right-click the bunker. They walk in and fire through the slit, with extra armour, along its facing.'
+        ? 'Select Troopers, then right-click the bunker. Each Trooper operates one of the two cannons: +50% damage and +2 range. When the bunker falls, both Troopers emerge and keep fighting.'
         : 'Right-click a damaged wall or a downed Trooper to fix it, or the ground to move. Keep it out of the breach.';
       $('pQuote').textContent = bunker ? '"Hold this corridor."' : '"Tools ready. Keep me covered."';
       $('stats').innerHTML = statRow('Hit Points', Math.ceil(entity.hp) + ' / ' + entity.maxHp, entity.hp / entity.maxHp, '#5ef08a');
@@ -461,6 +461,7 @@ export class UI {
       if (entity) {
         Object.assign(s, entity.stats);
         s.range = entity.attackRange;
+        s.damage = entity.attackDamage;
         if (entity.bunker?.lastStandT > 0) s.attackSpeed /= EVOLUTION_RULES.standFireRate;
       }
       else {

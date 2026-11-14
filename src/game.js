@@ -352,6 +352,8 @@ export class Game {
     marine.waypoints = null;
     marine.order = null;
     marine.bunker = bunker;
+    marine.x = bunker.x; marine.z = bunker.z;
+    marine.yaw = bunker.facing;
     bunker.garrison.push(marine);
     marine.obj.visible = false;
     sfx.place();

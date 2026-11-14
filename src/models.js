@@ -761,11 +761,41 @@ export function buildWall() {
 export function buildBunker() {
   const g = new THREE.Group();
   const paint = MAT.wall.clone();
-  g.add(mesh(box(0.98, 0.42, 0.98, 0.05), paint, 0, 0.21, 0));
-  g.add(mesh(box(0.62, 0.2, 0.72, 0.04), MAT.steelDark, -0.04, 0.48, 0));
-  g.add(mesh(box(0.06, 0.1, 0.5, 0.015), MAT.gunmetal, 0.48, 0.3, 0));
-  g.add(mesh(box(0.22, 0.05, 0.22, 0.015), MAT.wallTrim, 0, 0.6, 0));
-  g.add(mesh(new THREE.SphereGeometry(0.035, 8, 6), MAT.lamp, 0.3, 0.58, 0.22));
+  const red = new THREE.MeshStandardMaterial({ color: 0xa51c28, metalness: 0.65, roughness: 0.38 });
+  // Low octagonal fort with sloped armour and a central armoured dome.
+  g.add(mesh(new THREE.CylinderGeometry(0.55, 0.68, 0.22, 8), MAT.steelDark, 0, 0.11, 0));
+  g.add(mesh(new THREE.CylinderGeometry(0.43, 0.57, 0.23, 8), paint, 0, 0.32, 0));
+  const dome = mesh(new THREE.SphereGeometry(0.39, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), paint, 0, 0.42, 0);
+  dome.scale.y = 0.6;
+  g.add(dome);
+  for (let i = 0; i < 8; i++) {
+    const a = i * Math.PI / 4;
+    const plate = mesh(box(0.25, 0.055, 0.23, 0.015), MAT.gunmetal, Math.cos(a) * 0.47, 0.36, Math.sin(a) * 0.47);
+    plate.rotation.y = -a;
+    plate.rotation.z = -0.4;
+    g.add(plate);
+    const stripe = mesh(box(0.14, 0.025, 0.045, 0.006), red, Math.cos(a) * 0.53, 0.28, Math.sin(a) * 0.53);
+    stripe.rotation.y = -a;
+    g.add(stripe);
+  }
+  g.add(mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.025, 8), MAT.gunmetal, 0, 0.66, 0));
+  g.add(mesh(box(0.16, 0.028, 0.045), red, 0, 0.68, 0));
+  g.add(mesh(box(0.045, 0.028, 0.16), red, 0, 0.68, 0));
+  const cannons = [];
+  for (const side of [-1, 1]) {
+    g.add(mesh(new THREE.CylinderGeometry(0.15, 0.18, 0.08, 12), MAT.steelDark, 0.12, 0.55, side * 0.3));
+    const cannon = new THREE.Group();
+    cannon.position.set(0.12, 0.65, side * 0.3);
+    cannon.add(mesh(box(0.25, 0.17, 0.2, 0.025), paint, 0, 0, 0));
+    const barrel = mesh(box(0.4, 0.075, 0.085, 0.008), MAT.gunmetal, 0.27, 0, 0);
+    barrel.add(mesh(box(0.07, 0.1, 0.11, 0.008), MAT.steelDark, 0.17, 0, 0));
+    cannon.add(barrel);
+    const light = mesh(box(0.035, 0.035, 0.07), new THREE.MeshStandardMaterial({ color: 0xc32b35, emissive: 0xff2638, emissiveIntensity: 0.15 }), 0.02, 0.09, 0);
+    cannon.add(light);
+    cannon.userData = { barrel, light, recoil: 0, muzzle: new THREE.Vector3(0.51, 0, 0) };
+    g.add(cannon); cannons.push(cannon);
+  }
+  g.userData.cannons = cannons;
   g.userData.paint = paint;
   return g;
 }
