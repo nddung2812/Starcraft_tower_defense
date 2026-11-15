@@ -439,117 +439,320 @@ function zergLegGeometry() {
   return thigh;
 }
 
-export function buildZergling(tint = null) {
-  const root = new THREE.Group();
-  const body = new THREE.Group();
-  root.add(body);
+/* ------------------------------------------------------------------ */
+/*  THE SWARM — original insect strains built from one kit.            */
+/*  All face +X. Colour is baked into the vertices, so every strain    */
+/*  shares two materials and each creature is a handful of draw calls. */
+/*  Geometry is built once per strain and shared by every bug.         */
+/* ------------------------------------------------------------------ */
 
-  const flesh = tint ? MAT.flesh.clone() : MAT.flesh;
-  if (tint) flesh.color.setHex(tint);
+const SWARM_SHELL = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.2 });
+const SWARM_GLOW = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false });
+const SWARM_WING = new THREE.MeshStandardMaterial({
+  vertexColors: true, transparent: true, opacity: 0.62, side: THREE.DoubleSide, roughness: 0.3, metalness: 0.1, depthWrite: false
+});
 
-  const thorax = new THREE.SphereGeometry(0.15, 16, 12);
-  thorax.scale(1.55, 1.05, 0.72);
-  const neck = new THREE.SphereGeometry(0.1, 12, 10);
-  neck.scale(1.15, 0.85, 0.7);
-  const headGeo = new THREE.ConeGeometry(0.09, 0.26, 9);
-  headGeo.rotateZ(-Math.PI / 2);
-  const hipGeo = new THREE.SphereGeometry(0.1, 12, 10);
-  hipGeo.scale(1.05, 0.9, 0.75);
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+/** Placement: translate, then rotate (XYZ), with the scale applied to the piece first. */
+const M = (x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, sx = 1, sy = sx, sz = sx) => new THREE.Matrix4().compose(
+  V(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz)), V(sx, sy, sz));
+const UP = V(0, 1, 0);
+/** Placement that lays a piece modelled along +Y (base at the origin) from one point toward another. */
+const along = (from, to, sx = 1, sz = sx) => new THREE.Matrix4().compose(
+  from, new THREE.Quaternion().setFromUnitVectors(UP, to.clone().sub(from).normalize()), V(sx, 1, sz));
 
-  const shell = new THREE.Mesh(merged([
-    [thorax, T(0, 0.02, 0)],
-    [neck, T(0.2, 0.03, 0)],
-    [headGeo, T(0.4, 0.02, 0)],
-    [hipGeo, T(-0.2, 0.0, 0)]
-  ]), flesh);
-  shell.castShadow = true;
-  body.add(shell);
+const orb = (r, w = 12, h = 8) => new THREE.SphereGeometry(r, w, h);
+const dome = (r, w = 12, h = 5) => new THREE.SphereGeometry(r, w, h, 0, Math.PI * 2, 0, Math.PI / 2);
+/** Cone standing on the origin, pointing +Y. */
+const spike = (r, h, sides = 5) => new THREE.ConeGeometry(r, h, sides).translate(0, h / 2, 0);
+/** Tapered tube from one point to another: [geometry, placement]. */
+const limb = (from, to, r0, r1, sides = 6) => {
+  const len = from.distanceTo(to);
+  return [new THREE.CylinderGeometry(r1, r0, len, sides, 1, true).translate(0, len / 2, 0), along(from, to)];
+};
+const arc = (r, tube, sweep = Math.PI, seg = 14) => new THREE.TorusGeometry(r, tube, 4, seg, sweep);
 
-  const plates = [];
-  for (let i = 0; i < 4; i++) {
-    const p = new THREE.SphereGeometry(0.07 + i * 0.008, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2);
-    p.scale(1.05, 0.55, 0.7);
-    plates.push([p, T(-0.14 + i * 0.11, 0.12, 0)]);
+/** One painted piece: `top` colour at the top of the shape as modelled, fading to `bottom` at its base. */
+function piece(geo, matrix, top, bottom = top) {
+  const g = geo.index ? geo.toNonIndexed() : geo.clone();
+  g.deleteAttribute('uv');
+  g.computeBoundingBox();
+  const pos = g.attributes.position, col = new Float32Array(pos.count * 3);
+  const a = new THREE.Color(top), b = new THREE.Color(bottom), c = new THREE.Color();
+  const y0 = g.boundingBox.min.y, h = Math.max(1e-6, g.boundingBox.max.y - y0);
+  for (let i = 0; i < pos.count; i++) {
+    c.copy(b).lerp(a, (pos.getY(i) - y0) / h);
+    col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
   }
-  const crest = new THREE.SphereGeometry(0.07, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2);
-  crest.scale(1.4, 0.45, 0.55);
-  plates.push([crest, T(0.3, 0.08, 0)]);
-  const carapace = new THREE.Mesh(merged(plates), MAT.bone);
-  carapace.castShadow = true;
-  body.add(carapace);
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  if (matrix) g.applyMatrix4(matrix);
+  return g;
+}
+const weld = (pieces) => mergeGeometries(pieces, false);
 
-  for (const s of [-1, 1]) {
-    const e = new THREE.Mesh(new THREE.SphereGeometry(0.024, 8, 6), MAT.eye);
-    e.position.set(0.42, 0.05, s * 0.045);
-    body.add(e);
-  }
-  for (const s of [-1, 1]) {
-    const m = new THREE.Mesh(new THREE.ConeGeometry(0.016, 0.12, 5), MAT.boneLit);
-    m.position.set(0.52, 0.0, s * 0.04);
-    m.rotation.z = -Math.PI / 2;
-    m.rotation.y = -s * 0.4;
-    body.add(m);
-  }
+/** A whole leg in one piece, modelled pointing +X from the hip: thigh up to a knee, shin down to a clawed foot. */
+function swarmLeg(P, { reach = 0.3, knee = 0.11, drop = 0.2, thick = 1, kneeAt = 0.5 }) {
+  const K = V(reach * kneeAt, knee, 0), F = V(reach, -drop, 0), ankle = K.clone().lerp(F, 0.7);
+  return weld([
+    piece(orb(0.04 * thick, 8, 6), M(), P.edge),
+    piece(...limb(V(0, 0, 0), K, 0.036 * thick, 0.026 * thick), P.edge, P.shell),
+    piece(orb(0.031 * thick, 8, 6), M(K.x, K.y, K.z), P.edge),
+    piece(...limb(K, ankle, 0.026 * thick, 0.015 * thick), P.shell, P.edge),
+    piece(spike(0.017 * thick, ankle.distanceTo(F), 5), along(ankle, F), P.bone, P.edge)   // clawed foot
+  ]);
+}
 
-  const scythe = scytheGeometry();
-  const blades = [];
-  for (const s of [-1, 1]) {
-    const pivot = new THREE.Group();
-    pivot.position.set(0.16, 0.08, s * 0.1);
-    const b = new THREE.Mesh(scythe, MAT.boneLit);
-    b.castShadow = true;
-    b.rotation.x = s * 0.7;
-    pivot.add(b);
-    pivot.userData.side = s;
-    body.add(pivot);
-    blades.push(pivot);
-  }
+/** A hooked mandible for one side, hinged at the origin and reaching forward. */
+function swarmJaw(P, s, k = 1) {
+  const mid = V(0.09 * k, -0.012 * k, s * 0.034 * k), tip = V(0.155 * k, -0.02 * k, -s * 0.012 * k);
+  return weld([
+    piece(...limb(V(0, 0, 0), mid, 0.022 * k, 0.014 * k, 5), P.bone, P.edge),
+    piece(spike(0.014 * k, mid.distanceTo(tip), 5), along(mid, tip), P.bone)
+  ]);
+}
 
-  const legGeo = zergLegGeometry();
+/** Three leg pairs, front to rear: x on the body, splay from straight ahead (degrees), reach. */
+function swarmLegs(P, ride, pairs, hipY = -0.04, hipZ = 0.1, thick = 1) {
   const legs = [];
-  const anchors = [[-0.08, -1], [-0.08, 1], [0.12, -1], [0.12, 1]];
-  anchors.forEach(([ax, s], i) => {
-    const hip = new THREE.Group();
-    hip.position.set(ax, 0.0, s * 0.08);
-    if (s < 0) hip.scale.z = -1;
-    const upper = new THREE.Mesh(legGeo, MAT.fleshDark);
-    hip.add(upper);
-    const knee = new THREE.Group();
-    knee.position.set(0, -0.02, 0.15);
-    const lower = new THREE.Mesh(legGeo, flesh);
-    lower.scale.set(0.75, 0.75, 0.85);
-    knee.add(lower);
-    const claw = new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.07, 5), MAT.bone);
-    claw.rotation.x = Math.PI / 2;
-    claw.position.set(0, -0.02, 0.12);
-    knee.add(claw);
-    hip.add(knee);
-    hip.userData = { side: s, knee, phase: (i % 2 ? Math.PI : 0) + (i > 1 ? Math.PI * 0.55 : 0) };
-    body.add(hip);
-    legs.push(hip);
+  pairs.forEach(([x, splay, reach, opts = {}], i) => {
+    const geo = swarmLeg(P, { reach, drop: ride + hipY, thick, ...opts });
+    for (const s of [-1, 1]) {
+      legs.push({ geo, x, y: hipY, z: s * hipZ, side: s, yaw: -s * splay * Math.PI / 180, phase: ((i + (s > 0 ? 0 : 1)) % 2) * Math.PI });
+    }
   });
+  return legs;
+}
 
-  const tail = new THREE.Group();
-  tail.position.set(-0.28, 0.02, 0);
-  const tailGeo = new THREE.CapsuleGeometry(0.03, 0.16, 3, 6);
-  tailGeo.rotateZ(Math.PI / 2);
-  tailGeo.translate(-0.08, 0, 0);
-  tail.add(new THREE.Mesh(tailGeo, flesh));
-  const tail2 = new THREE.Group();
-  tail2.position.set(-0.18, 0, 0);
-  const t2 = new THREE.Mesh(tailGeo, MAT.fleshDark);
-  t2.scale.set(0.85, 0.65, 0.65);
-  tail2.add(t2);
-  const barb = new THREE.Mesh(new THREE.ConeGeometry(0.024, 0.09, 5), MAT.bone);
-  barb.rotation.z = Math.PI / 2;
-  barb.position.set(-0.18, 0, 0);
-  tail2.add(barb);
-  tail.add(tail2);
-  body.add(tail);
+/* Ripper: the common swarmer. Low and quick, with folded striking arms and tail pincers. */
+function ripperKit() {
+  const P = { shell: 0x2f1547, edge: 0x8d4ab3, belly: 0xc497cc, bone: 0xf4e9cc, glow: 0xffb040 };
+  const ride = 0.23;
+  const shell = weld([
+    piece(orb(0.15), M(-0.2, 0, 0, 0, 0, 0, 1.5, 0.8, 0.95), P.edge, P.belly),            // abdomen
+    piece(orb(0.13), M(0.06, 0.01, 0, 0, 0, 0, 1.2, 0.85, 1.05), P.edge, P.belly),        // thorax
+    piece(orb(0.105), M(0.27, 0, 0, 0, 0, -0.1, 1.5, 0.7, 1.18), P.edge, P.belly),        // head
+    piece(dome(0.15), M(0.07, 0.035, 0, 0, 0, -0.1, 1.25, 0.74, 1.2), P.shell, P.edge),   // shoulder shield
+    piece(dome(0.165), M(-0.1, 0.03, 0, 0, 0, 0.16, 1.05, 0.64, 1.02), P.shell, P.edge),  // three overlapping back plates
+    piece(dome(0.15), M(-0.22, 0.03, 0, 0, 0, 0.2, 1.05, 0.62, 1.0), P.shell, P.edge),
+    piece(dome(0.125), M(-0.33, 0.025, 0, 0, 0, 0.24, 1.05, 0.6, 0.98), P.shell, P.edge),
+    piece(dome(0.11, 12, 4), M(0.28, 0.015, 0, 0, 0, -0.2, 1.5, 0.64, 1.2), P.shell, P.edge), // brow plate
+    ...[[-0.02, 0.135, 0.11], [-0.15, 0.125, 0.1], [-0.27, 0.105, 0.085]].map(([x, y, h]) =>
+      piece(spike(0.022, h), M(x, y, 0, 0, 0, 0.7), P.bone, P.edge)),                     // back spines, swept back
+    ...[-1, 1].map((s) => piece(spike(0.018, 0.11), M(0.22, 0.02, s * 0.09, s * 1.2, 0, 0.9), P.bone, P.edge)) // cheek spikes
+  ]);
+  const glow = weld([
+    ...[-1, 1].flatMap((s) => [
+      piece(orb(0.025, 8, 6), M(0.35, 0.03, s * 0.068), P.glow),
+      piece(orb(0.017, 8, 6), M(0.31, 0.058, s * 0.098), P.glow)
+    ]),
+    ...[[-0.165, 0.162, 0.63], [-0.28, 0.146, 0.61]].map(([x, r, k]) =>
+      piece(arc(r, 0.008), M(x, 0.03, 0, 0, Math.PI / 2, 0, 1, k, 1), P.glow))            // lit seams between the plates
+  ]);
+  const striker = (s) => {
+    const elbow = V(0.04, 0.13, s * 0.06), tip = V(0.34, -0.02, s * 0.02);
+    return weld([
+      piece(orb(0.034, 8, 6), M(), P.edge),
+      piece(...limb(V(0, 0, 0), elbow, 0.03, 0.024), P.edge, P.shell),
+      piece(orb(0.028, 8, 6), M(elbow.x, elbow.y, elbow.z), P.edge),
+      piece(spike(0.05, elbow.distanceTo(tip), 4), along(elbow, tip, 1, 0.32), P.bone, P.edge)   // flat striking blade
+    ]);
+  };
+  const tailTip = weld([
+    piece(...limb(V(0, 0, 0), V(-0.1, 0.01, 0), 0.03, 0.02), P.edge, P.shell),
+    ...[-1, 1].flatMap((s) => {
+      const a = V(-0.09, 0.01, s * 0.012), b = V(-0.22, 0.03, s * 0.075), c = V(-0.3, 0.03, s * 0.025);
+      return [piece(...limb(a, b, 0.016, 0.011, 5), P.bone, P.edge), piece(spike(0.011, b.distanceTo(c), 5), along(b, c), P.bone)];
+    })
+  ]);
+  return {
+    ride, shell, glow,
+    legs: swarmLegs(P, ride, [[0.13, 50, 0.3], [0.03, 88, 0.32], [-0.08, 128, 0.34]]),
+    jaws: [-1, 1].map((s) => ({ geo: swarmJaw(P, s, 1.2), x: 0.385, y: -0.02, z: s * 0.055, side: s })),
+    strikers: [-1, 1].map((s) => ({ geo: striker(s), x: 0.15, y: 0.02, z: s * 0.115, side: s })),
+    tail: [
+      { geo: piece(...limb(V(0, 0, 0), V(-0.13, 0.02, 0), 0.042, 0.03), P.edge, P.shell), x: -0.4, y: 0, z: 0 },
+      { geo: tailTip, x: -0.13, y: 0.02, z: 0 }
+    ]
+  };
+}
 
-  body.position.y = 0.28;
-  root.userData = { body, legs, blades, tail, tail2 };
+/* Leaper: the wall vaulter. Slim, rust-coloured, with half-open wing cases and big jumping legs. */
+function leaperKit() {
+  const P = { shell: 0x55270c, edge: 0xd9862f, belly: 0xf5d99c, bone: 0xfff2d2, glow: 0x7ff6ff };
+  const ride = 0.22;
+  const shell = weld([
+    piece(orb(0.13), M(-0.2, 0, 0, 0, 0, 0, 1.7, 0.72, 0.78), P.edge, P.belly),
+    piece(orb(0.115), M(0.07, 0.015, 0, 0, 0, 0, 1.15, 0.9, 0.95), P.edge, P.belly),
+    piece(orb(0.085), M(0.25, 0.02, 0, 0, 0, -0.25, 1.2, 0.85, 1.05), P.edge, P.belly),
+    piece(dome(0.125), M(0.07, 0.04, 0, 0, 0, -0.1, 1.2, 0.8, 1.08), P.shell, P.edge),
+    piece(dome(0.09, 12, 4), M(0.255, 0.035, 0, 0, 0, -0.3, 1.25, 0.7, 1.1), P.shell, P.edge),
+    ...[-1, 1].map((s) => piece(dome(0.12), M(-0.2, 0.045, s * 0.075, s * 0.42, -s * 0.24, 0.12, 2.0, 0.5, 0.62), P.edge, P.shell)), // wing cases
+    ...[-1, 1].flatMap((s) => {                                                              // swept-back feelers
+      const a = V(0.29, 0.07, s * 0.04), b = V(0.2, 0.2, s * 0.1), c = V(0.0, 0.24, s * 0.14);
+      return [piece(...limb(a, b, 0.012, 0.008, 4), P.bone, P.edge), piece(spike(0.008, b.distanceTo(c), 4), along(b, c), P.bone)];
+    }),
+    piece(spike(0.03, 0.2, 5), along(V(-0.4, 0, 0), V(-0.6, 0.03, 0)), P.bone, P.edge)       // tail spike
+  ]);
+  const glow = weld([
+    ...[-1, 1].map((s) => piece(orb(0.034, 8, 6), M(0.3, 0.045, s * 0.07, 0, 0, 0, 1, 1.1, 0.8), P.glow)),
+    piece(arc(0.1, 0.008), M(-0.2, 0.03, 0, 0, Math.PI / 2, 0, 1, 0.75, 1), P.glow)
+  ]);
+  return {
+    ride, shell, glow,
+    legs: swarmLegs(P, ride, [
+      [0.13, 48, 0.24, { knee: 0.09 }], [0.03, 85, 0.26, { knee: 0.09 }],
+      [-0.1, 138, 0.42, { knee: 0.27, kneeAt: 0.36, thick: 1.5 }]
+    ], -0.03, 0.085),
+    jaws: [-1, 1].map((s) => ({ geo: swarmJaw(P, s, 0.75), x: 0.33, y: -0.02, z: s * 0.04, side: s })),
+    strikers: [], tail: [], hindLeap: true
+  };
+}
+
+/* Brute: the armoured strain. Broad, dark, horned, with a spiked dome and a tail club. */
+function bruteKit() {
+  const P = { shell: 0x1a0d2c, edge: 0x5a2f7c, belly: 0x9070a0, bone: 0xece0c0, glow: 0xff4f3d };
+  const ride = 0.25;
+  const shell = weld([
+    piece(orb(0.17), M(-0.18, 0, 0, 0, 0, 0, 1.45, 0.92, 1.3), P.edge, P.belly),
+    piece(orb(0.15), M(0.1, 0, 0, 0, 0, 0, 1.2, 0.95, 1.3), P.edge, P.belly),
+    piece(orb(0.1), M(0.31, -0.02, 0, 0, 0, -0.15, 1.3, 0.85, 1.3), P.edge, P.belly),
+    piece(dome(0.2, 14, 6), M(-0.14, 0.03, 0, 0, 0, 0.1, 1.5, 0.88, 1.3), P.shell, P.edge),   // back dome
+    piece(dome(0.175, 14, 6), M(0.11, 0.04, 0, 0, 0, -0.12, 1.15, 0.84, 1.34), P.shell, P.edge), // shoulder shield
+    piece(dome(0.105, 12, 4), M(0.31, 0.005, 0, 0, 0, -0.25, 1.35, 0.8, 1.34), P.shell, P.edge),
+    piece(spike(0.045, 0.25, 6), M(0.37, 0.03, 0, 0, 0, -1.0), P.bone, P.edge),               // nose horn
+    ...[-1, 1].flatMap((s) => [
+      piece(spike(0.03, 0.13), M(0.14, 0.15, s * 0.11, s * 0.5, 0, 0.3), P.bone, P.edge),      // two rows of back spikes
+      piece(spike(0.032, 0.15), M(-0.06, 0.17, s * 0.13, s * 0.5, 0, 0.45), P.bone, P.edge),
+      piece(spike(0.028, 0.13), M(-0.26, 0.15, s * 0.11, s * 0.5, 0, 0.6), P.bone, P.edge),
+      piece(spike(0.022, 0.12), M(0.3, 0.01, s * 0.115, s * 1.3, 0, 0.7), P.bone, P.edge)      // cheek spikes
+    ])
+  ]);
+  const glow = weld([
+    ...[-1, 1].map((s) => piece(orb(0.024, 8, 6), M(0.385, 0.0, s * 0.085), P.glow)),
+    piece(arc(0.205, 0.009), M(-0.01, 0.035, 0, 0, Math.PI / 2, 0, 1, 0.86, 1.3), P.glow)     // seam between the two shields
+  ]);
+  const club = weld([
+    piece(orb(0.065, 10, 8), M(-0.1, 0.01, 0), P.shell, P.edge),
+    ...[[0, 1, 0], [0, 0, 1], [0, 0, -1], [-1, 0.25, 0], [-0.6, 0.6, 0.5], [-0.6, 0.6, -0.5]].map(([dx, dy, dz]) => {
+      const d = V(dx, dy, dz).normalize(), c = V(-0.1, 0.01, 0);
+      return piece(spike(0.022, 0.1), along(c.clone().addScaledVector(d, 0.045), c.clone().addScaledVector(d, 0.15)), P.bone, P.edge);
+    }),
+    piece(...limb(V(0, 0, 0), V(-0.07, 0.01, 0), 0.034, 0.028), P.edge, P.shell)
+  ]);
+  return {
+    ride, shell, glow,
+    legs: swarmLegs(P, ride, [[0.17, 52, 0.31], [0.02, 88, 0.33], [-0.14, 126, 0.34]], -0.05, 0.14, 1.6),
+    jaws: [-1, 1].map((s) => ({ geo: swarmJaw(P, s, 1.35), x: 0.4, y: -0.05, z: s * 0.065, side: s })),
+    strikers: [],
+    tail: [
+      { geo: piece(...limb(V(0, 0, 0), V(-0.14, 0.03, 0), 0.05, 0.036), P.edge, P.shell), x: -0.42, y: 0, z: 0 },
+      { geo: club, x: -0.14, y: 0.03, z: 0 }
+    ],
+    ram: true
+  };
+}
+
+/* Corroder: the acid siege strain. A swollen, glowing acid sac in a cage of ribs, and a spitting snout. */
+function corroderKit() {
+  const P = { shell: 0x12281a, edge: 0x3f7d3c, belly: 0x93b873, bone: 0xe9e4bb, glow: 0xd0ff52 };
+  const ride = 0.21;
+  const rib = (x, r, k) => piece(arc(r, 0.017, Math.PI * 1.15, 16), M(x, 0.085, 0, 0, Math.PI / 2, -0.236, 1, k, 1), P.shell, P.edge);
+  const shell = weld([
+    piece(orb(0.125), M(0.1, 0, 0, 0, 0, 0, 1.25, 0.9, 1.1), P.edge, P.belly),
+    piece(orb(0.09), M(0.27, -0.01, 0, 0, 0, 0, 1.2, 0.9, 1.05), P.edge, P.belly),
+    piece(dome(0.135), M(0.1, 0.03, 0, 0, 0, -0.12, 1.25, 0.8, 1.14), P.shell, P.edge),
+    piece(dome(0.095, 12, 4), M(0.27, 0.02, 0, 0, 0, -0.2, 1.25, 0.75, 1.1), P.shell, P.edge),
+    piece(...limb(V(0.31, 0, 0), V(0.47, 0.035, 0), 0.045, 0.034, 8), P.edge, P.shell),      // spitting snout
+    piece(arc(0.036, 0.011, Math.PI * 2, 12), M(0.47, 0.035, 0, 0, Math.PI / 2, 0), P.bone),
+    rib(-0.08, 0.2, 0.98), rib(-0.2, 0.225, 0.98), rib(-0.32, 0.2, 0.98),                     // rib cage over the sac
+    piece(arc(0.235, 0.017, Math.PI * 0.8, 14), M(-0.2, 0.07, 0, 0, 0, 0.25, 1.05, 1, 1), P.shell, P.edge), // spine along the top
+    ...[-0.1, -0.2, -0.3].map((x) => piece(spike(0.02, 0.09), M(x, 0.29, 0, 0, 0, 0.4), P.bone, P.edge))
+  ]);
+  const glow = weld([
+    ...[-1, 1].map((s) => piece(orb(0.022, 8, 6), M(0.33, 0.035, s * 0.07), P.glow)),
+    piece(orb(0.028, 8, 6), M(0.475, 0.035, 0), P.glow),
+    ...[-1, 1].map((s) => piece(orb(0.02, 8, 6), M(0.12, 0.1, s * 0.09), P.glow))
+  ]);
+  return {
+    ride, shell, glow,
+    sac: { geo: orb(0.2, 14, 10), x: -0.2, y: 0.09, z: 0, sx: 1.2, sy: 0.95, sz: 1.08 },
+    legs: swarmLegs(P, ride, [[0.15, 55, 0.27], [0.02, 90, 0.3], [-0.12, 125, 0.3]], -0.04, 0.11, 1.35),
+    jaws: [-1, 1].map((s) => ({ geo: swarmJaw(P, s, 0.7), x: 0.33, y: -0.05, z: s * 0.045, side: s })),
+    strikers: [], tail: []
+  };
+}
+
+const SWARM_KITS = { zergling: ripperKit, hopper: leaperKit, warrior: bruteKit, tanker: corroderKit };
+const swarmKit = (strain) => (swarmKit.cache[strain] ||= SWARM_KITS[strain]());
+swarmKit.cache = {};
+
+/** Build one creature from its strain's shared kit. The rig is posed by `userData.swarm.pose()`. */
+function buildSwarmling(strain) {
+  const kit = swarmKit(strain);
+  const root = new THREE.Group(), body = new THREE.Group();
+  root.add(body);
+  body.position.y = kit.ride;
+  const add = (parent, geo, mat = SWARM_SHELL, at = null) => {
+    const m = new THREE.Mesh(geo, mat);
+    m.castShadow = mat !== SWARM_GLOW;
+    if (at) m.position.set(at.x, at.y, at.z);
+    parent.add(m);
+    return m;
+  };
+  const hinge = (parent, part) => {
+    const g = new THREE.Group();
+    g.position.set(part.x, part.y, part.z);
+    add(g, part.geo);
+    parent.add(g);
+    return g;
+  };
+  add(body, kit.shell);
+  add(body, kit.glow, SWARM_GLOW);
+  let sac = null;
+  if (kit.sac) {
+    sac = add(body, kit.sac.geo, MAT.acid, kit.sac);
+    sac.scale.set(kit.sac.sx, kit.sac.sy, kit.sac.sz);
+  }
+  const legs = kit.legs.map((leg) => ({ ...leg, hip: hinge(body, leg) }));
+  for (const leg of legs) leg.hip.rotation.y = leg.yaw;
+  const jaws = kit.jaws.map((jaw) => ({ side: jaw.side, pivot: hinge(body, jaw) }));
+  const strikers = kit.strikers.map((st) => ({ side: st.side, x: st.x, pivot: hinge(body, st) }));
+  const tail = [];
+  kit.tail.reduce((parent, seg) => { const g = hinge(parent, seg); tail.push(g); return g; }, body);
+  const hindFrom = legs.length - 2;
+
+  /** gait: stride phase · run: 0–1 pace · swing: 1 at the start of a bite · air: mid-leap · time: seconds */
+  const pose = ({ gait = 0, run = 0, swing = 0, air = false, time = 0 }) => {
+    legs.forEach((leg, i) => {
+      const ph = gait + leg.phase, hind = kit.hindLeap && i >= hindFrom;
+      leg.hip.rotation.y = leg.yaw + leg.side * Math.sin(ph) * 0.42 * (0.12 + run) * (air ? 0.2 : 1);
+      // lift the foot on the forward swing; in the air the legs tuck (jumping legs kick out behind)
+      leg.hip.rotation.z = air ? (hind ? -0.55 : 0.5) : Math.max(0, Math.cos(ph)) * 0.34 * run;
+    });
+    body.position.y = kit.ride + Math.abs(Math.sin(gait * 2)) * 0.014 * run + Math.sin(time * 2.2 + kit.ride * 40) * 0.006;
+    body.rotation.x = Math.sin(gait) * 0.05 * run;
+    body.rotation.z = Math.sin(gait * 2) * 0.025 * run - swing * (kit.ram ? 0.24 : 0.12);    // lunge into the bite
+    for (const jaw of jaws) jaw.pivot.rotation.y = -jaw.side * (0.2 + swing * 0.65 + Math.sin(time * 6 + jaw.side) * 0.05);
+    for (const st of strikers) {
+      st.pivot.rotation.z = 0.3 - swing * 1.2;
+      st.pivot.rotation.y = -st.side * (0.18 - swing * 0.3);
+      st.pivot.position.x = st.x + swing * 0.05;
+    }
+    const sway = Math.sin(gait * 0.6 + time * 1.3) * 0.3 * (0.35 + run);
+    tail.forEach((seg, i) => { seg.rotation.y = sway * (i ? 0.9 : 1); seg.rotation.z = i ? 0.12 : -0.08 + swing * 0.3; });
+    if (sac) {
+      const k = 1 + swing * 0.14 + Math.sin(time * 3.2) * 0.035;
+      sac.scale.set(kit.sac.sx * k, kit.sac.sy * k, kit.sac.sz * k);
+    }
+  };
+  pose({});
+  root.userData = { body, sac, swarm: { strain, pose } };
   return root;
+}
+
+/** The common swarmer; kept under its old name for the inspector portrait and anything else that imports it. */
+export function buildZergling() {
+  return buildSwarmling('zergling');
 }
 
 /**
@@ -774,16 +977,7 @@ export function buildBug(breed) {
   if (breed === 'maw') return buildMaw();
   if (breed === 'ultralisk') return buildUltralisk();
   if (breed === 'needler') return buildNeedler();
-  const tint = { warrior: 0x3d2038, hopper: 0x8a5a32, tanker: 0x2c4a28 }[breed] || null;
-  const root = buildZergling(tint);
-  if (breed === 'tanker') {
-    const sac = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 10), MAT.acid);
-    sac.position.set(-0.05, 0.22, 0);
-    sac.scale.set(1.1, 0.8, 0.9);
-    root.userData.body.add(sac);
-    root.userData.sac = sac;
-  }
-  return root;
+  return buildSwarmling(SWARM_KITS[breed] ? breed : 'zergling');
 }
 
 /* ------------------------------------------------------------------ */
@@ -1220,46 +1414,148 @@ export function buildFalcon(tier = 0) {
   return root;
 }
 
+/** A long insect wing lying flat, reaching out along +Z or -Z from its root, with a dark leading spar. */
+function swarmWing(s, length, width, top, tip) {
+  const shape = new THREE.Shape();
+  shape.moveTo(0, 0);
+  shape.quadraticCurveTo(width * 0.55, s * length * 0.45, width * 0.05, s * length);
+  shape.quadraticCurveTo(-width * 0.75, s * length * 0.7, -width * 0.5, s * length * 0.12);
+  shape.closePath();
+  const membrane = new THREE.ShapeGeometry(shape, 6).rotateX(Math.PI / 2);   // shape y becomes z
+  const lit = piece(membrane, null, top);
+  // paint the membrane from root to tip (piece() fades along Y, and a wing is flat)
+  const pos = lit.attributes.position, col = lit.attributes.color, a = new THREE.Color(top), b = new THREE.Color(tip), c = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) {
+    c.copy(a).lerp(b, Math.min(1, Math.abs(pos.getZ(i)) / length));
+    col.setXYZ(i, c.r, c.g, c.b);
+  }
+  return weld([lit, piece(...limb(V(0, 0, 0), V(width * 0.2, 0, s * length * 0.96), 0.014, 0.004, 4), 0x2a1638)]);
+}
+
+/* Wraith: a darting needle-wasp. Four narrow wings, a curled abdomen and a long sting. */
+function wraithKit() {
+  const P = { shell: 0x2a1444, edge: 0x8448b2, belly: 0xc9a0d8, bone: 0xf4e9cc, glow: 0xffb040 };
+  const y = 0.2, segs = [[-0.14, 0.19, 0.115], [-0.29, 0.165, 0.098], [-0.42, 0.12, 0.08], [-0.52, 0.06, 0.062]];
+  const shell = weld([
+    piece(orb(0.15), M(0.05, y, 0, 0, 0, 0, 1.2, 0.9, 1.0), P.edge, P.belly),               // thorax
+    piece(dome(0.16), M(0.05, y + 0.02, 0, 0, 0, -0.1, 1.2, 0.8, 1.02), P.shell, P.edge),
+    piece(orb(0.105), M(0.27, y, 0, 0, 0, -0.2, 1.2, 0.85, 1.1), P.edge, P.belly),          // head
+    piece(dome(0.11, 12, 4), M(0.27, y + 0.015, 0, 0, 0, -0.3, 1.2, 0.7, 1.12), P.shell, P.edge),
+    piece(spike(0.03, 0.3, 5), along(V(0.34, y - 0.03, 0), V(0.64, y - 0.09, 0)), P.bone, P.edge), // proboscis
+    ...segs.flatMap(([x, sy, r]) => [
+      piece(orb(r, 10, 7), M(x, sy, 0, 0, 0, 0, 1.25, 0.9, 0.95), P.edge, P.belly),
+      piece(dome(r * 1.06, 10, 4), M(x, sy + 0.01, 0, 0, 0, 0.25, 1.25, 0.8, 0.98), P.shell, P.edge)
+    ]),
+    piece(spike(0.022, 0.2, 5), along(V(-0.56, 0.04, 0), V(-0.7, -0.1, 0)), P.bone, P.edge),   // sting
+    ...[-1, 1].flatMap((s) => [0.12, 0.0].map((x) =>
+      piece(spike(0.014, 0.16, 4), along(V(x, y - 0.1, s * 0.07), V(x + 0.06, y - 0.25, s * 0.1)), P.bone, P.shell))) // tucked claws
+  ]);
+  const glow = weld([
+    ...[-1, 1].map((s) => piece(orb(0.05, 10, 7), M(0.31, y + 0.035, s * 0.078, 0, 0, 0, 1.1, 0.9, 0.7), P.glow)),
+    ...segs.slice(0, 3).map(([x, sy, r]) => piece(arc(r * 1.02, 0.007, Math.PI * 2, 12), M(x + r * 0.95, sy, 0, 0, Math.PI / 2, 0, 1, 0.9, 1), P.glow))
+  ]);
+  const wings = [-1, 1].flatMap((s) => [
+    { geo: swarmWing(s, 1.02, 0.3, 0xb98ae0, 0xf0dcff), x: 0.1, y: y + 0.12, z: s * 0.1, side: s, phase: 0, sweep: 0.12 },
+    { geo: swarmWing(s, 0.8, 0.26, 0xa678d0, 0xe6ccff), x: -0.03, y: y + 0.11, z: s * 0.1, side: s, phase: 1.1, sweep: -0.38 }
+  ]);
+  return { shell, glow, wings, beat: 19, flap: 0.5 };
+}
+
+/* Brood Ray: a slow armoured glider. Broad fleshy fins, forward horns, acid sacs and a whip tail. */
+function broodRayKit() {
+  const P = { shell: 0x13251a, edge: 0x3f7a3c, belly: 0xa5ba80, bone: 0xe9e4bb, glow: 0xd0ff52 };
+  const y = 0.2;
+  const fin = (s) => {
+    // a rounded lobe of flesh swept back from the body, dark at the root and pale at the tip
+    const lobe = piece(orb(0.5, 14, 8), M(-0.13, 0, s * 0.47, 0, -s * 0.3, 0, 0.72, 0.075, 0.98), P.edge);
+    const pos = lobe.attributes.position, col = lobe.attributes.color;
+    const root = new THREE.Color(P.shell), mid = new THREE.Color(0x2a5a2c), tip = new THREE.Color(P.edge).lerp(new THREE.Color(P.belly), 0.3), c = new THREE.Color();
+    for (let i = 0; i < pos.count; i++) {
+      const k = Math.min(1, Math.abs(pos.getZ(i)) / 1.02);
+      if (k < 0.6) c.copy(root).lerp(mid, k / 0.6); else c.copy(mid).lerp(tip, (k - 0.6) * 2.5);
+      col.setXYZ(i, c.r, c.g, c.b);
+    }
+    return weld([
+      lobe,
+      piece(...limb(V(0.17, 0.03, s * 0.04), V(0.17, 0.026, s * 0.52), 0.034, 0.022, 5), P.bone, P.shell),  // bone along the leading edge
+      piece(...limb(V(0.17, 0.026, s * 0.52), V(-0.2, 0.012, s * 0.9), 0.022, 0.008, 5), P.bone, P.bone),
+      ...[[-0.33, 0.38], [-0.37, 0.6], [-0.28, 0.78]].map(([x, z]) =>
+        piece(...limb(V(0.05, 0.036, s * 0.06), V(x, 0.02, s * z), 0.02, 0.006, 4), P.shell, P.shell))     // finger ribs
+    ]);
+  };
+  const shell = weld([
+    piece(orb(0.3, 14, 9), M(-0.05, y, 0, 0, 0, 0, 1.7, 0.5, 1.0), P.edge, P.belly),          // flat body
+    piece(dome(0.305, 14, 6), M(-0.05, y + 0.01, 0, 0, 0, 0, 1.7, 0.5, 0.98), P.shell, P.edge),
+    piece(dome(0.2, 12, 5), M(0.22, y + 0.02, 0, 0, 0, -0.12, 1.3, 0.55, 1.2), P.shell, P.edge), // head shield
+    ...[-1, 1].map((s) => piece(spike(0.07, 0.34, 6), along(V(0.36, y, s * 0.15), V(0.68, y - 0.03, s * 0.1), 1, 0.45), P.bone, P.edge)), // horns
+    ...[0.12, -0.08, -0.28, -0.46].map((x, i) => piece(spike(0.035 - i * 0.004, 0.17 - i * 0.02), M(x, y + 0.13 - i * 0.012, 0, 0, 0, 0.55), P.bone, P.edge)),
+    ...[-1, 1].flatMap((s) => [-0.1, -0.32].map((x) => piece(spike(0.026, 0.11), M(x, y + 0.1, s * 0.17, s * 0.55, 0, 0.5), P.bone, P.edge)))
+  ]);
+  const glow = weld([
+    ...[-1, 1].map((s) => piece(orb(0.04, 8, 6), M(0.36, y + 0.05, s * 0.2), P.glow)),
+    piece(orb(0.05, 8, 6), M(0.46, y - 0.01, 0, 0, 0, 0, 0.6, 0.45, 1.6), P.glow),              // glowing mouth slit
+    piece(arc(0.3, 0.009), M(-0.05, y + 0.012, 0, 0, Math.PI / 2, 0, 1, 0.5, 0.98), P.glow)
+  ]);
+  const sacs = weld([
+    ...[-1, 1].map((s) => orb(0.15, 10, 8).applyMatrix4(M(0.02, y - 0.1, s * 0.27, 0, 0, 0, 1.45, 0.8, 1))),
+    orb(0.13, 10, 8).applyMatrix4(M(-0.25, y - 0.1, 0, 0, 0, 0, 1.5, 0.75, 1.1))
+  ].map((g) => { const n = g.toNonIndexed(); n.deleteAttribute('uv'); return n; }));
+  const a = V(0, 0, 0), b = V(-0.42, 0.03, 0), c = V(-0.78, -0.05, 0);
+  const whip = weld([
+    piece(...limb(a, b, 0.06, 0.034), P.edge, P.shell),
+    piece(...limb(b, c, 0.034, 0.014), P.edge, P.shell),
+    piece(spike(0.04, 0.16, 4), along(c, V(-0.95, -0.1, 0), 1, 0.4), P.bone, P.edge)
+  ]);
+  const wings = [-1, 1].map((s) => ({ geo: fin(s), x: -0.02, y, z: s * 0.2, side: s, phase: 0, sweep: 0, solid: true }));
+  return { shell, glow, wings, sacs, whip: { geo: whip, x: -0.5, y, z: 0 }, beat: 7, flap: 0.42 };
+}
+
+const flyerKit = (heavy) => (flyerKit.cache[heavy ? 1 : 0] ||= heavy ? broodRayKit() : wraithKit());
+flyerKit.cache = [];
+
+/** The two flying strains: the Wraith, and with `heavy` the armoured Brood Ray. */
 export function buildSkyhunter(heavy = false) {
-  const root = new THREE.Group();
-  const body = new THREE.Group();
+  const kit = flyerKit(heavy);
+  const root = new THREE.Group(), body = new THREE.Group();
   root.add(body);
-  body.add(mesh(new THREE.SphereGeometry(0.3, 12, 8), MAT.flesh, 0, 0.2, 0));
-  body.add(mesh(new THREE.ConeGeometry(0.15, 0.6, 5).rotateZ(-Math.PI / 2), MAT.bone, 0.4, 0.2, 0));
-  body.add(mesh(new THREE.SphereGeometry(0.065, 8, 6), MAT.eye, 0.23, 0.35, 0.16));
-  body.add(mesh(new THREE.SphereGeometry(0.065, 8, 6), MAT.eye, 0.23, 0.35, -0.16));
-  const wings = [];
-  for (const side of [-1, 1]) {
-    const wing = new THREE.Group();
-    wing.position.set(-0.1, 0.25, side * 0.2);
-    const shape = new THREE.Shape();
-    shape.moveTo(0, 0); shape.lineTo(-0.55, side * 1.1); shape.lineTo(0.35, side * 0.8); shape.lineTo(0.25, 0); shape.closePath();
-    const membrane = mesh(new THREE.ShapeGeometry(shape).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x994fa0, side: THREE.DoubleSide, roughness: 0.6 }));
-    wing.add(membrane); body.add(wing); wings.push({ wing, side });
+  const add = (parent, geo, mat) => { const m = new THREE.Mesh(geo, mat); m.castShadow = mat === SWARM_SHELL; parent.add(m); return m; };
+  add(body, kit.shell, SWARM_SHELL);
+  add(body, kit.glow, SWARM_GLOW);
+  if (kit.sacs) add(body, kit.sacs, MAT.acid);
+  const wings = kit.wings.map((w) => {
+    const pivot = new THREE.Group();
+    pivot.position.set(w.x, w.y, w.z);
+    pivot.rotation.y = -w.side * w.sweep;
+    add(pivot, w.geo, w.solid ? SWARM_SHELL : SWARM_WING);
+    body.add(pivot);
+    return { ...w, pivot };
+  });
+  let whip = null;
+  if (kit.whip) {
+    whip = new THREE.Group();
+    whip.position.set(kit.whip.x, kit.whip.y, kit.whip.z);
+    add(whip, kit.whip.geo, SWARM_SHELL);
+    body.add(whip);
   }
-  if (heavy) {
-    // A broad armoured abdomen and luminous acid sacs distinguish the heavy flyer.
-    const shell = mesh(new THREE.SphereGeometry(0.42, 12, 8), MAT.fleshDark, -0.24, 0.2, 0);
-    shell.scale.set(1.65, 0.8, 1.15); body.add(shell);
-    for (const side of [-1, 1]) {
-      const sac = mesh(new THREE.SphereGeometry(0.18, 10, 8), MAT.acid, 0.05, 0.08, side * 0.32);
-      sac.scale.set(1.45, 0.8, 1); body.add(sac);
-      for (let i = 0; i < 3; i++) {
-        body.add(mesh(new THREE.ConeGeometry(0.08, 0.32, 5), MAT.bone, -0.2 - i * 0.22, 0.48, side * 0.2));
-      }
-    }
-    for (const { wing } of wings) {
-      wing.scale.set(1.4, 1, 1.3);
-      wing.children[0].material.color.setHex(0x506d46);
-    }
-  }
-  const weapon = new THREE.Group(); weapon.userData.muzzle = new THREE.Vector3(0.55, 0.2, 0); body.add(weapon);
-  root.userData.torso = body; root.userData.weapon = weapon;
-  let time = 0;
+  const weapon = new THREE.Group();
+  weapon.userData.muzzle = new THREE.Vector3(0.55, 0.2, 0);
+  body.add(weapon);
+  root.userData.torso = body;
+  root.userData.weapon = weapon;
+  let time = Math.random() * 6;   // so a flight does not beat its wings in step
+  let fallen = 0;
   root.userData.anim = (state, dt) => {
     time += dt;
-    for (const {wing, side} of wings) wing.rotation.x = Math.sin(time * (heavy ? 8 : 13)) * 0.55 * side;
-    body.rotation.z = state === 'death' ? Math.min(1.5, time) : Math.sin(time * 3) * 0.05;
+    const dying = state === 'death';
+    if (dying) fallen += dt;
+    for (const w of wings) {
+      const beat = dying ? 0.9 : Math.sin(time * kit.beat + w.phase) * kit.flap + (w.solid ? 0.08 : 0.12);
+      w.pivot.rotation.x = -w.side * beat;
+    }
+    if (whip) { whip.rotation.y = Math.sin(time * 2.1) * 0.35; whip.rotation.z = Math.sin(time * 1.4) * 0.12; }
+    body.position.y = dying ? 0 : Math.sin(time * (heavy ? 1.8 : 3.4)) * 0.035;
+    body.rotation.z = dying ? Math.min(1.5, fallen) : Math.sin(time * 3) * 0.05 + (state === 'attack' ? -0.12 : 0);
+    body.rotation.x = dying ? Math.min(1.1, fallen * 1.6) : Math.sin(time * 1.3) * 0.06;
   };
   return root;
 }

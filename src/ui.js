@@ -93,21 +93,7 @@ class Portrait {
     this.pivot.rotation.y = Math.sin(this.t * 0.45) * 0.85 - 0.5;
     const ud = this.current?.userData;
     if (ud?.anim) ud.anim('idle', dt);
-    else if (this.key?.startsWith('zergling') && ud?.legs) {
-      const gait = this.t * 7;
-      for (const hip of ud.legs) {
-        const ph = gait + hip.userData.phase;
-        hip.rotation.x = Math.sin(ph) * 0.5;
-        hip.userData.knee.rotation.x = hip.userData.side * 0.4;
-      }
-      const sw = Math.max(0, Math.sin(this.t * 1.6));
-      ud.blades.forEach((b) => {
-        b.rotation.x = b.userData.side * (0.7 + sw * 0.3);
-        b.rotation.z = -sw * 0.7;
-      });
-      ud.body.position.y = 0.24 + Math.abs(Math.sin(gait)) * 0.03;
-      ud.tail.rotation.y = Math.sin(this.t * 2) * 0.4;
-    }
+    else if (ud?.swarm) ud.swarm.pose({ gait: this.t * 7, run: 0.7, swing: Math.max(0, Math.sin(this.t * 1.6)), time: this.t });
     this.renderer.render(this.scene, this.camera);
   }
 

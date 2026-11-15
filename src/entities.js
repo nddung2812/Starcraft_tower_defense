@@ -1298,6 +1298,10 @@ export class Zergling {
       return;
     }
     if (ud.serpent) { this.animateSerpent(dt, game); return; }
+    if (ud.swarm) {
+      ud.swarm.pose({ gait: this.gait, run: this.moving ?? 0, swing: this.swing, air: !!this.air, time: game.time });
+      return;
+    }
 
     const run = this.moving ?? 0;
     const lift = this.air ? 0.15 : 1;

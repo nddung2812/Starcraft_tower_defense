@@ -48,7 +48,7 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 | `src/terrain.js` | The mountain heightfield mesh built from the per-cell rock depth. |
 | `src/scenery.js` | Optional scenery art from `SCENERY_FILES`: rock `.glb` shapes for lane boulders and spires, and photo textures for the canyon floor and mountains (world-space triplanar detail multiplied into the existing colours). A missing file falls back to the procedural rock or painted texture. Sources and licences are in `assets/CREDITS.md`. |
 | `src/config.js` | **All tuning lives here**: map size, costs, unit and bug stats, wave plan, level paths, model files. |
-| `src/models.js` | Procedural low-poly models (units, bugs including the Needler, buildings, boulders, spires). |
+| `src/models.js` | Procedural low-poly models (units, bugs including the Needler, buildings, boulders, spires). The four ground strains and both flyers come from the swarm kit (see "Swarm models"). |
 | `src/assets.js` | `makeModel(kind)`: uses a `.glb` from `assets/models/` if present, else the procedural model; team rim light. The infantry (one shared `soldier.glb`) and Vector ship as files; the Hammer tank is the built-in `buildTank()` model again (its `MODEL_FILES` entry was removed Nov 15, 2026, so `assets/models/tank.glb` is no longer loaded); `MODEL_FILES` options repaint materials (`tint`), drop parts (`hide`), mark promotions (`tierTint`) and name swivelling turret parts (`turret`). Delete a file to get the built-in model back. |
 | `src/scene.js` | Renderer, lights, camera rig, post-processing (GTAO ambient occlusion, MSAA, bloom), FX quality toggle. |
 | `src/ui.js` | Inspector panel, command card, selection chips, leaderboard rendering, HUD readouts. |
@@ -334,7 +334,16 @@ the balance suite checks the starting squad can clear both opening approaches.
   walls or bunkers. Without that, tight squads deadlock.
 - **Model contract.** Anything `makeModel()` returns must expose `userData.torso`,
   `userData.weapon` (with `userData.muzzle`), and optionally `userData.anim(state, dt)`
-  (`solid: true` means no separate turret). Bugs with `userData.serpent` use `animateSerpent`.
+  (`solid: true` means no separate turret). Bugs with `userData.serpent` use `animateSerpent`;
+  bugs with `userData.swarm` are posed by `userData.swarm.pose({ gait, run, swing, air, time })`.
+- **Swarm models (Nov 15, 2026).** Ripper, Leaper, Brute and Corroder (`zergling`, `hopper`,
+  `warrior`, `tanker`) are original insect designs built by `buildSwarmling(strain)` from a kit
+  per strain (`ripperKit()` and so on); the Wraith and Brood Ray come from `buildSkyhunter()`.
+  Colour is baked into vertex colours, so every strain shares `SWARM_SHELL` and `SWARM_GLOW`, and
+  each kit's geometry is built once and shared by every bug: never dispose a bug's geometry or
+  recolour its material per bug. Keep them original: do not import or copy another game's
+  creature models (the linked StarCraft II Zergling file was declined for that reason).
+  `tests/browser-bugs.cjs` checks size, footing, draw calls, poses, death and the flyers.
 - **Map size.** `COLS`/`ROWS` are maximums (128), not active dimensions. Use `mapDimensions(level)`
   for generation, `layout.cols/rows` for terrain, and `grid.COLS/ROWS` for indexing, input, routing
   and movement. A `Grid.load()` can grow or shrink its storage; never index it with the cap.
