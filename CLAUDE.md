@@ -43,7 +43,7 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 | `src/touch.js` | Optional layer. Two-finger pinch zoom and twist rotate. (Tap-to-order is `touchOrder()` in `main.js`.) |
 | `src/maw.js` | Tunnel Maw: `MawAmbush` (timing, warning marks, eruption) and the `TunnelMaw` entity that swallows, holds and releases a unit. Tuning is `MAW` in config. |
 | `src/evolutions.js` | Boss reward abilities: automatic tank siege, walker chain lightning, bunker Last Stand, descriptions and model additions. Tuning lives in config. |
-| `src/grid.js` | Tile grid, A* for player units, the shared bug route field, line-of-sight helpers. |
+| `src/grid.js` | Tile grid, A* for player units, the Hammer's all-terrain route search (`driveSearch`), the shared bug route field, line-of-sight helpers. |
 | `src/levels.js` | Generates the seeded map: 2–4 approaches from 1–4 sides (`attackFronts(level)`) converging on the base, with boulders, rock depth and spires. Early level names come from `LEVELS`. |
 | `src/terrain.js` | The mountain heightfield mesh built from the per-cell rock depth. |
 | `src/scenery.js` | Optional scenery art from `SCENERY_FILES`: rock `.glb` shapes for lane boulders and spires, and photo textures for the canyon floor and mountains (world-space triplanar detail multiplied into the existing colours). A missing file falls back to the procedural rock or painted texture. Sources and licences are in `assets/CREDITS.md`. |
@@ -97,6 +97,30 @@ spawning, routing, stats or score.
   rename or a visual change.
 - `tests/browser-opening.cjs` (sweep, estimate, manual, tap orders, pinch) and
   `tests/browser-story.cjs` (totals, script, result, share, phases, missing layer).
+
+## Hammer all-terrain driving (Nov 15, 2026)
+
+- `UNITS.tank.offroad` (`rock`, `water`, `climb`) makes a unit all-terrain. Only the Hammer has it;
+  rules and numbers are in `BALANCE.md`. Every other ground unit still keeps to `CELL.OPEN`.
+- **Rock is still `CELL.ROCK`.** Nothing about the grid changed: `rebuildTerrain()` hands the built
+  heightfield to `grid.setTerrain(heightAt, lakes, solid, WATER_LEVEL)`, which keeps `grid.ground`
+  (cell heights, lake cells, and boulder/spire cells nothing drives over). `Grid.load()` clears it,
+  and without it rock is closed to tanks too, so a bare `Grid` in a test behaves as before.
+- **One price for route and speed.** `grid.drivePace()` is a tile's time multiplier and
+  `driveSearch()` is an A* over travel time with it (plus the climb). `stepMove()` slows the tank
+  with `grid.driveSpeed()` from the same numbers. Change one and the "fastest" route stops being
+  the fastest. `driveRoute` / `driveAttackRoute` / `driveHome` are the three ways it is called, from
+  `orderMove`, `chase` and `finishMove`.
+- **A tank only parks on an open tile.** Routes end on `CELL.OPEN`; a tank on rock never owns a
+  tile. `unit.offGround(game)` is true up there. Stop goes through `finishMove()` and
+  `driveHome()`. With an attack target in range it holds position instead of calling `halt()`
+  (`holding` in `Marine.update`), because halting on rock would re-route every frame.
+- `rideTerrain()` sets `altitude` and leans the model (`rotation.order = 'YZX'`). A ground unit can
+  therefore have `altitude > 0`: `flying` is the test for aircraft, never `altitude`. `lifted()` in
+  `main.js` picks and box-selects anything drawn above its tile.
+- `tests/tank-routes.mjs` (node: quickest times against an exhaustive search, ridge, lake, boulder
+  and bare-grid cases) and `tests/browser-tank.cjs` (move, Stop, Attack, holding a ridge, selection,
+  the Maw).
 
 ## Tunnel Maw (Nov 15, 2026)
 

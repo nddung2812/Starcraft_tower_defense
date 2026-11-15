@@ -12,6 +12,7 @@ import { detailTerrain } from './scenery.js';
 const MARGIN = 0;           // hard boundary: no terrain exists beyond the playable map
 const PEAK = 5.6;           // how high the deep rock gets, in tiles
 const RISE = 4.6;           // how quickly it climbs away from the lane
+export const WATER_LEVEL = 0.23;   // lake surface; rock lying below it is under water
 
 function hash(x, y, seed) {
   let h = (x * 374761393 + y * 668265263 + seed * 2147483647) | 0;
@@ -230,7 +231,7 @@ export function buildTerrain(depth, seed, cols = COLS, rows = ROWS) {
     }
     const water = new THREE.Mesh(new THREE.ShapeGeometry(shape), waterMaterial);
     water.rotation.x = -Math.PI / 2;
-    water.position.y = 0.23;
+    water.position.y = WATER_LEVEL;
     water.name = 'lake-water';
     mesh.add(water);
   }

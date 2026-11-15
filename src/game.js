@@ -5,7 +5,7 @@ import { Grid } from './grid.js';
 import { carveLevel, MAP_VERSION } from './levels.js';
 import { Marine, Zergling, Wall, Bunker, Scv, Core, Hive, Tracer, Shell, AirBomb, SupplyCrate } from './entities.js';
 import { buildRock, buildBoulder } from './models.js';
-import { buildTerrain } from './terrain.js';
+import { buildTerrain, WATER_LEVEL } from './terrain.js';
 import { sceneryBoulder, scenerySpire } from './scenery.js';
 import { Fx } from './fx.js';
 import { sfx } from './audio.js';
@@ -207,6 +207,7 @@ export class Game {
 
     // rounded boulders: the ones dropped in the lane, and rock ribs too thin for a mountain to rise on
     const lumps = [...layout.boulders.map(([x, y]) => [x, y, 1]), ...terrain.flatRock.map(([x, y]) => [x, y, 0])];
+    const solid = lumps.map(([x, y]) => [x, y]);   // rock a tank cannot drive over: these boulders, and the spires below
     lumps.forEach(([x, y, inLane], i) => {
       const n = noise(x, y, i);
       const rock = sceneryBoulder(n) || buildBoulder(n);
@@ -220,6 +221,7 @@ export class Game {
     // a few sharp spires standing on the high ground
     layout.peaks.forEach(([x, y], i) => {
       if (terrain.lakes.some(l => Math.hypot(x + 0.5 - l.x, y + 0.5 - l.z) < l.radius * 1.3)) return;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) solid.push([x + dx, y + dy]);
       const n = noise(x, y, i + 101);
       const rock = scenerySpire(n) || buildRock(n);
       const s = 2.2 + (n % 9) / 8;
@@ -228,6 +230,8 @@ export class Game {
       rock.position.set(x + 0.5, this.heightAt(x + 0.5, y + 0.5) - 0.6, y + 0.5);
       this.rockGroup.add(rock);
     });
+    // The rest of the rock, and the lakes in it, are open to all-terrain vehicles (UNITS[kind].offroad).
+    this.grid.setTerrain(terrain.heightAt, terrain.lakes, solid, WATER_LEVEL);
   }
 
   /* ---------------- economy + building ---------------- */

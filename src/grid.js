@@ -66,6 +66,7 @@ export class Grid {
       this.occupants = new Array(cols * rows).fill(null);
       this._field = null;
     }
+    this.ground = null;   // the mountains are rebuilt with the map: see setTerrain()
     this.spawn = layout.spawn;
     this.spawns = layout.spawns?.length ? layout.spawns : [layout.spawn];
     this.core = layout.core;
@@ -385,6 +386,125 @@ export class Grid {
     const cells = this.findPath(sx, sy, tx, ty, true);
     if (!cells) return null;
     return cells.map((c) => ({ x: c.x + 0.5, y: c.y + 0.5, cx: c.x, cy: c.y }));
+  }
+
+  /**
+   * What the rock is like for a tracked vehicle, set once per map from the built terrain:
+   * the height at every cell centre, which rock cells lie under a lake, and which hold a
+   * boulder or a spire that nothing drives over. Without it, rock stays closed to everyone.
+   */
+  setTerrain(heightAt, lakes = [], solid = [], waterLevel = 0) {
+    const n = this.COLS * this.ROWS;
+    const height = new Float32Array(n), water = new Uint8Array(n), block = new Uint8Array(n);
+    for (let y = 0; y < this.ROWS; y++) {
+      for (let x = 0; x < this.COLS; x++) {
+        const i = this.idx(x, y), h = heightAt(x + 0.5, y + 0.5);
+        height[i] = h;
+        if (this.cells[i] === CELL.ROCK && h < waterLevel &&
+          lakes.some(l => Math.hypot(x + 0.5 - l.x, y + 0.5 - l.z) < l.radius * 1.25)) water[i] = 1;
+      }
+    }
+    for (const [x, y] of solid) if (this.inside(x, y)) block[this.idx(x, y)] = 1;
+    this.ground = { heightAt, height, water, solid: block };
+  }
+
+  /**
+   * How long a tile takes a vehicle that can leave the canyon floor, as a multiple of open
+   * ground. `off` is the unit's `offroad` spec (speed kept on rock and in water). Infinity:
+   * walls, bunkers, the base, a hive mouth, boulders and spires stay in the way.
+   */
+  drivePace(x, y, off) {
+    if (!this.inside(x, y)) return Infinity;
+    const i = this.idx(x, y), c = this.cells[i];
+    if (c === CELL.OPEN) return 1;
+    if (c === CELL.TOWER) return 1.4;                      // squadmates step aside, as for walkers
+    if (c !== CELL.ROCK || !this.ground || this.ground.solid[i]) return Infinity;
+    return 1 / (this.ground.water[i] ? off.water : off.rock);
+  }
+
+  /** Share of its road speed a vehicle keeps here, heading (dirX, dirZ): terrain, then the slope. */
+  driveSpeed(x, z, dirX, dirZ, off) {
+    const pace = this.drivePace(Math.floor(x), Math.floor(z), off);
+    if (!this.ground || !Number.isFinite(pace)) return 1;
+    const h = this.ground.heightAt;
+    const slope = Math.abs(h(x + dirX * 0.5, z + dirZ * 0.5) - h(x - dirX * 0.5, z - dirZ * 0.5));
+    return 1 / (pace * (1 + off.climb * slope));
+  }
+
+  /**
+   * The quickest drive, in travel time, for a vehicle that crosses mountains and lakes: A* over
+   * every drivable cell, where rock and water cost their slower pace and a climb costs its slope.
+   * `done(x, y, isStart)` says where the drive may end; `left(x, y)` is a lower bound on the
+   * tiles still to go. It goes round the canyon only when that really is faster than going over.
+   */
+  driveSearch(sx, sy, off, done, left) {
+    if (!this.inside(sx, sy)) return null;
+    const n = this.COLS * this.ROWS;
+    if (!this._drive || this._drive.time.length !== n) {
+      this._drive = { time: new Float64Array(n), from: new Int32Array(n), closed: new Uint8Array(n) };
+    }
+    const { time, from, closed } = this._drive;
+    time.fill(Infinity); from.fill(-1); closed.fill(0);
+    const start = this.idx(sx, sy);
+    // wherever it is standing (its own tile, a hive mouth after a shove) it can always drive off
+    const pace = (x, y) => x === sx && y === sy ? Math.min(this.drivePace(x, y, off), 1.4) : this.drivePace(x, y, off);
+    const height = this.ground ? this.ground.height : null;
+    const heap = new MinHeap();
+    time[start] = 0;
+    heap.push(start, left(sx, sy));
+    while (heap.size) {
+      const cur = heap.pop();
+      if (closed[cur]) continue;
+      closed[cur] = 1;
+      const x = cur % this.COLS, y = (cur / this.COLS) | 0;
+      if (done(x, y, cur === start)) {
+        return this.rebuild(from, cur).map(p => ({ x: p.x + 0.5, y: p.y + 0.5, cx: p.x, cy: p.y }));
+      }
+      const here = pace(x, y);
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dy) continue;
+        const nx = x + dx, ny = y + dy;
+        const there = pace(nx, ny);
+        if (there === Infinity) continue;
+        if (dx && dy && (pace(x + dx, y) === Infinity || pace(x, y + dy) === Infinity)) continue;
+        const next = this.idx(nx, ny);
+        if (closed[next]) continue;
+        const climb = height ? Math.abs(height[next] - height[cur]) * off.climb : 0;
+        const t = time[cur] + ((dx && dy ? SQRT2 : 1) + climb) * (here + there) / 2;
+        if (t >= time[next]) continue;
+        time[next] = t; from[next] = cur;
+        heap.push(next, t + left(nx, ny));
+      }
+    }
+    return null;
+  }
+
+  /** Quickest drive to one open tile. */
+  driveRoute(sx, sy, tx, ty, off) {
+    const left = (x, y) => {
+      const dx = Math.abs(x - tx), dy = Math.abs(y - ty);
+      return (dx + dy) + (SQRT2 - 2) * Math.min(dx, dy);
+    };
+    return this.driveSearch(sx, sy, off, (x, y) => x === tx && y === ty, left);
+  }
+
+  /** Quickest drive to any free tile within `range` of a target: the vehicle's attackRoute(). */
+  driveAttackRoute(sx, sy, targetX, targetZ, range, off) {
+    const left = (x, y) => Math.max(0, Math.hypot(x + 0.5 - targetX, y + 0.5 - targetZ) - range);
+    return this.driveSearch(sx, sy, off,
+      (x, y, isStart) => (isStart || this.get(x, y) === CELL.OPEN) && left(x, y) <= 1e-9, left);
+  }
+
+  /** Quickest drive off the rock to a free tile to park on (a single cell when already on one). */
+  driveHome(sx, sy, off) {
+    return this.driveSearch(sx, sy, off, (x, y) => this.get(x, y) === CELL.OPEN, () => 0);
+  }
+
+  /** clearWalkLine() for a vehicle: only what it cannot drive over is in the way. */
+  clearDriveLine(ax, ay, bx, by, off) {
+    const blocked = (x, y) => this.drivePace(x, y, off) === Infinity;
+    return !blocked(Math.floor(bx), Math.floor(by)) && this.clearWorldLine(ax, ay, bx, by, false,
+      (x, y) => !(x === Math.floor(ax) && y === Math.floor(ay)) && blocked(x, y));
   }
 
   /**

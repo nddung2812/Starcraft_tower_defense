@@ -89,7 +89,7 @@ export const TANK_INFO = {
   role: 'Heavy Armor',
   armor: 3,
   accent: '#e2a84a',
-  bio: 'A tracked foundry hauler carrying twin cinder launchers. Slow volleys scatter hot slag through clustered ground targets; aircraft evade the blast.',
+  bio: 'A tracked foundry hauler carrying twin cinder launchers. Slow volleys scatter hot slag through clustered ground targets; aircraft evade the blast. Its tracks climb mountains and ford lakes, so it takes the quickest way to wherever it is sent.',
   quote: '"Cinders loaded. Stand clear."'
 };
 
@@ -176,7 +176,10 @@ export const UNITS = {
     targetsAir: false,
     id: 'tank', shots: 2, tiers: TANK_TIERS, info: TANK_INFO,
     shell: true, splash: 1.65, canBunker: false, canStim: false, armory: false, turret: true,
-    mobile: true, speed: 1.25, accent: 0xd21f28
+    mobile: true, speed: 1.25, accent: 0xd21f28,
+    // All-terrain tracks: the share of road speed kept on mountain rock and wading a lake, and the
+    // extra time a climb costs per tile of height gained or lost. Routes are priced with the same numbers.
+    offroad: { rock: 0.9, water: 0.65, climb: 0.08 }
   },
   scorcher: {
     id: 'scorcher', shots: 1, tiers: SCORCHER_TIERS, info: SCORCHER_INFO, visualScale: 0.6,

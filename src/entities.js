@@ -58,6 +58,23 @@ class HealthBar {
   }
 }
 
+/**
+ * Seat an all-terrain vehicle on the mountain it is crossing: lift it to the ground under its
+ * tracks and lean the hull to the slope. On the canyon floor every sample is zero, so it sits flat.
+ */
+function rideTerrain(unit, game, dt) {
+  const h = game.heightAt;
+  if (!h) return;
+  const yaw = unit.restYaw ?? -Math.PI / 2, fx = Math.cos(yaw), fz = Math.sin(yaw);
+  const front = h(unit.x + fx * 0.45, unit.z + fz * 0.45), back = h(unit.x - fx * 0.45, unit.z - fz * 0.45);
+  const right = h(unit.x - fz * 0.35, unit.z + fx * 0.35), left = h(unit.x + fz * 0.35, unit.z - fx * 0.35);
+  unit.altitude = Math.max(h(unit.x, unit.z), (front + back) / 2, (left + right) / 2);
+  const k = Math.min(1, dt * 7), r = unit.model.rotation;
+  r.order = 'YZX';   // heading first, then nose up or down, then roll: both leans stay in the hull's own frame
+  r.z += (Math.max(-0.9, Math.min(0.9, Math.atan2(front - back, 0.9))) - r.z) * k;
+  r.x += (Math.max(-0.9, Math.min(0.9, -Math.atan2(right - left, 0.7))) - r.x) * k;
+}
+
 /* ------------------------------------------------------------------ */
 /*  MARINE                                                             */
 /* ------------------------------------------------------------------ */
@@ -187,8 +204,20 @@ export class Marine {
     if (!game.grid.inside(tx, ty) || game.grid.get(tx, ty) !== CELL.OPEN) return false;
     const sx = Math.max(0, Math.min(game.grid.COLS - 1, Math.floor(this.x)));
     const sy = Math.max(0, Math.min(game.grid.ROWS - 1, Math.floor(this.z)));
-    const path = game.grid.walkRoute(sx, sy, tx, ty);
+    const off = this.spec.offroad;
+    const path = off ? game.grid.driveRoute(sx, sy, tx, ty, off) : game.grid.walkRoute(sx, sy, tx, ty);
     return this.followRoute(path, game);
+  }
+
+  /** Can it go straight from A to B? Tanks cross rock and water; everyone else keeps to open ground. */
+  canCross(game, ax, ay, bx, by) {
+    const off = this.spec.offroad;
+    return off ? game.grid.clearDriveLine(ax, ay, bx, by, off) : game.grid.clearWalkLine(ax, ay, bx, by);
+  }
+
+  /** A tank that has left the canyon floor: up on the rock or wading a lake. */
+  offGround(game) {
+    return !!this.spec.offroad && game.grid.get(Math.floor(this.x), Math.floor(this.z)) === CELL.ROCK;
   }
 
   followRoute(path, game) {
@@ -198,7 +227,7 @@ export class Marine {
     packSiege(this);
     if (game.grid.occupant(this.tx, this.ty) === this) game.grid.clear(this.tx, this.ty);
     this.waypoints = path;
-    this.wp = game.grid.clearWalkLine(this.x, this.z, path[1].x, path[1].y) ? 1 : 0;
+    this.wp = this.canCross(game, this.x, this.z, path[1].x, path[1].y) ? 1 : 0;
     this.goalTx = tx;
     this.goalTy = ty;
     this.driving = true;
@@ -212,7 +241,7 @@ export class Marine {
     if (!node) { this.finishMove(game); return false; }
     // Orders can change between tile centers, and buildings can close an existing route.
     // Validate the full segment so neither a corner nor a long frame skips solid terrain.
-    if (!this.flying && !game.grid.clearWalkLine(this.x, this.z, node.x, node.y)) {
+    if (!this.flying && !this.canCross(game, this.x, this.z, node.x, node.y)) {
       if (!this.orderMove(this.goalTx, this.goalTy, game)) this.halt(game);
       return false;
     }
@@ -226,7 +255,9 @@ export class Marine {
     }
     const want = Math.atan2(dz, dx);
     this.restYaw = want;
-    const step = Math.min(dist, this.stats.moveSpeed * (this.stimT > 0 ? OVERDRIVE.moveSpeed : 1) * dt);
+    // off the canyon floor a tank keeps only part of its speed: slower on rock, slower still up a slope or in water
+    const terrain = this.spec.offroad ? game.grid.driveSpeed(this.x, this.z, dx / dist, dz / dist, this.spec.offroad) : 1;
+    const step = Math.min(dist, this.stats.moveSpeed * terrain * (this.stimT > 0 ? OVERDRIVE.moveSpeed : 1) * dt);
     const nx = this.x + (dx / dist) * step;
     const nz = this.z + (dz / dist) * step;
     this.x = nx;
@@ -274,7 +305,9 @@ export class Marine {
   chase(game) {
     const t = this.order.target;
     if (this.flying) { this.orderMove(Math.floor(t.x), Math.floor(t.z), game); return; }
-    const path = game.grid.attackRoute(Math.floor(this.x), Math.floor(this.z), t.x, t.z, this.attackRange * 0.9);
+    const off = this.spec.offroad, cx = Math.floor(this.x), cz = Math.floor(this.z), reach = this.attackRange * 0.9;
+    // a tank takes whichever way gets its guns in range soonest, over the mountains if that beats the canyon
+    const path = off ? game.grid.driveAttackRoute(cx, cz, t.x, t.z, reach, off) : game.grid.attackRoute(cx, cz, t.x, t.z, reach);
     if (!path) { this.halt(game); return; }
     if (path.length === 1) { this.halt(game); return; }
     this.followRoute(path, game);
@@ -294,6 +327,10 @@ export class Marine {
     let spot = null;
     if (game.grid.inside(this.goalTx, this.goalTy) && game.grid.get(this.goalTx, this.goalTy) === CELL.OPEN) {
       spot = { x: this.goalTx, y: this.goalTy };
+    } else if (this.spec.offroad) {
+      // stopped on a ridge or in a lake: nothing parks there, so drive down to the quickest free tile
+      const home = game.grid.driveHome(Math.floor(this.x), Math.floor(this.z), this.spec.offroad)?.at(-1);
+      if (home) spot = { x: home.cx, y: home.cy };
     } else {
       const ox = Math.floor(this.x), oy = Math.floor(this.z);
       for (let r = 0; r <= 2 && !spot; r++) {
@@ -364,7 +401,7 @@ export class Marine {
 
     if (this.kind === 'cruiser') updateBattlecruiser(this, dt, game);
 
-    let o = this.order;
+    let o = this.order, holding = false;
     if (o?.type === 'attack' && !game.isEnemy(o.target)) this.order = o = null;
     if (o?.type === 'advance') {
       if (!o.target || o.target.dead) {
@@ -384,7 +421,8 @@ export class Marine {
       // close in until comfortably inside range, then hold; only give chase again once it is truly out of reach
       const d = this.distTo(o.target);
       const chasing = this.driving ? d > this.attackRange * 0.9 : d > this.attackRange;
-      if (!chasing) this.halt(game);
+      // a tank with the range from a ridge or a ford fires from there, and drives on once the target is gone
+      if (!chasing) { if (this.offGround(game)) holding = true; else this.halt(game); }
       else {
         this.chaseT -= dt;
         if (this.chaseT <= 0) { this.chaseT = 0.6; this.chase(game); }
@@ -392,7 +430,7 @@ export class Marine {
     }
     // attack-move: plant feet while something is in the sights, then carry on
     const engaged = (o?.type === 'amove' || o?.type === 'advance') && !!this.seek(game);
-    const driving = this.bunker || engaged ? false : this.stepMove(dt, game);
+    const driving = this.bunker || engaged || holding ? false : this.stepMove(dt, game);
 
     if (this.bunker) {
       this.x = this.bunker.x;
@@ -400,6 +438,7 @@ export class Marine {
       this.obj.visible = false;
     } else {
       this.obj.visible = true;
+      if (this.spec.offroad) rideTerrain(this, game, dt);
       this.obj.position.set(this.x, this.altitude, this.z);
     }
 
@@ -1509,7 +1548,7 @@ export class Acid {
 
   update(dt, game) {
     if (!this.target || this.target.dead) { this.dead = true; return; }
-    const dx = this.target.x - this.x, dy = (this.target.flying ? this.target.obj.position.y + 0.3 : 0.4) - this.y, dz = this.target.z - this.z;
+    const dx = this.target.x - this.x, dy = (this.target.flying ? this.target.obj.position.y + 0.3 : (this.target.altitude || 0) + 0.4) - this.y, dz = this.target.z - this.z;
     const d = Math.hypot(dx, dy, dz);
     const step = this.speed * dt;
     if (d <= step) {
@@ -1689,7 +1728,7 @@ export class Tracer {
       return;
     }
     if (this.rocket) this.speed = Math.min(26, this.speed + 46 * dt);
-    const ty = (this.target.flying ? this.target.obj.position.y : 0) + (this.target.kind === 'zergling' ? 0.3 : 0.6);
+    const ty = (this.target.flying ? this.target.obj.position.y : this.target.altitude || 0) + (this.target.kind === 'zergling' ? 0.3 : 0.6);
     const dx = this.target.x - this.x, dy = ty - this.y, dz = this.target.z - this.z;
     const d = Math.hypot(dx, dy, dz);
     const step = this.speed * dt;

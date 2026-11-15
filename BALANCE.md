@@ -179,6 +179,24 @@ balance as permanent treasure stacks and enemy HP grow.
   bosses and multiple hives, laser damage/charging/carryover, mouse controls and mobile layout.
 
 
+## Hammer all-terrain driving (Nov 15, 2026)
+
+- The Hammer is the only ground unit that leaves the canyon floor. It drives over mountain rock
+  and through lakes; boulders, spires, walls, bunkers, the base and hive mouths still block it.
+- Speed off the road (`UNITS.tank.offroad`): 90% on rock, 65% wading a lake, and a climb costs
+  8% more time per tile of height gained or lost over a tile. Road speed is still 1.25.
+- Every order is routed by travel time with those same numbers: Attack, an attack on a target,
+  and a plain move. The tank goes over a ridge only when that is quicker than the canyon. Estimated
+  on 36 hive approaches (rounds 1 to 26, approximated heights): 19 are quicker over the rock, by 4%
+  on average and 11% at most. Moving between two lanes gains far more: in the browser test a
+  12-tile hop over a ridge takes 11.9 s, against about 18 s for the 23 tiles by road.
+- It can only park on a free canyon tile. Stop on a ridge sends it down to the quickest one. With
+  an attack target in range it fires from where it stands, ridge or ford, then drives on.
+- Up there ground bugs cannot reach it (they still need open ground to walk or shoot across) and
+  the Tunnel Maw cannot surface under it. Flyers, boss bombardment and bugs standing right at the
+  foot of the slope can still hit it, and the Patch Rig cannot climb up to repair or revive it.
+  This is a real buff to a 280-mineral unit: not re-tuned and not playtested.
+
 ## Hammer shells (Nov 15, 2026)
 
 - A Hammer round is no longer drawn in flight: the guns flash and smoke, and the round lands as

@@ -3,8 +3,8 @@ import { MAW, CELL } from './config.js';
 import { Zergling } from './entities.js';
 
 const ease = (k) => k * k * (3 - 2 * k);
-/** Ground units out in the open. Aircraft and bunker troops are out of its reach. */
-const exposed = (u) => !u.dead && !u.downed && !u.flying && !u.bunker && u.spec?.mobile;
+/** Ground units out in the open. Aircraft, bunker troops and a tank up on the rock or in a lake are out of its reach. */
+const exposed = (u, g) => !u.dead && !u.downed && !u.flying && !u.bunker && u.spec?.mobile && !u.offGround?.(g);
 
 /**
  * The worm itself: it never marches. It rises where the ambush marked, holds whatever it
@@ -189,7 +189,7 @@ export class MawAmbush {
     if (!g.queue.length && !g.zerglings.some((z) => !z.dead && !z.isMaw)) return;
     this.timer -= dt;
     if (this.timer > 0 || this.marks.length || g.zerglings.some((z) => z.isMaw && !z.dead)) return;
-    const prey = g.gunners.filter(exposed);
+    const prey = g.gunners.filter(u => exposed(u, g));
     if (!prey.length) { this.timer = 3; return; }
     this.timer = this.interval;
     for (let n = g.level >= MAW.pairRound ? 2 : 1; n > 0 && prey.length; n--) {
@@ -232,7 +232,7 @@ export class MawAmbush {
     let victim = null, best = MAW.radius;
     for (const unit of g.gunners) {
       const d = Math.hypot(unit.x - mark.x, unit.z - mark.z);
-      if (exposed(unit) && d <= best) { victim = unit; best = d; }
+      if (exposed(unit, g) && d <= best) { victim = unit; best = d; }
     }
     if (victim) maw.gulp(victim, g);
     else g.fx.label({ x: mark.x, y: 2.4, z: mark.z }, 'MAW MISSED', 'evolution');

@@ -125,6 +125,9 @@ function tileAt(ev) {
   return { x: tx, y: ty, world: p };
 }
 
+/** Drawn well above its ground tile: aircraft, and a tank up on a mountain. */
+const lifted = e => e.flying || e.altitude > 0.3;
+
 /** Bugs first (they are what you are usually clicking at), then our own things. */
 function entityAt(tile) {
   // Air silhouettes project away from their ground tile: pick them at flight height.
@@ -133,7 +136,7 @@ function entityAt(tile) {
   const mouseY = r.top + (1 - ndc.y) * r.height / 2;
   let airPick = null, airDistance = 28;
   for (const e of [...game.zerglings, ...game.gunners]) {
-    if (!e.flying || e.dead) continue;
+    if (!lifted(e) || e.dead) continue;
     const p = screenPos(e);
     const distance = Math.hypot(p.x - mouseX, p.y - mouseY);
     if (p.front && distance < airDistance) { airPick = e; airDistance = distance; }
@@ -151,7 +154,7 @@ function entityAt(tile) {
   if (best) return best;
   bd = 0.6;
   for (const m of game.gunners) {
-    if (m.dead || m.bunker || m.flying) continue;
+    if (m.dead || m.bunker || lifted(m)) continue;
     const d = Math.hypot(m.x - wx, m.z - wz);
     if (d < bd) { bd = d; best = m; }
   }
@@ -191,7 +194,7 @@ function alive(e) {
 function army() { return selection.filter(isUnit); }
 
 function screenPos(e) {
-  proj.set(e.x, (e.flying ? e.obj.position.y : 0) + 0.4, e.z).project(stage.camera);
+  proj.set(e.x, (lifted(e) ? e.obj.position.y : 0) + 0.4, e.z).project(stage.camera);
   const r = canvas.getBoundingClientRect();
   return {
     x: r.left + ((proj.x + 1) / 2) * r.width,
