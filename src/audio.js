@@ -59,6 +59,7 @@ export const sfx = {
 
   gauss() { noise(0.1, 'bandpass', 2600, 1.1, 0.55, 6); tone('square', 320, 90, 0.08, 0.1); },
   cannon() { noise(0.16, 'lowpass', 420, 0.55, 0.5, 3); tone('sawtooth', 96, 38, 0.2, 0.14); },
+  rocket() { noise(0.3, 'bandpass', 760, 0.7, 0.34, 1.7); tone('sawtooth', 240, 80, 0.22, 0.05); },
   rumble() { noise(1.1, 'lowpass', 140, 0.9, 0.5, 1.2); tone('sine', 46, 38, 1.1, 0.16); },
   mawErupt() { noise(0.5, 'lowpass', 520, 0.8, 0.6, 3); tone('sawtooth', 70, 150, 0.3, 0.16); tone('square', 210, 60, 0.45, 0.07, 0.08); },
   gulp() { tone('sine', 190, 60, 0.28, 0.18); noise(0.18, 'lowpass', 300, 0.9, 0.4, 2); },

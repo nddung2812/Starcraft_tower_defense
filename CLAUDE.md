@@ -267,6 +267,14 @@ the balance suite checks the starting squad can clear both opening approaches.
 - Run-wide `baseLevel` research costs 200 + 150 × current level minerals. Every level adds
   15% health/damage to current and future combat units, and health to the Patch Rig. The
   unit stores its research level so promotions and treasure recalculation retain the bonus.
+- Research is timed (Nov 15, 2026). `upgradeBase()` takes the minerals and starts
+  `baseUpgradeT` (`baseUpgradeTime(level)`: 6 s + 1 s per level, 12 s at most); the level and
+  its stats land in `completeBaseUpgrade()`, which `update()` calls when the timer runs out
+  (tests call it directly). The timer is an optional checkpoint field. `buildCore(level)` /
+  `upgradeCore(model, level)` in `models.js` dress the base: one named group per level
+  (`CoreStage1`…, listed in `CORE_STAGES`) so `Core.setLevel()` can grow the newest one in.
+- Atlas (`goliath`) volleys are rockets: `UNITS.goliath.rocket` makes its `Tracer`s use a rocket
+  model, accelerate and lay smoke puffs. They are still `game.tracers` with tracer damage.
 - Wave completion enters `raid` for 15 simulation seconds before `completeWave()`. All wave
   spawns, the boss, and remaining enemies must be cleared first. `game.hives` are attackable
   bonus targets only during this phase, with a one-time mineral bounty. They never count as

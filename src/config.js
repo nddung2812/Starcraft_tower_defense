@@ -31,7 +31,7 @@ export const BUILD = {
   wall: { id: 'wall', name: 'Barrier', cost: 25, hp: 320, icon: 'W', key: 'W', desc: 'Plasteel barricade. The swarm chews through it or goes around.' },
   marine: { id: 'marine', name: 'Trooper', cost: 60, icon: 'M', key: 'M', desc: 'Trooper. Right-click the canyon to move him. Promote, engage Overdrive, or garrison a bunker.' },
   bunker: { id: 'bunker', name: 'Bunker', cost: 80, hp: 300, icon: 'B', key: 'B', desc: 'Two cannons, one per Trooper. Garrison up to two: +50% damage and +2 range. Troopers survive bunker destruction.' },
-  goliath: { id: 'goliath', name: 'Atlas', cost: 160, icon: 'G', key: 'G', desc: 'Walker with twin autocannons. Long reach. Too big for a bunker.' },
+  goliath: { id: 'goliath', name: 'Atlas', cost: 160, icon: 'G', key: 'G', desc: 'Walker with twin rocket pods. Long reach. Too big for a bunker.' },
   falcon: { id: 'falcon', name: 'Vector', cost: 240, icon: 'V', key: 'V', desc: 'Flying gunship. Twin cannons attack ground and air. Flies over terrain; vulnerable to spines and flying hunters.' },
   tank: { id: 'tank', name: 'Hammer', cost: 280, icon: 'H', key: 'T', desc: 'Silver heavy tank. Twin cinder launchers. Right-click the canyon to drive it.' },
   // Specialists join the build bar one round at a time (`unlock` is the first round they can be built).
@@ -74,7 +74,7 @@ export const GOLIATH_INFO = {
   role: 'Combat Walker',
   armor: 2,
   accent: '#c6e07a',
-  bio: 'A heavy mining walker refitted with paired coil repeaters. Advances slowly with the army, providing durable, long-range fire against ground and air targets.',
+  bio: 'A heavy mining walker refitted with paired rocket pods. Advances slowly with the army, providing durable, long-range fire against ground and air targets.',
   quote: '"Target locked. Both barrels."'
 };
 
@@ -164,7 +164,8 @@ export const UNITS = {
   goliath: {
     id: 'goliath', shots: 2, tiers: GOLIATH_TIERS, info: GOLIATH_INFO, visualScale: 0.6460,
     shell: false, splash: 0, canBunker: false, canStim: false, armory: false, turret: false,
-    mobile: true, speed: 1.5, accent: 0xc6e07a
+    mobile: true, speed: 1.5, accent: 0xc6e07a,
+    rocket: true   // volleys fly as smoke-trailed rockets; damage and targeting are unchanged
   },
   falcon: {
     id: 'falcon', shots: 2, tiers: FALCON_TIERS, info: FALCON_INFO, visualScale: 0.8,

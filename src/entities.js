@@ -586,6 +586,7 @@ export class Marine {
       const t = this.target;
       game.fx.link(locals[0], { x: t.x, y: (t.flying ? t.obj.position.y : 0) + 0.4, z: t.z }, 0xe6d4ff, 0.2, 0.022);
     }
+    else if (this.spec.rocket) game.sfx.rocket();
     else game.sfx.gauss();
     if (!game.called) { game.called = true; game.voice.say('acquired'); }
   }
@@ -1647,6 +1648,13 @@ export class Shell {
 /* ------------------------------------------------------------------ */
 
 const TRACER_GEO = new THREE.BoxGeometry(1, 0.035, 0.035);
+// Rockets point along +X like tracers: steel body, red nose, a short exhaust flame behind.
+const ROCKET_BODY = new THREE.CylinderGeometry(0.04, 0.04, 0.3, 8).rotateZ(-Math.PI / 2);
+const ROCKET_NOSE = new THREE.ConeGeometry(0.04, 0.12, 8).rotateZ(-Math.PI / 2).translate(0.21, 0, 0);
+const ROCKET_FLAME = new THREE.ConeGeometry(0.035, 0.26, 6).rotateZ(Math.PI / 2).translate(-0.28, 0, 0);
+const ROCKET_STEEL = new THREE.MeshStandardMaterial({ color: 0xd4d9de, metalness: 0.6, roughness: 0.4 });
+const ROCKET_RED = new THREE.MeshStandardMaterial({ color: 0xc8322c, emissive: 0x4a0c08, roughness: 0.5 });
+const ROCKET_FIRE = new THREE.MeshBasicMaterial({ color: 0xffb04a, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false });
 const TRACER_MAT = new THREE.MeshBasicMaterial({
   color: 0xbfe9ff, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false
 });
@@ -1664,17 +1672,33 @@ export class Tracer {
     // Spectre rounds are fast, heavy, and ignore armour.
     this.pierce = !!owner?.spec?.pierce;
     if (this.pierce) { this.speed = 110; this.mesh.scale.set(1.6, 2, 2); }
+    // Walker rockets leave the pod slowly, accelerate and trail smoke. Damage is the tracer's.
+    this.rocket = !!owner?.spec?.rocket;
+    if (this.rocket) {
+      this.speed = 7;
+      this.mesh = new THREE.Group();
+      this.mesh.add(new THREE.Mesh(ROCKET_BODY, ROCKET_STEEL), new THREE.Mesh(ROCKET_NOSE, ROCKET_RED), new THREE.Mesh(ROCKET_FLAME, ROCKET_FIRE));
+      this.mesh.position.set(this.x, this.y, this.z);
+    }
   }
 
   update(dt, game) {
-    if (!this.target || this.target.dead) { this.dead = true; return; }
+    if (!this.target || this.target.dead) {
+      this.dead = true;
+      if (this.rocket) game.fx.smoke(this, 3, [0.6, 0.6, 0.64]);   // fizzles out where it lost its target
+      return;
+    }
+    if (this.rocket) this.speed = Math.min(26, this.speed + 46 * dt);
     const ty = (this.target.flying ? this.target.obj.position.y : 0) + (this.target.kind === 'zergling' ? 0.3 : 0.6);
     const dx = this.target.x - this.x, dy = ty - this.y, dz = this.target.z - this.z;
     const d = Math.hypot(dx, dy, dz);
     const step = this.speed * dt;
     if (d <= step) {
       this.dead = true;
-      game.fx.impact({ x: this.target.x, y: ty, z: this.target.z }, Math.atan2(dz, dx));
+      if (this.rocket) {
+        game.fx.explosion({ x: this.target.x, y: ty, z: this.target.z }, 0.3);
+        game.sfx.impact();
+      } else game.fx.impact({ x: this.target.x, y: ty, z: this.target.z }, Math.atan2(dz, dx));
       this.target.takeDamage(this.damage + (this.pierce ? this.target.armor || 0 : 0), game, Math.atan2(dz, dx));
       chainLightning(this, game);
       return;
@@ -1685,6 +1709,17 @@ export class Tracer {
     this.mesh.position.set(this.x, this.y, this.z);
     this.mesh.rotation.y = -Math.atan2(dz, dx);
     this.mesh.rotation.z = Math.asin(Math.max(-1, Math.min(1, dy / d)));
+    if (this.rocket) {
+      // Lay puffs along the whole step so the trail stays unbroken at low frame rates.
+      const puffs = Math.max(1, Math.ceil(step / 0.2));
+      for (let i = 0; i < puffs; i++) {
+        const back = 0.3 + (i / puffs) * step;
+        game.fx.spawn(this.x - dx / d * back, this.y - dy / d * back, this.z - dz / d * back,
+          (Math.random() - 0.5) * 0.5, 0.15 + Math.random() * 0.4, (Math.random() - 0.5) * 0.5,
+          0.65 + Math.random() * 0.3, 0.38 + Math.random() * 0.1, [0.34, 0.34, 0.38], { drag: 1.5, gravity: 0.5, grow: 1 });
+      }
+      this.mesh.children[2].scale.x = 0.7 + Math.random() * 0.6;   // flickering exhaust
+    }
   }
 }
 

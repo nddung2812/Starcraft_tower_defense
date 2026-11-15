@@ -50,6 +50,8 @@ already owned. Rank scaling uses log2(rank), so repeat picks have diminishing ga
 - Walking Fortress: Hammers deploy after 1.2 seconds stationary, gaining
   +5 range and +0.6 splash radius. Additional ranks add 0.75 × log2(rank) range.
   Valid move orders immediately retract the gold stabilizers and remove the bonuses.
+- Atlas volleys are rockets with smoke trails (Nov 15, 2026): the same two shots, damage, range
+  and rate as before, but they accelerate from the pods (7 to 26 tiles/second) and burst on impact.
 - Chain Lightning: each Atlas projectile jumps to two distinct nearby
   enemies, within 3.5 tiles of the previous target. Each jump deals 50% of the
   projectile damage, plus 10 percentage points × log2(rank), before target armor.
@@ -142,6 +144,11 @@ balance as permanent treasure stacks and enemy HP grow.
   future combat units. Patch Rigs gain health too. Promotions and Trooper loot apply first;
   research multiplies the result. Existing health percentages are preserved. Research lasts
   for the run and is included in checkpoints, independently of hardware refunds.
+- Research is paid at once and lands after a build: 6 s for the first level, one second more
+  per level, 12 s at most. Only one can build at a time; pausing freezes it and a checkpoint
+  keeps the time left. Each level adds to the building: lit gallery, armour buttresses, beacon
+  mast, gold command band, guard pylons, power conduits, halo ring, pylon crowns, spire crown,
+  sky beacon; every level also adds a foundation stud (24 at most) and brightens the hull.
 - After all queued enemies, bosses, and reinforcements are cleared, an optional 60-second phase
   keeps the current battlefield active. A two-second “Destroy enemy's base” notice replaces
   the visible countdown. Hives are attackable during combat and this optional phase by units, artillery, strikes,

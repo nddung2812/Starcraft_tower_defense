@@ -397,7 +397,7 @@ let modeTip = false;   // is the status line showing a mode hint we should clear
 const PLACE_TIP = {
   wall: 'Walls redirect the swarm, and bugs stop to chew them. Drag to lay a run. Right-click cancels.',
   marine: 'Place a Trooper. Right-click the ground to move him later.',
-  goliath: 'Atlas. Twin autocannons, long reach. Advances with the army; too big for a bunker.',
+  goliath: 'Atlas. Twin rocket pods, long reach. Advances with the army; too big for a bunker.',
   cruiser: 'Titan. Four batteries, heavy armour, and auto Yamato against heavy targets. J builds; select and press Y to fire manually.',
   falcon: 'Vector. Attacks ground and air. Right-click to fly over any terrain. V to deploy another.',
   tank: 'Hammer. Twin cannons, wide blast. Right-click the ground to drive it.',

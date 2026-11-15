@@ -41,6 +41,11 @@ const assert = require('node:assert/strict');
       u.fire(g); g.fx.muzzleFlash = oldFlash;
       check(flashes.length === 2 && flashes[0].distanceTo(flashes[1]) > .5, 'Twin cannon origins collapsed');
       check(g.tracers.length === 2 && g.tracers.every(t => t.target === enemy), 'Twin cannon volley changed');
+      // The volley flies as rockets: a model rather than a tracer streak, accelerating, trailing smoke.
+      check(g.tracers.every(t => t.rocket && t.mesh.isGroup && t.mesh.parent === g.scene), 'Walker volley is not rockets');
+      const smokeBefore = g.fx.p.length, launchSpeed = g.tracers[0].speed;
+      g.tracers[0].update(1 / 30, g);
+      check(g.fx.p.length > smokeBefore && g.tracers[0].speed > launchSpeed, 'Rocket leaves no smoke trail or does not accelerate');
       g.evolutions.chain = 1; syncEvolutionVisual(u, g); check(u.evolutionVisual, 'Chain lightning visual missing');
       u.obj.updateMatrixWorld(true);
       const muzzles = ['Muzzle-1','Muzzle1'].map(name => u.model.getObjectByName(name).getWorldPosition(new T.Vector3()).toArray());
