@@ -98,6 +98,18 @@ spawning, routing, stats or score.
 - `tests/browser-opening.cjs` (sweep, estimate, manual, tap orders, pinch) and
   `tests/browser-story.cjs` (totals, script, result, share, phases, missing layer).
 
+## Fire and smoke particles (Nov 15, 2026)
+
+- `fx.js` now draws two point clouds: `glow` (additive: sparks, fire) and `dark` (normal blending:
+  smoke, drawn first). `spawn()` opts `ramp` (colour follows `FIRE_RAMP` with age) and `dark` make
+  a particle a ragged puff **sized in tiles**; every other particle keeps the old screen-tuned
+  size. The `fire` attribute is the puff's seed and must stay above zero: zero means a plain spark.
+- `fx.flame(p, dir, reach, arc, source)` does not spawn a burst. It registers a jet that
+  `fx.pour(dt)` feeds every frame for `FLAME.hold` seconds after the last call and that follows
+  `source.yaw`, so repeated shots read as one stream. `fx.burning()` is the small upward flame used
+  for burning bugs and ground fuel. `FLAME.shared` caps the total emission when many Torches fire.
+- `tests/browser-flame.cjs` checks continuity, reach, spread, smoke, budget and unchanged damage.
+
 ## Hammer all-terrain driving (Nov 15, 2026)
 
 - `UNITS.tank.offroad` (`rock`, `water`, `climb`) makes a unit all-terrain. Only the Hammer has it;

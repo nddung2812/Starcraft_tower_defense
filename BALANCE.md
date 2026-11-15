@@ -179,6 +179,19 @@ balance as permanent treasure stacks and enemy HP grow.
   bosses and multiple hives, laser damage/charging/carryover, mouse controls and mobile layout.
 
 
+## Torch flame (Nov 15, 2026)
+
+Presentation only: damage, cone, range and firing interval are unchanged.
+
+- The Torch's fire was 12 small round dots per shot. It is now one continuous jet that keeps
+  pouring between shots: white-hot at the nozzle, a tight yellow core, ragged orange billows that
+  fan out across the cone and lift at the far end, black smoke rolling off, embers, a flicker of
+  firelight, and a little fuel left burning on the ground for a second or so.
+- Burning bugs show flames licking up from them, and scorch marks scatter through the cone
+  instead of stacking into one black disc. The ground fire and scorch marks do no damage.
+- About 80 particles for one Torch in sustained fire; from the ninth Torch on they share one
+  budget (20 Torches measured at about 1,000 particles, cap 3,000).
+
 ## Hammer all-terrain driving (Nov 15, 2026)
 
 - The Hammer is the only ground unit that leaves the canyon floor. It drives over mountain rock

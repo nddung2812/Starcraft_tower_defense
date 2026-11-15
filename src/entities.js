@@ -566,7 +566,7 @@ export class Marine {
     ud.weapon.updateWorldMatrix(true, false);
     const from = ud.weapon.userData.muzzle.clone().applyMatrix4(ud.weapon.matrixWorld);
     const reach = this.attackRange, arc = this.spec.flame.arc;
-    game.fx.flame(from, this.yaw, reach, arc);
+    game.fx.flame(from, this.yaw, reach, arc, this);
     game.sfx.flame();
     for (const bug of game.combatTargets.slice()) {
       if (bug.dead || bug.flying) continue;
@@ -574,10 +574,14 @@ export class Marine {
       if (d > reach) continue;
       const off = Math.abs(normAngle(Math.atan2(bug.z - this.z, bug.x - this.x) - this.yaw));
       if (off > arc && bug !== this.target && d > 0.9) continue;
-      game.fx.spawn(bug.x, 0.35, bug.z, 0, 1.4, 0, 0.3, 0.16, [1, 0.6, 0.2], { drag: 1, grow: 0.5 });
+      game.fx.burning(bug.x, bug.kind === 'hive' ? 0.6 : 0.3, bug.z, bug.kind === 'hive' ? 2.2 : Math.max(0.8, Math.min(2, bug.scale || 1)));
       bug.takeDamage(this.stats.damage, game, this.yaw, true);
     }
-    if (Math.random() < 0.25) game.fx.decal(this.x + Math.cos(this.yaw) * reach * 0.6, this.z + Math.sin(this.yaw) * reach * 0.6, 0.5, 0x1c120c, 0.4);
+    if (Math.random() < 0.3) {
+      // scorch marks scattered through the cone, faint enough to build up instead of stamping one black disc
+      const a = this.yaw + (Math.random() - 0.5) * arc * 1.6, d = reach * (0.35 + Math.random() * 0.6);
+      game.fx.decal(this.x + Math.cos(a) * d, this.z + Math.sin(a) * d, 0.3 + Math.random() * 0.25, 0x1c120c, 0.2);
+    }
     if (!game.called) { game.called = true; game.voice.say('acquired'); }
   }
 
