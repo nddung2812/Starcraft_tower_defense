@@ -484,6 +484,7 @@ export function milestonePlan(level) {
     tier, difficulty: hard ? 'HARD' : 'MEDIUM', hard,
     treasureMin: hard ? 2 : 1, treasureMax: hard ? 3 : 2,
     name: hard ? names[Math.min(tier - 1, 2)] : 'RIFT WARDEN',
+    model: hard ? ['breacher', 'queen', 'eater'][Math.min(tier - 1, 2)] : 'warden',   // a kind in MODEL_FILES
     hp: Math.round((1800 + (tier - 1) * 2800) * (hard ? 1 : 0.5)),
     armor: (hard ? 3 : 1) + tier, damage: Math.round((22 + tier * 8) * (hard ? 1 : 0.65)),
     scale: 2.1 + Math.min(tier, 5) * 0.25,
@@ -498,6 +499,5 @@ export function milestonePlan(level) {
     reinforcementInterval: Math.max(7, 15 - tier * 2) * (hard ? 1 : 1.4),
     reinforcements: Math.min(12, (hard ? 2 : 0) + tier * 2),
     reward: Math.round((300 + tier * 250) * (hard ? 1 : 0.6))
-    model: hard ? ['breacher', 'queen', 'eater'][Math.min(tier - 1, 2)] : 'warden',   // a kind in MODEL_FILES
   };
 }
