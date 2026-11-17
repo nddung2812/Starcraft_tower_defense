@@ -125,7 +125,7 @@ export function readCheckpoint(storage) {
 export function restoreCheckpoint(g, s) {
   if (!validateCheckpoint(s)) throw Error('This saved run is incompatible or damaged.');
   g.wipeUnits();
-  Object.assign(g, { match: null, mapLevel: null, level: s.level, mapSeed: s.seed, minerals: s.minerals, kills: s.kills, score: s.kills,
+  Object.assign(g, { match: null, matchMap: null, level: s.level, mapSeed: s.seed, minerals: s.minerals, kills: s.kills, score: s.kills,
     mapVersion: s.mapVersion ?? 1, baseLevel: s.baseLevel ?? 0, baseUpgradeT: s.baseUpgradeT ?? 0, laserCharge: s.laserCharge ?? 0,
     time: s.time, airStrikeCd: s.airStrikeCd, state: 'build', paused: true, queue: [],
     armory: s.armory.map(id => ARMORY.find(a => a.id === id)),

@@ -153,7 +153,7 @@
         <span class="intro__hint">Start with 3 soldiers. They fire automatically.</span>
         <button id="btnDaily" class="btn btn--gold" type="submit" name="deploy" value="daily">Daily challenge</button>
         <span id="dailyInfo" class="intro__hint"></span>
-        <button id="btnSkirmish" class="btn btn--gold" type="submit" name="deploy" value="skirmish" hidden>Skirmish · destroy the hives</button>
+        <button id="btnSkirmish" class="btn btn--gold" type="button" aria-haspopup="dialog" aria-controls="skirmishDialog" hidden>Skirmish · set up your battle</button>
         <span id="skirmishInfo" class="intro__hint" hidden></span>
         <button class="btn btn--ghost" type="submit" name="deploy" value="build">Build my own defense</button>
         <button id="introCareer" class="career-teaser" type="button" data-career></button>
@@ -265,6 +265,14 @@
   <p class="career-help">Army rings appear beneath your units, including new recruits.</p>
   <div id="cosmeticLoadout" class="cosmetic-loadout"></div>
   <p id="careerStorage" class="save-feedback" role="status"></p>
+</dialog>
+
+<dialog id="skirmishDialog" class="career-dialog skirmish-dialog" aria-labelledby="skirmishTitle">
+  <div class="career-heading"><div><span class="intro__eyebrow">SKIRMISH</span><h2 id="skirmishTitle">Set up your battle</h2></div><button id="closeSkirmish" class="btn" type="button" aria-label="Close setup">×</button></div>
+  <p class="career-help">One map, one match. Destroy every hive to win; lose if the relay falls.</p>
+  <div id="skirmishSetup" class="skirmish-setup"></div>
+  <p id="skirmishSummary" class="skirmish-summary" role="status"></p>
+  <div class="share-actions"><button id="startSkirmish" class="btn btn--primary" type="button">Start match</button></div>
 </dialog>
 
 <dialog id="replaceDialog" class="career-dialog replace-dialog" aria-labelledby="replaceTitle">

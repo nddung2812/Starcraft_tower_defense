@@ -445,19 +445,34 @@ bonus, armour, aircraft/garrison protection, wall occlusion, Yamato survival and
 
 ## Skirmish (Nov 17, 2026)
 
-One continuous match on one map, started from the Skirmish button. Destroy every hive to win;
-lose if the relay falls. Tuning is `SKIRMISH` in `src/config.js`; the rules are in
-`src/skirmish.js`. This is the first of three planned steps: the setup is fixed, and a setup
-screen and hive personalities are not built.
+One continuous match on one map, set up by the player from the Skirmish button. Destroy every
+hive to win; lose if the relay falls. Tuning is `SKIRMISH` in `src/config.js`; the rules are in
+`src/skirmish.js` and the maps come from `carveMatch()` in `src/levels.js`. Hive personalities,
+the third planned step, are not built.
+
+### The setup screen
+
+| Choice | Options | What it changes |
+| --- | --- | --- |
+| Hives | 1 to 7 | How many hives must be destroyed, where they are, and the size of the swarm: 60% + 20% per hive of the standard swarm (2 hives = 100%, 4 = 140%, 7 = 200%) |
+| Swarm | Calm, Standard, Fierce | Calm: a wave every 50 s, 80% swarm, 85% hive health. Standard: 40 s. Fierce: every 32 s, 125% swarm, 120% hive health |
+| Map | Auto, 56, 72, 88, 104, 120 | The length of every march. Auto is the smallest allowed: 56 for 1–2 hives, 72 for 3–4, 88 for 5–6, 104 for 7 |
+| Starting minerals | 300, 480, 800, 1,200 | The opening squad costs 180 of them |
+| Opening | 3 Troopers, or plan first | Planning starts paused on the first countdown with nothing placed |
+
+One or two hives share one side with the base at the far end. Three add a flank behind an inland
+base. Four or more surround a base in the middle of the map, and the fifth to seventh double up
+on sides (opposite sides first). The swarm and health factors multiply: four Fierce hives send
+175% of the standard swarm and start at 3,120 health.
+
+### Rules
 
 | Rule | Value |
 | --- | --- |
-| Map | The round-1 battlefield for the seed: 56×56, two hives on one side, two routes |
-| Start | 480 minerals, three Troopers placed (the Quick Deploy squad) |
-| Waves | Wave 1 at the start, then one every 40 seconds whether or not the last is dead |
-| Wave N | The endless stand's round-N swarm (`wavePlan(N)`), split between the hives |
+| Waves | Wave 1 at the start, then one per wave gap whether or not the last is dead |
+| Wave N | The endless stand's round-N swarm (`wavePlan(N)`) scaled to the setup, dealt to the hives in turn |
 | Pay for each wave held | 40 + 15 × the wave just held, paid as the next wave leaves. Kills pay as usual |
-| Hive health | 1,800, plus 300 for every wave launched (max and current) |
+| Hive health | 2,600, plus 200 for every wave launched (max and current), times the swarm setting's factor |
 | Hive guards | Hit a hive and it hatches round(3 + 0.5 × (wave − 1)) bugs beside itself, 10 at most, once per 6 seconds per hive. Rippers, with every fourth a Brute from wave 4, at +10% health per wave |
 | Hive bounty | 250 minerals |
 | A destroyed hive | Stops sending what it had queued, and its share of every later wave is gone |
@@ -466,35 +481,53 @@ screen and hive personalities are not built.
 
 For comparison, a round-1 hive in the endless stand has 300 health and pays 100.
 
-The result is the time to win. The best time, wins and matches played are kept per browser
-(`td.skirmish.v1`). Play Again is a rematch on the same seed.
+The result is the time to win. The best time, wins and matches played are kept per setup (hives,
+swarm, map size and minerals) and per browser in `td.skirmish.v1`; the last setup is remembered
+in `td.skirmish.setup.v1`. Play Again is a rematch on the same seed and setup.
 
-**What the numbers were tuned against.** A bot played 6 seeds per plan. It spends everything on
-Troopers, with an Atlas for every fourth unit from wave 3; when it pushes it keeps a quarter of
-the army home and keeps sending the rest. It never promotes, builds walls or bunkers, researches,
-or uses the strike or the laser, so these are a floor for a careful player, not a prediction.
+### What the numbers were tuned against
+
+Bot matches only: no person has played a full match yet. The bot spends everything on Troopers,
+with an Atlas for every fourth unit from wave 3. When it pushes it keeps a quarter of the army
+home and keeps sending the rest, later recruits included. It never promotes, builds walls or
+bunkers, researches, or uses the strike or the laser, so these are a floor for a careful player,
+not a prediction.
+
+Default setup (2 hives, Standard, 56×56, 480 minerals):
 
 | Bot plan | Wins | Typical end |
 | --- | ---: | --- |
-| All-in from the first second | 0 / 6 | Relay falls in 1:12–1:59, no hive taken |
-| Push at wave 3 | 0 / 6 | |
-| Push at wave 5 | 2 / 6 | Wins at about 5:20 |
-| Push at wave 6 | 1 / 6 | |
-| Push at wave 7 | 0 / 6 | Takes one hive in half the matches; relay falls on waves 9–16 |
-| Push at wave 8 | 3 / 6 | Wins at about 8:10 |
-| Push at wave 9 | 5 / 6 | Wins at about 7:55 |
-| Push at wave 10 | 5 / 6 | Wins at about 8:05 |
-| Push at wave 12 | 0 / 6 | No hive taken. In the one match traced, the army was ground down in the canyon before reaching a hive |
-| Never push | 0 / 6 | Relay falls on waves 15–18 (9:50–11:50) |
+| All-in at the first second, never reinforced | 0 / 16 | Relay falls at about 1:00 |
+| All-in at the first second, every later recruit sent too | 1 / 16 | Relay falls in 1:15–2:45 |
+| Push at wave 5 | 7 / 8 | Wins at about 5:45 |
+| Push at wave 9 | 8 / 8 | Wins at about 8:05 |
+| Never push | 0 / 6 | Relay falls on waves 11–18 |
 
-- Softer hives (1,500 health, +200 a wave, fewer guards) let the all-in rush win 2 of 4, so the
-  hive numbers were left where the rush fails.
-- For this bot the window closes after wave 10. The likely causes are the decade boss on wave 10
-  (at about 6:06) and the size of the waves after it, but that has not been isolated. Whether a
-  player with promotions, Hammers and Titans can still break out late has not been tested.
-- No person has played a full match yet. Pacing, the wave-10 wall and whether the timing
-  decision is fun all need playtesting before the next step is built.
+Hive health was 1,800 + 300 a wave in the first release. On the setup screen's maps the
+reinforced all-in rush then won 3 of 8, so hives now start at 2,600 and grow by 200: the same
+4,200 on wave 9, tougher early, slightly softer late.
 
-`tests/browser-skirmish.cjs` checks the rules above, the result and record, that a match never
-touches the saved stand or the kills board, and two bot matches: the rush loses and a wave-9
-push wins (up to three attempts, because combat is not seeded).
+Other setups, 4 seeds each, pushing at wave 6 and at wave 9:
+
+| Setup | Push at 6 | Push at 9 | Note |
+| --- | ---: | ---: | --- |
+| 1 hive, Calm | 4 / 4 | 4 / 4 | The gentle one: wins at about 4:55 and 7:20 |
+| 3 hives, Standard | 3 / 4 | 4 / 4 | |
+| 2 hives, Fierce | 0 / 4 | 0 / 4 | Takes one hive in 5 of the 8 matches |
+| 4 hives, Standard, army in front of the base | 0 / 4 | 0 / 4 | Relay falls on wave 4–5: three sides are unguarded |
+| 4 hives, Standard, army ringed round the base | 2 / 4 | 1 / 4 | |
+| 4 hives, Standard, ringed, 800 minerals | 4 / 4 | 1 / 4 | |
+| 4 hives, Calm, ringed | 4 / 4 | 0 / 4 | |
+| 7 hives, Standard, ringed, 1,200 minerals | 0 / 4 | not run | Takes one hive at most |
+
+- From four hives up, the base is attacked from every side from the first wave. Where the army
+  stands matters more than its size, and waiting past wave 6 lost for this bot.
+- Fierce and seven hives are not winnable for this bot. Whether they are for a player with
+  promotions, Hammers, Titans, walls and the strike has not been tested.
+- Pacing, the wave-10 boss and whether the timing decision is fun all need playtesting.
+
+`tests/skirmish-maps.mjs` carves every hive count at every allowed size (312 maps) and checks
+each hive has a real march to the base. `tests/browser-skirmish.cjs` checks the rules above, the
+setup screen, per-setup records, that a match never touches the saved stand or the kills board,
+and two bot matches: the unreinforced rush loses and a wave-9 push wins (up to three attempts,
+because combat is not seeded).

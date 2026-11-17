@@ -311,7 +311,7 @@ export class UI {
     });
     // Skirmish (`game.match`, see skirmish.js): the objective readout, wave and hive callouts, the result.
     game.on('matchStart', ({ hives, waveGap }) => {
-      this.toast('Skirmish', `Destroy ${hives === 2 ? 'both' : `all ${hives}`} hives to win. A bigger wave every ${waveGap} seconds: hold, build up, then push (A).`, 'radio', 9000);
+      this.toast('Skirmish', `Destroy ${hives === 1 ? 'the hive' : hives === 2 ? 'both hives' : `all ${hives} hives`} to win. A bigger wave every ${waveGap} seconds: hold, build up, then push (A).`, 'radio', 9000);
       this.syncMatch();
     });
     game.on('wave', ({ wave, hostiles, bonus, boss }) => this.callout(`Wave ${wave}`,
@@ -716,7 +716,7 @@ export class UI {
     hud.hidden = !showing;
     if (!showing) return;
     const fighting = this.game.state === 'wave';
-    const text = `SKIRMISH · HIVES ${m.hivesLeft}/${m.hives} · WAVE ${m.wave} · ${fighting ? `NEXT ${clock(Math.ceil(m.nextT))}` : 'STAND BY'}`;
+    const text = `SKIRMISH · HIVES ${m.hivesLeft}/${m.hives} · WAVE ${this.game.level} · ${fighting ? `NEXT ${clock(Math.ceil(m.nextT))}` : 'STAND BY'}`;
     if (hud.textContent !== text) hud.textContent = text;
     hud.classList.toggle('is-soon', fighting && m.nextT <= 5);
   }
@@ -728,9 +728,9 @@ export class UI {
     $('bannerTitle').textContent = won ? 'Canyon Cleared' : 'Outpost Overrun';
     $('bannerTitle').classList.toggle('is-win', won);
     $('bannerText').textContent = won
-      ? `${name}, you destroyed ${hives === 2 ? 'both hives' : `all ${hives} hives`} in ${clock(seconds)}, on wave ${wave}, with ${killed} and the relay at ${corePct}%. `
+      ? `${name}, you destroyed ${hives === 1 ? 'the hive' : hives === 2 ? 'both hives' : `all ${hives} hives`} in ${clock(seconds)}, on wave ${wave}, with ${killed} and the relay at ${corePct}%. `
         + (!improved ? `Your best: ${clock(best)}.` : previousBest != null ? `New best time: ${clock(previousBest)} before.` : 'First win on this setup.')
-      : `${name}, the relay fell on wave ${wave} after ${clock(seconds)}. ${destroyed} of ${hives} hives destroyed, ${killed}. `
+      : `${name}, the relay fell on wave ${wave} after ${clock(seconds)}. ${destroyed} of ${hives} hive${hives === 1 ? '' : 's'} destroyed, ${killed}. `
         + (best != null ? `Your best win: ${clock(best)}.` : 'Destroy every hive to win.');
     $('shareStatus').textContent = won ? 'Play again on the same canyon to beat your time.'
       : 'Same canyon on a rematch. Push before the hives outgrow you, and leave defenders at home (K).';

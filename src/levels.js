@@ -166,6 +166,69 @@ export function carveLevel(level, seed, version = MAP_VERSION) {
     : finishLevel(level, seed, version, rng, carveWestern(level, seed, version, rng, cols, rows, routeCount));
 }
 
+/**
+ * Skirmish layouts: `hives` approaches on a map of side `n`, chosen by the player instead of the
+ * round number. One or two hives share a side with the base at its far end; three add a flank
+ * behind an inland base; four and more surround a mid-map base, doubling up on sides in turn.
+ */
+function planMatch(hives, n, rng) {
+  const primary = SIDES[Math.floor(rng() * SIDES.length)];
+  const flanks = FLANKS[primary].slice();
+  const flankLow = rng() < 0.5;
+  if (!flankLow) flanks.reverse();
+  const jitter = (range) => Math.round((rng() - 0.5) * range);
+  const mid = Math.floor(n / 2) - 1;
+  const fronts = hives <= 2 ? 1 : hives === 3 ? 2 : 4;
+  let bu, bv;
+  if (fronts === 1) { bu = n - 5; bv = mid + jitter(6); }
+  else if (fronts === 2) { bu = Math.round(n * 0.66); bv = flankLow ? Math.round(n * 0.58) - 1 : n - 1 - Math.round(n * 0.58); }
+  else { bu = mid + jitter(n * 0.08); bv = mid + jitter(n * 0.08); }
+  const core = primary === 'west' ? { x: bu, y: bv } : primary === 'east' ? { x: n - 2 - bu, y: bv }
+    : primary === 'north' ? { x: bv, y: bu } : { x: bv, y: n - 2 - bu };
+  Object.assign(core, { w: 2, h: 2, hp: CORE_HP });
+
+  const lanes = [];
+  if (fronts === 4) {
+    // Opposite sides double up first, so the pressure stays spread around the base.
+    const order = [primary, SIDES.find(s => s !== primary && !flanks.includes(s)), ...flanks];
+    const perSide = order.map((_, i) => 1 + (hives - 4 > i ? 1 : 0));
+    order.forEach((side, i) => {
+      const across = baseFrom(side, n, core)[1];
+      const clamp = (v) => Math.max(8, Math.min(n - 9, v));
+      if (perSide[i] === 1) lanes.push({ side, entry: clamp(across + jitter(n * 0.16)), join: 9 });
+      else for (const sign of [-1, 1]) lanes.push({ side, entry: clamp(across + sign * Math.round(n * 0.24) + jitter(4)), join: 9 });
+    });
+  } else {
+    const spread = hives === 1 ? [0.5] : fronts === 1 ? [0.18, 0.82] : flankLow ? [0.34, 0.84] : [0.16, 0.66];
+    const entries = spread.map(f => Math.round(n * f) + jitter(hives === 1 ? 10 : 4));
+    entries.sort((a, b) => Math.abs(a - bv) - Math.abs(b - bv) || a - b);
+    for (const entry of entries) lanes.push({ side: primary, entry, join: 12 });
+    if (fronts === 2) {
+      const behind = primary === 'west' || primary === 'north' ? 1 : -1;
+      const across = baseFrom(flanks[0], n, core)[1];
+      const entry = across + behind * (1 + Math.round(rng() * n * 0.06));
+      lanes.push({ side: flanks[0], entry: Math.max(8, Math.min(n - 9, entry)), join: 9, flank: true });
+    }
+  }
+  return { fronts, primary, core, lanes };
+}
+
+/** A seeded Skirmish battlefield for a chosen hive count (1-7) and map side. */
+export function carveMatch(seed, { hives, size }) {
+  const count = Math.max(1, Math.min(7, Math.floor(hives) || 2));
+  const n = Math.max(56, Math.min(128, Math.floor(size) || 56));
+  const salt = Math.imul(count * 131 + n, 0x9e3779b1);
+  const rng = mulberry32((seed ^ salt) >>> 0);
+  const plan = planMatch(count, n, rng);
+  // carveFronts and finishLevel take a round number for bends, boulder count and the name.
+  const layout = finishLevel(1, (seed ^ salt) >>> 0, MAP_VERSION, rng, carveFronts(count, seed, n, rng, plan));
+  const sides = [...new Set(layout.sides)];
+  layout.name = count === 1 ? 'Skirmish · one hive' : `Skirmish · ${count} hives`;
+  layout.blurb = `${n}×${n} battlefield. ${count === 1 ? 'One hive attacks' : `${count} hives attack`} from the ${sides.length === 1 ? sides[0]
+    : `${sides.slice(0, -1).join(', ')} and ${sides[sides.length - 1]}`}. Destroy ${count === 1 ? 'it' : 'them all'} to win.`;
+  return layout;
+}
+
 /** Approaches from one or more sides, each built in its own frame. */
 function carveFronts(level, seed, n, rng, plan) {
   const { core } = plan;

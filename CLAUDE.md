@@ -41,12 +41,12 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 | `src/story.js` | Optional layer. The evacuation frame: one Ember Control radio line a round, a convoy for every round held, the result line and share text. Never touches combat or score. |
 | `src/atmosphere.js` | Optional layer. Sky dome, far ridges and the time-of-day palette (lights, fog and background) that turns every three rounds. |
 | `src/touch.js` | Optional layer. Two-finger pinch zoom and twist rotate. (Tap-to-order is `touchOrder()` in `main.js`.) |
-| `src/skirmish.js` | Optional layer. Skirmish: the `Match` director behind `game.match` (waves on a timer, hive guards, the result and its record) and the start-screen button. Tuning is `SKIRMISH` in config; its styles are `src/skirmish.css`. |
+| `src/skirmish.js` | Optional layer. Skirmish: the setup screen, the `Match` director behind `game.match` (waves on a timer, hive guards, the result and its record) and the start-screen button. Tuning is `SKIRMISH` in config; its styles are `src/skirmish.css`. |
 | `src/mines.js` | Optional layer. Medic mines: the `Minefield` behind `game.minefield` (scatter on placement, arming, detonation, salvage recall, checkpoint field). Tuning is `MINES` in config. |
 | `src/maw.js` | Tunnel Maw: `MawAmbush` (timing, warning marks, eruption) and the `TunnelMaw` entity that swallows, holds and releases a unit. Tuning is `MAW` in config. |
 | `src/evolutions.js` | Boss reward abilities: automatic tank siege, walker chain lightning, bunker Last Stand, descriptions and model additions. Tuning lives in config. |
 | `src/grid.js` | Tile grid, A* for player units, the Hammer's all-terrain route search (`driveSearch`), the shared bug route field, line-of-sight helpers. |
-| `src/levels.js` | Generates the seeded map: 2–4 approaches from 1–4 sides (`attackFronts(level)`) converging on the base, with boulders, rock depth and spires. Early level names come from `LEVELS`. |
+| `src/levels.js` | Generates the seeded map: 2–4 approaches from 1–4 sides (`attackFronts(level)`) converging on the base, with boulders, rock depth and spires. Early level names come from `LEVELS`. `carveMatch()` builds Skirmish maps from a hive count and size instead of a round. |
 | `src/terrain.js` | The mountain heightfield mesh built from the per-cell rock depth. |
 | `src/scenery.js` | Optional scenery art from `SCENERY_FILES`: rock `.glb` shapes for lane boulders and spires, and photo textures for the canyon floor and mountains (world-space triplanar detail multiplied into the existing colours). A missing file falls back to the procedural rock or painted texture. Sources and licences are in `assets/CREDITS.md`. |
 | `src/config.js` | **All tuning lives here**: map size, costs, unit and bug stats, wave plan, level paths, model files. |
@@ -65,21 +65,34 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 ## Skirmish: a match you can win (Nov 17, 2026)
 
 Built because the endless stand never gives the player a win or a decision about when to attack.
-The start screen's Skirmish button plays one continuous battle on one map: two hives, a bigger
-wave every 40 seconds, and the match is won the moment both hives are destroyed. Rules and
-numbers are in `BALANCE.md`; `tests/browser-skirmish.cjs` covers it. This is step one of three:
-a setup screen (hive count, aggression, map size) and hive personalities are not built.
+The start screen's Skirmish button opens a setup screen (1–7 hives, Calm/Standard/Fierce swarm,
+map size, starting minerals, open with the squad or plan first) and then plays one continuous
+battle on one map: a bigger wave on a timer, and the match is won the moment every hive is
+destroyed. Rules and numbers are in `BALANCE.md`; `tests/browser-skirmish.cjs` and
+`tests/skirmish-maps.mjs` cover it. Steps one (the match) and two (the setup screen) are built;
+hive personalities are not.
 
 - **`game.match` is the whole switch.** It is null in the endless stand. `skirmish.js` installs a
   `Match` there and the core calls three methods on it: `update(dt)` each tick of `wave`,
   `hiveHit(hive)` from `Hive.takeDamage`, and `finish(won)`. Anything mode-specific in a core
   file must read `game.match?.…` so the stand is untouched and a missing layer costs only the
   button (it is `hidden` until the layer installs).
-- **The wave number is `game.level`; the map is `game.mapLevel`.** `reset(seed, { mapLevel })`
-  pins the battlefield, and `loadLevel()`/`rebuildTerrain()` carve `mapLevel || level`. That is
-  why unlocks, scouting, wave composition (`wavePlan(level)`), bosses at 5/10/15, the Maw from 9
-  and the sky all follow a match with no code of their own. `Match.launchWave()` never emits
-  `level` (main.js would cancel placement and clear the selection); it emits `wave`.
+- **The wave number is `game.level`; the map is `game.matchMap`.** `reset(seed, { map })` pins
+  the battlefield (`{ hives, size }`) and `loadLevel()` carves it with `carveMatch()` instead of
+  `carveLevel()`. That is why unlocks, scouting, wave composition, bosses at 5/10/15, the Maw
+  from 9 and the sky all follow a match with no code of their own. `Match.launchWave()` never
+  emits `level` (main.js would cancel placement and clear the selection); it emits `wave`.
+- **A setup is five fields** (`hives`, `mood`, `size`, `minerals`, `quick`), always passed through
+  `normalizeSetup()`: `size` 0 means the smallest map that fits (`SKIRMISH.minSize[hives]`), and a
+  size too small for the hive count falls back to it. `rulesFor(setup)` is the only place a setup
+  becomes numbers (wave gap, swarm size, hive health); `Match.wave(level)` is `wavePlan(level)`
+  thinned or thickened to that swarm size, and the core uses it for wave 1 too. The last setup is
+  kept in `td.skirmish.setup.v1`.
+- **`carveMatch(seed, { hives, size })` in `levels.js`** plans its own lanes (`planMatch`) and
+  reuses `carveFronts`/`finishLevel`. It must not touch `planFronts`, whose random draws old
+  saves and seeded maps depend on. One or two hives share a side, three add a flank, four or
+  more surround a mid-map base and double up on sides. `tests/skirmish-maps.mjs` carves every
+  hive count at every allowed size.
 - **A match never leaves `wave`.** No raid, no `completeWave()`, no refund, no slow-motion on the
   last bug. `hivesDestroyed()` is the one place that decides what dead hives mean: `completeWave()`
   in the stand, `state = 'victory'` in a match. Use `game.ended` (defeat or victory) for "the run
@@ -88,9 +101,12 @@ a setup screen (hive count, aggression, map size) and hive personalities are not
   `matchOver` and never `over`, so nothing is submitted to the kills board, the daily is not
   recorded and the saved stand is not deleted. Matches are never checkpointed
   (`retention.active` stays false; the pause menu offers Quit match). The record is the fastest
-  win per setup in `td.skirmish.v1`, keyed by hive count.
-- **Starting one.** `launchNewRun(name, true, seed, 'skirmish')` in `main.js`; `runMode` makes
-  Play Again and Restart a rematch on the same seed. `ui.js` draws the readout (`syncMatch`),
+  win per setup in `td.skirmish.v1`, keyed by `setupKey()` (hives, mood, size, minerals; the
+  first release's single record under `"2"` still counts for the default setup).
+- **Starting one.** The setup dialog's Start calls the `launch(quick)` callback main.js hands the
+  layer, which is `launchNewRun(name, quick, null, 'skirmish')`; that calls back into the layer's
+  `options()` and `begin()`. `runMode` makes Play Again and Restart a rematch on the same seed
+  and setup. `ui.js` draws the readout (`syncMatch`),
   the wave and hive callouts and the result (`showMatchBanner`) from `matchStart`, `wave`,
   `hiveDown` and `matchOver`.
 - **Hives in the stand are not what the older notes below say.** They can be attacked for the

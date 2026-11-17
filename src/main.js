@@ -1045,7 +1045,7 @@ async function showIntro() {
 }
 
 function launchNewRun(name, quick, seed = challenge?.seed ?? null, mode = 'stand') {
-  // A Skirmish is one winnable match on one map; without its layer the button is never shown.
+  // A Skirmish is one winnable match on the map its setup screen chose; without its layer the button is never shown.
   const skirmish = mode === 'skirmish' ? extras.skirmish : null;
   clearTimeout(guideDismissTimer);
   guideDismissTimer = null;
@@ -1079,7 +1079,6 @@ document.getElementById('introForm').addEventListener('submit', (ev) => {
   const name = cleanName(nameInput.value) || 'Commander';
   const mode = ev.submitter?.value;
   if (mode === 'daily') { retention.requestNewRun(() => launchNewRun(name, true, dailyStatus().seed)); return; }
-  if (mode === 'skirmish') { launchNewRun(name, true, null, 'skirmish'); return; }
   const quick = mode !== 'build';
   retention.requestNewRun(() => launchNewRun(name, quick));
 });
@@ -1116,7 +1115,7 @@ game.on('over', async () => {
 game.on('restart', () => {
   const seed = game.mapSeed;
   if (!intro.hidden) return;
-  if (runMode === 'skirmish') launchNewRun(player || 'Commander', true, seed, 'skirmish');
+  if (runMode === 'skirmish') launchNewRun(player || 'Commander', extras.skirmish?.quick ?? true, seed, 'skirmish');
   else retention.requestNewRun(() => launchNewRun(player || 'Commander', quickDeployment, seed));
 });
 let alertShownAt = -99;
@@ -1295,10 +1294,12 @@ function layer(name, install) {
 }
 layer('touch', async () => (await import('./touch.js')).installTouch(canvas, stage, { cancelDrag: endDrag }));
 layer('atmosphere', async () => (await import('./atmosphere.js')).installAtmosphere(game, stage));
-layer('mines', async () => (await import('./mines.js')).installMines(game));
 layer('story', async () => (await import('./story.js')).installStory(game, ui));
+layer('mines', async () => (await import('./mines.js')).installMines(game));
 layer('skirmish', async () => (await import('./skirmish.js')).installSkirmish({
-  game, ui, intro, getPlayer: () => player || 'Commander'
+  game, getPlayer: () => player || 'Commander',
+  // The setup screen's Start button: a fresh map, with the name typed on the start screen.
+  launch: (quick) => launchNewRun(cleanName(nameInput.value) || 'Commander', quick, null, 'skirmish')
 }));
 layer('opening', async () => {
   const [opening, touch] = await Promise.all([import('./opening.js'), import('./touch.js')]);

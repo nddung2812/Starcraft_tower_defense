@@ -375,10 +375,24 @@ export const HIVE_RAID = { duration: 60, evolutionInterval: 30, broodBase: 2, br
  * every wave, and hatch guards (at most once per `guardGap` seconds) when they are hit.
  */
 export const SKIRMISH = {
-  mapLevel: 1,                       // the 56×56 canyon with two hives on one side
   waveGap: 40,
-  hiveHp: 1800, hiveHpPerWave: 300, hiveReward: 250,
-  guardGap: 6, guardBase: 3, guardPerWave: 0.5, guardCap: 10
+  hiveHp: 2600, hiveHpPerWave: 200, hiveReward: 250,
+  guardGap: 6, guardBase: 3, guardPerWave: 0.5, guardCap: 10,
+  /* The setup screen. A map must be at least `minSize[hives]` across so every march is a real one. */
+  maxHives: 7,
+  sizes: [56, 72, 88, 104, 120],
+  minSize: { 1: 56, 2: 56, 3: 72, 4: 72, 5: 88, 6: 88, 7: 104 },
+  minMarch: 28,
+  /* The whole swarm grows with the number of hives sending it: 2 hives is the baseline. */
+  swarmBase: 0.6, swarmPerHive: 0.2,
+  /* How hard the swarm presses: seconds between waves, swarm size, hive health and growth. */
+  moods: {
+    calm: { name: 'Calm', note: 'a wave every 50 s, smaller swarms, softer hives', waveGap: 50, swarm: 0.8, hive: 0.85 },
+    standard: { name: 'Standard', note: 'a wave every 40 s', waveGap: 40, swarm: 1, hive: 1 },
+    fierce: { name: 'Fierce', note: 'a wave every 32 s, bigger swarms, tougher hives', waveGap: 32, swarm: 1.25, hive: 1.2 }
+  },
+  minerals: [300, 480, 800, 1200],
+  defaults: { hives: 2, mood: 'standard', size: 0, minerals: 480, quick: true }   // size 0 = smallest that fits
 };
 /* Kills landed within `window` seconds of each other build a streak; each tier pays once per streak. */
 export const STREAK = {

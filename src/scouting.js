@@ -12,10 +12,13 @@ const COUNTERS = {
   tanker: { unit: 'deadeye', threat: 'Acid siege', why: 'Spectres prioritise large targets and outrange acid siege. Spread your frontline to limit splash damage.' }
 };
 
-/** Full planned column, not a misleading live count; boss reinforcements are separate. */
-export function scoutRound(level) {
+/**
+ * Full planned column, not a misleading live count; boss reinforcements are separate.
+ * A Skirmish passes its own `plan`, because its swarm is scaled to the setup.
+ */
+export function scoutRound(level, plan = wavePlan(level)) {
   const counts = new Map();
-  for (const entry of wavePlan(level)) counts.set(entry.breed, (counts.get(entry.breed) || 0) + 1);
+  for (const entry of plan) counts.set(entry.breed, (counts.get(entry.breed) || 0) + 1);
   const threats = [...counts].map(([id, count]) => {
     const advice = COUNTERS[id];
     const available = unlockRound(advice.unit) <= level;
@@ -37,7 +40,7 @@ export function installScouting(game) {
   let resume = false;
   button.addEventListener('click', () => {
     if (dialog.open || game.pendingEvolution || game.ended) return;
-    const report = scoutRound(game.level);
+    const report = scoutRound(game.level, game.match?.wave(game.level));
     document.getElementById('scoutTitle').textContent = `Round ${game.level} · Scouting report`;
     document.getElementById('scoutSummary').textContent = `${report.total} planned enemies · ${game.grid.spawns.length} approaches. Full round composition, including enemies already spawned; destroying a hive prevents its remaining spawns.${report.maws ? ` Tunnel Maws also ambush exposed ground units, ${report.maws === 2 ? 'two at a time' : 'one at a time'}: move when the ground shakes, or kill the Maw to free a swallowed unit.` : ''}`;
     document.getElementById('scoutThreats').innerHTML = report.threats.map(t => {

@@ -8,3 +8,15 @@
 .match-hud.is-soon { color: #ff8b65; border-color: #ff8b65; }
 .banner.is-match .share-actions, .banner.is-match .run-card, .banner.is-match .board { display: none; }
 @media (max-width: 760px) { .match-hud { font-size: 9px; padding: 5px 10px; } }
+
+/* The setup screen: one row of choices per decision. */
+.skirmish-dialog { width: min(620px, calc(100vw - 24px)); }
+.skirmish-setup { display: grid; gap: 10px; margin-top: 14px; }
+.skirmish-setup fieldset { display: grid; gap: 8px; margin: 0; padding: 10px 12px 12px; border: 1px solid var(--line); border-radius: 12px; min-width: 0; }
+.skirmish-setup legend { padding: 0 6px; color: var(--muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+.skirmish-options { display: flex; flex-wrap: wrap; gap: 6px; }
+.skirmish-option { min-width: 44px; font-size: 11px; }
+.skirmish-option[aria-pressed="true"] { border-color: var(--gold); background: #f0b23c26; color: var(--gold); }
+.skirmish-option:disabled { opacity: .35; cursor: not-allowed; }
+.skirmish-setup small { color: var(--muted); font-size: 10px; line-height: 1.5; }
+.skirmish-dialog .skirmish-summary { margin: 14px 0; color: #eaf5ff; }

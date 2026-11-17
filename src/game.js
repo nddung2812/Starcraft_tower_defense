@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { indexSwarm } from './swarm.js';
 import { CELL, BUILD, ECON, ARMORY, UNITS, AIR_STRIKE, TREASURE, TREASURE_RULES, baseUpgradeCost, baseUpgradeTime, applyBaseUpgrade, HIVE_RAID, BASE_LASER, wavePlan, STREAK, SUPPLY, unlockRound } from './config.js';
 import { Grid } from './grid.js';
-import { carveLevel, MAP_VERSION } from './levels.js';
+import { carveLevel, carveMatch, MAP_VERSION } from './levels.js';
 import { Marine, Zergling, Wall, Bunker, Scv, Core, Hive, Tracer, Shell, AirBomb, SupplyCrate } from './entities.js';
 import { buildRock, buildBoulder } from './models.js';
 import { buildTerrain, WATER_LEVEL } from './terrain.js';
@@ -84,11 +84,11 @@ export class Game {
     this.scv = null;
   }
 
-  /** `mapLevel` pins the battlefield for a match whose wave number (`level`) climbs on one map. */
-  reset(seed = null, { mapLevel = null } = {}) {
+  /** `map` ({ hives, size }) pins one battlefield for a match whose wave number (`level`) climbs on it. */
+  reset(seed = null, { map = null } = {}) {
     this.wipeUnits();
     this.match = null;       // the Skirmish layer installs its director here; null in the endless stand
-    this.mapLevel = mapLevel;
+    this.matchMap = map;
     this.level = 1;
     this.mawSeen = false;
     this.mapVersion = MAP_VERSION;
@@ -159,7 +159,7 @@ export class Game {
     this.minefield?.clear();
     this.streak = 0;
 
-    const layout = carveLevel(this.mapLevel || this.level, this.mapSeed, this.mapVersion);
+    const layout = this.matchMap ? carveMatch(this.mapSeed, this.matchMap) : carveLevel(this.level, this.mapSeed, this.mapVersion);
     this.layout = layout;
     this.grid.load(layout);
     this.stage.setMapSize(layout.cols, layout.rows);
@@ -202,7 +202,7 @@ export class Game {
     }
 
     // mountains: one heightfield around the lanes
-    const terrain = buildTerrain(layout.depth, (this.mapSeed ^ ((this.mapLevel || this.level) * 2654435761)) >>> 0, layout.cols, layout.rows);
+    const terrain = buildTerrain(layout.depth, (this.mapSeed ^ ((this.matchMap ? 1 : this.level) * 2654435761)) >>> 0, layout.cols, layout.rows);
     this.zoneMesh = terrain.mesh;
     this.heightAt = terrain.heightAt;
     this.updateWater = terrain.update;
@@ -666,7 +666,7 @@ export class Game {
   startWave() {
     if (this.state !== 'build') return;
     this.roundCoreDamaged = false;
-    this.queue = wavePlan(this.level);
+    this.queue = this.match ? this.match.wave(this.level) : wavePlan(this.level);   // a match scales its swarm to the setup
     const mouths = this.grid.spawns.length;
     if (mouths > 1) this.queue.forEach((s, i) => { s.lane = i % mouths; });
     this.spawnTimer = 0;
