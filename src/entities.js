@@ -118,12 +118,9 @@ export class Marine {
     this.trackDist = 0;
     this.order = null;   // attack focuses a target; advance fights en route and retargets bases.
     this.chaseT = 0;
-    this.stimLight = new THREE.PointLight(0xff6633, 0, 3.2, 2);
-    this.stimLight.position.y = 0.9;
     this.obj = new THREE.Group();
 
     this.obj.position.set(this.x, 0, this.z);
-    this.obj.add(this.stimLight);
     this.visualScale = UNIT_SCALE * (this.spec.visualScale ?? 1);
     this.model = makeModel(kind, 0);
     this.model.scale.setScalar(this.visualScale);
@@ -361,7 +358,9 @@ export class Marine {
     updateUnitEvolution(this, dt, game);
     this.blindT = Math.max(0, this.blindT - dt);
     this.silenceT = Math.max(0, this.silenceT - dt);
-    this.ring.material.color.set(this.silenceT > 0 ? 0xc06bff : this.blindT > 0 ? 0x8296ff : (game.armyColour || this.spec.accent));
+    const stimmed = this.stimT > 0 && this.silenceT <= 0;
+    this.ring.material.color.set(this.silenceT > 0 ? 0xc06bff : this.blindT > 0 ? 0x8296ff : stimmed ? 0xff6633 : (game.armyColour || this.spec.accent));
+    this.ring.material.opacity = stimmed ? 0.75 + Math.sin(game.time * 28) * 0.2 : 0.55;
     this.guardMark.visible = this.defend && !this.dead && !this.downed;
     if (this.flying && !this.dead) {
       this.altitude = (game.heightAt?.(this.x, this.z) || 0) + 2.6 + Math.sin(game.time * 2.5) * 0.1;
@@ -371,7 +370,6 @@ export class Marine {
     this.recoil = Math.max(0, this.recoil - dt * 8);
     this.hurt = Math.max(0, this.hurt - dt * 4);
     this.stimT = Math.max(0, this.stimT - dt);
-    this.stimLight.intensity = this.stimT > 0 ? 3.5 + Math.sin(game.time * 28) * 1.6 : 0;
     const t = game.time;
 
     const anim = this.model.userData.anim;

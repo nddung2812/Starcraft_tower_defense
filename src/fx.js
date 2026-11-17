@@ -108,10 +108,11 @@ export class Fx {
     this.ringGeo = new THREE.RingGeometry(0.42, 0.5, 32);
     this.ringGeo.rotateX(-Math.PI / 2);
 
+    // Lamps stay visible at intensity 0 when idle: changing the scene's light count recompiles every shader.
     this.flashPool = [];
     for (let i = 0; i < 6; i++) {
       const l = new THREE.PointLight(0xffd9a0, 0, 5, 2);
-      l.visible = false;
+      l.userData.busy = false;
       scene.add(l);
       this.flashPool.push(l);
     }
@@ -188,11 +189,11 @@ export class Fx {
       jet.z = source.z + Math.sin(dir + jet.side) * jet.out;
     }
     // firelight on the ground, when the muzzle flashes are not using every lamp
-    if (this.flashPool.filter(f => !f.visible).length > 3) {
-      const l = this.flashPool.find(f => !f.visible);
+    if (this.flashPool.filter(f => !f.userData.busy).length > 3) {
+      const l = this.flashPool.find(f => !f.userData.busy);
       l.position.set(p.x + Math.cos(dir) * reach * 0.45, 0.7, p.z + Math.sin(dir) * reach * 0.45);
       l.intensity = 9;
-      l.visible = true;
+      l.userData.busy = true;
       this.flashes.push({ light: l, life: 0.3 });
     }
     // some of the fuel lands and burns on for a moment
@@ -346,11 +347,11 @@ export class Fx {
   /* ---------------- one-shot set pieces ---------------- */
 
   muzzleFlash(p, dir) {
-    const l = this.flashPool.find((f) => !f.visible);
+    const l = this.flashPool.find((f) => !f.userData.busy);
     if (l) {
       l.position.set(p.x, p.y, p.z);
       l.intensity = 14;
-      l.visible = true;
+      l.userData.busy = true;
       this.flashes.push({ light: l, life: 0.07 });
     }
     this.sparks(p, dir, 5, [1, 0.92, 0.7], 7, 0.5);
@@ -364,11 +365,11 @@ export class Fx {
     this.sparks(p, Math.random() * 6.28, 34 * scale, [1, 0.76, 0.35], 9 * scale, 6.28);
     this.smoke(p, 16 * scale, [0.32, 0.3, 0.3]);
     this.ring(p, 2.6 * scale, 0xff9a40);
-    const l = this.flashPool.find((f) => !f.visible);
+    const l = this.flashPool.find((f) => !f.userData.busy);
     if (l) {
       l.position.set(p.x, p.y + 0.3, p.z);
       l.intensity = 40 * scale;
-      l.visible = true;
+      l.userData.busy = true;
       this.flashes.push({ light: l, life: 0.3 });
     }
   }
@@ -486,7 +487,7 @@ export class Fx {
       const f = this.flashes[i];
       f.life -= dt;
       f.light.intensity *= Math.pow(0.0001, dt);
-      if (f.life <= 0) { f.light.visible = false; f.light.intensity = 0; this.flashes.splice(i, 1); }
+      if (f.life <= 0) { f.light.userData.busy = false; f.light.intensity = 0; this.flashes.splice(i, 1); }
     }
 
     for (let i = this.rings.length - 1; i >= 0; i--) {
@@ -546,7 +547,7 @@ export class Fx {
     for (const r of this.rings) { this.scene.remove(r.mesh); r.mesh.material.dispose(); }
     for (const l of this.labels) l.el.remove();
     this.decals.length = 0; this.debris.length = 0; this.rings.length = 0; this.labels.length = 0;
-    for (const f of this.flashPool) { f.visible = false; f.intensity = 0; }
+    for (const f of this.flashPool) { f.userData.busy = false; f.intensity = 0; }
     this.flashes.length = 0;
   }
 }
