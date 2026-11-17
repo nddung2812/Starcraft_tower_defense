@@ -276,7 +276,8 @@ always in the east, and harder rounds open more sides:
 - A base with more than one front gets a 10×10 boulder-free plaza. Quick Deploy and Redeploy
   still form up on the main front; cover the other sides yourself.
 - Bunkers and idle units face where the swarm's route reaches their tile from, not always the
-  lead hive. A bunker's firing arc is unchanged, so one bunker still covers one approach.
+  lead hive. (Since 17 November 2026 a bunker fires all round, so its facing is only where the
+  cannons rest.)
 - The round briefing names the sides under attack. Saves from versions 1–3 keep their
   west-to-east terrain for the saved round and move to version 4 on the next.
 - Not yet playtested by a person: whether three and four fronts are fair at rounds 16+.
@@ -432,9 +433,12 @@ bonus, armour, aircraft/garrison protection, wall occlusion, Yamato survival and
 
 - Two roof cannons on an octagonal armoured bunker; select 1–2 Troopers and right-click to garrison.
 - Each occupant operates one cannon. An empty bunker cannot fire.
+- All-round fire (17 November 2026): the cannons turn the whole way round and the crew shoots any
+  enemy in range on any side. Before, they covered only about 40° either side of the bunker's
+  facing, so bugs beside or behind it, including ones chewing on the bunker, were never shot.
 - Garrisoned Troopers gain ×1.5 damage and +2 range (base: 12 damage, 6.4 range), with normal promotions and research retained.
 - Destruction ejects both occupants alive at their current health; they resume normal rifle combat without bunker bonuses.
-- `tests/browser-bunker.cjs` checks operator count, separate muzzles, capacity, bonuses, and survivor combat.
+- `tests/browser-bunker.cjs` checks operator count, separate muzzles, all-round fire, capacity, bonuses, and survivor combat.
 
 ### Brood Ray and air reinforcements
 

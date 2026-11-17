@@ -19,7 +19,6 @@ function angleLerp(a, b, t) {
 function mitigate(damage, armor) { return Math.max(1, damage - armor); }
 
 function normAngle(a) { return ((a + Math.PI) % TAU + TAU) % TAU - Math.PI; }
-function clampAngle(a, lim) { const d = normAngle(a); return Math.max(-lim, Math.min(lim, d)); }
 
 /* ------------------------------------------------------------------ */
 
@@ -446,7 +445,7 @@ export class Marine {
     const ordered = this.order?.type === 'attack' && this.target !== this.order.target;
     if (this.spec.heals) {
       if (!this.canHeal(this.target, game)) this.target = this.acquireFriend(game);
-    } else if (ordered || !game.isEnemy(this.target) || this.distTo(this.target) > this.attackRange || !this.inArc(this.target)) {
+    } else if (ordered || !game.isEnemy(this.target) || this.distTo(this.target) > this.attackRange) {
       this.target = this.acquire(game);
     }
 
@@ -458,8 +457,8 @@ export class Marine {
       this.target = null;
       this.yaw = angleLerp(this.yaw, rest, Math.min(1, dt * 8));
     } else if (this.target) {
-      let want = Math.atan2(this.target.z - this.z, this.target.x - this.x);
-      if (this.bunker) want = rest + clampAngle(want - rest, 0.65);
+      // a bunker's cannons turn all the way round: its crew shoots whatever is in reach, on any side
+      const want = Math.atan2(this.target.z - this.z, this.target.x - this.x);
       this.yaw = angleLerp(this.yaw, want, Math.min(1, dt * 9));
       this.cooldown -= dt;
       const aligned = Math.abs(normAngle(want - this.yaw)) < 0.3;
@@ -491,11 +490,6 @@ export class Marine {
     this.bar.set(this.hp / this.maxHp, game.camera);
   }
 
-  inArc(e) {
-    if (!this.bunker || !e) return true;
-    return Math.abs(normAngle(Math.atan2(e.z - this.z, e.x - this.x) - this.bunker.facing)) < 0.72;
-  }
-
   distTo(e) { return Math.hypot(e.x - this.x, e.z - this.z); }
 
   /** What this unit wants to act on right now: an enemy to shoot, or an ally to patch up. */
@@ -522,13 +516,13 @@ export class Marine {
   acquire(game) {
     if (this.spec.heals) return null;
     const mine = this.order?.type === 'attack' ? this.order.target : null;
-    if (game.isEnemy(mine) && !(mine.flying && this.spec.targetsAir === false) && this.distTo(mine) <= this.attackRange && this.inArc(mine)) return mine;
+    if (game.isEnemy(mine) && !(mine.flying && this.spec.targetsAir === false) && this.distTo(mine) <= this.attackRange) return mine;
     const focus = game.focus;
-    if (game.isEnemy(focus) && !(focus.flying && this.spec.targetsAir === false) && this.distTo(focus) <= this.attackRange && this.inArc(focus)) return focus;
+    if (game.isEnemy(focus) && !(focus.flying && this.spec.targetsAir === false) && this.distTo(focus) <= this.attackRange) return focus;
     let best = null, bestScore = -Infinity;
     for (const z of game.combatTargets) {
       if (z.dead || (z.flying && this.spec.targetsAir === false)) continue;
-      if (this.distTo(z) > this.attackRange || !this.inArc(z)) continue;
+      if (this.distTo(z) > this.attackRange) continue;
       const near = -Math.hypot(z.x - game.core.x, z.z - game.core.z);
       // Marksmen pick the toughest body in sight; everyone else shoots what is closest to the base.
       const score = (z.kind === 'hive' ? -1e6 : 0) + (this.spec.prefersBig ? z.maxHp + near * 0.01

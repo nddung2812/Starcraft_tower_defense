@@ -31,6 +31,16 @@ const assert = require('node:assert/strict');
       soldiers[1].update(.1, g);
       check(shots.length === 2 && shots[1].damage === 12, 'Second cannon did not fire');
       check(shots[0].muzzle.distanceTo(shots[1].muzzle) > .4, 'Both shots came from the same cannon');
+      // The cannons turn all the way round: a bug behind the bunker is shot too, without waiting for it to cross the front.
+      enemy.x = 16.5; enemy.z = 20.5;
+      let steps = 0;
+      for (; steps < 20 && shots.length < 4; steps++) for (const m of soldiers.slice(0, 2)) m.update(.05, g);
+      check(shots.length === 4, 'Garrison did not fire at a bug behind the bunker');
+      check(steps * .05 <= .9, `Garrison was slow to turn on a bug behind it (${(steps * .05).toFixed(2)} s)`);
+      check(shots.slice(2).every(s => s.muzzle.x < b.x && s.damage === 12), 'Rear shots did not leave from cannons turned to the rear');
+      b.update(.05, g);
+      check(b.model.userData.cannons.every(c => Math.abs(c.rotation.y) > 2.5), 'Cannons did not turn to the rear');
+      shots.length = 2; enemy.x = 26.5;
       const health = soldiers.slice(0, 2).map(m => m.hp);
       b.takeDamage(9999, g, 0);
       check(b.dead && b.garrison.length === 0, 'Destroyed bunker retained garrison');
@@ -46,6 +56,6 @@ const assert = require('node:assert/strict');
       return { cannons: 2, damage: 12, range: 6.4, survivors: 2 };
     });
     assert.deepEqual(errors, []);
-    console.log('PASS: empty/one/two operators, cannon muzzles, bonus stats, capacity, destruction and survivor combat', result);
+    console.log('PASS: empty/one/two operators, cannon muzzles, all-round fire, bonus stats, capacity, destruction and survivor combat', result);
   } finally { await browser.close(); }
 })().catch(e => { console.error(e); process.exit(1); });
