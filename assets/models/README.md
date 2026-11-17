@@ -12,7 +12,11 @@ built-in shape. Reload the page; the browser console says which files were picke
 | `scv.glb` | Patch Rig |
 | `bunker.glb` | Bunker |
 | `zergling.glb` | Ripper (also used for the other bugs unless they have their own file) |
-| `warrior.glb`, `hopper.glb`, `tanker.glb`, `needler.glb` | The other bug strains |
+| `warrior.glb`, `hopper.glb`, `tanker.glb` | The other ground strains (none shipped: they use the built-in insects) |
+| `needler.glb` | Needler, and the Hollow Queen boss in another colour |
+| `behemoth.glb` | Behemoth |
+| `warden.glb` | Rift Warden boss |
+| `tyrant.glb` | The Breacher and the World Eater bosses |
 
 Any unit without a file keeps its built-in model, so you can add them one at a time.
 
@@ -40,6 +44,8 @@ meshes. Size, animation selection and the two barrel origins live in `MODEL_FILE
   `turret: 'all'` is for aircraft, which turn whole but still fire on the move.
 - **Colours:** `tint: { MaterialName: 0xrrggbb }` repaints a material, so one file can serve
   several units. `tierTint` repaints chosen parts (the soldier's shoulder pads) per promotion.
+  `glow: { MaterialName: 0xrrggbb }` lights a material from within (the swarm's eyes, a boss's
+  plates); `glowPower` sets how strongly.
 - **Parts:** `hide` is a pattern of part names to leave out, such as the guns a role does not
   carry. `seat` names the parts used to centre the unit on its tile.
 

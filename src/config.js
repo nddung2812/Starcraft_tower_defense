@@ -254,7 +254,7 @@ export const BREEDS = {
   hopper:   { id: 'hopper', name: 'Leaper', role: 'Wall Vaulter', hp: 55, armor: 0, damage: 7, attackSpeed: 0.65, range: 0.9, speed: 2.7, scale: 0.82, bounty: 2, melee: true, jump: true, aggro: 3 },
   broodray: { id: 'broodray', name: 'Brood Ray', role: 'Armoured Acid Flyer', flying: true, targetsAir: true, hp: 220, armor: 3, damage: 18, attackSpeed: 1.65, range: 4.8, speed: 2.1, scale: 1.35, bounty: 7, ranged: true, projectile: 'acid', muzzle: [0.65, 0.2] },
   skyhunter: { id: 'skyhunter', name: 'Wraith', role: 'Flying Assault', flying: true, targetsAir: true, hp: 100, armor: 1, damage: 10, attackSpeed: 1.15, range: 4.2, speed: 3.1, scale: 1.1, bounty: 4, ranged: true, projectile: 'spine', muzzle: [0.5, 0.3] },
-  needler:  { targetsAir: true, id: 'needler', name: 'Needler', role: 'Spine Launcher', hp: 76, armor: 1, damage: 10, attackSpeed: 1.1, range: 4.0, speed: 1.85, scale: 1, bounty: 3, ranged: true, projectile: 'spine', muzzle: [0.42, 0.62] },
+  needler:  { targetsAir: true, id: 'needler', name: 'Needler', role: 'Spine Launcher', hp: 76, armor: 1, damage: 10, attackSpeed: 1.1, range: 4.0, speed: 1.85, scale: 1, bounty: 3, ranged: true, projectile: 'spine', muzzle: [0.5, 0.36] },
   tanker:   { id: 'tanker', name: 'Corroder', role: 'Acid Siege', hp: 276, armor: 1, damage: 18, attackSpeed: 1.7, range: 3.6, speed: 1.05, scale: 1.7, bounty: 5, ranged: true }
 };
 
@@ -307,7 +307,37 @@ export const MODEL_FILES = {
   warrior:  { file: 'assets/models/warrior.glb',  fit: 'length', size: 1.0, fallback: 'zergling' },
   hopper:   { file: 'assets/models/hopper.glb',   fit: 'length', size: 1.0, fallback: 'zergling' },
   tanker:   { file: 'assets/models/tanker.glb',   fit: 'length', size: 1.0, fallback: 'zergling' },
-  needler:  { file: 'assets/models/needler.glb',  fit: 'height', size: 0.85 }
+  /*
+   * Swarm beasts from files (sources in assets/CREDITS.md). `tint` repaints a material by name and
+   * `glow` lights one from within. One file can dress several kinds: the Hollow Queen is the
+   * Needler's spider in bone white, the Breacher and the World Eater share a body.
+   */
+  needler:  {
+    file: 'assets/models/needler.glb', fit: 'length', size: 1.5,
+    tint: { Material: 0x3a1f55, 'Material.001': 0xffa030 }, glow: { 'Material.001': 0xff8a1e }
+  },
+  ultralisk: {
+    file: 'assets/models/behemoth.glb', fit: 'length', size: 2.3,
+    tint: { Purple: 0x35204a, LightBrown: 0x7d4f8f, Brown: 0xe6d8b8 }
+  },
+  // Milestone bosses (`milestonePlan().model`); without the file a boss is an oversized Brute.
+  warden:   {
+    file: 'assets/models/warden.glb', fit: 'length', size: 1.5,
+    tint: { DarkBrown: 0x2a2f4a, LightBrown: 0x5a4a7a, Brown: 0x7a34e0 }, glow: { Brown: 0x7a2cff }, glowPower: 0.8
+  },
+  breacher: {
+    file: 'assets/models/tyrant.glb', fit: 'length', size: 1.6,
+    tint: { Green: 0x4a1a22, LightGreen: 0x8a5a4a, LightYellow: 0xf0e6c8, Black: 0x1a1014, Red: 0xff5a1e }, glow: { Red: 0xff5a1e }
+  },
+  queen:    {
+    file: 'assets/models/needler.glb', fit: 'length', size: 1.7,
+    tint: { Material: 0x9c8f7c, 'Material.001': 0xff2040 }, glow: { 'Material.001': 0xff2040 }
+  },
+  eater:    {
+    file: 'assets/models/tyrant.glb', fit: 'length', size: 1.6,
+    tint: { Green: 0x16141c, LightGreen: 0xff7a2a, LightYellow: 0xf0e6c8, Black: 0xff7a2a, Red: 0xffaa30 },
+    glow: { LightGreen: 0xff5a10, Black: 0xff5a10, Red: 0xffaa30 }
+  }
 };
 
 /*
@@ -468,5 +498,6 @@ export function milestonePlan(level) {
     reinforcementInterval: Math.max(7, 15 - tier * 2) * (hard ? 1 : 1.4),
     reinforcements: Math.min(12, (hard ? 2 : 0) + tier * 2),
     reward: Math.round((300 + tier * 250) * (hard ? 1 : 0.6))
+    model: hard ? ['breacher', 'queen', 'eater'][Math.min(tier - 1, 2)] : 'warden',   // a kind in MODEL_FILES
   };
 }

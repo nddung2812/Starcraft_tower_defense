@@ -31,7 +31,12 @@ const PROCEDURAL = {
   warrior: () => buildBug('warrior'),
   hopper: () => buildBug('hopper'),
   tanker: () => buildBug('tanker'),
-  needler: () => buildBug('needler')
+  needler: () => buildBug('needler'),
+  // bosses without a file of their own are an oversized Brute, as they always were
+  warden: () => buildBug('warrior'),
+  breacher: () => buildBug('warrior'),
+  queen: () => buildBug('warrior'),
+  eater: () => buildBug('warrior')
 };
 
 /* Team-colour rim light: blue edges on our side, violet on the swarm. Bunkers mutate their own paint, so they are left alone. */
@@ -43,7 +48,8 @@ const RIM = {
   scorcher: [0xffb070, 0.3], deadeye: [0xc9a8ff, 0.34], mender: [0x7dffb0, 0.3],
   marine: [0x5ad7ff, 0.32], goliath: [0x5ad7ff, 0.32], tank: [0x5ad7ff, 0.3], scv: [0x5ad7ff, 0.28],
   zergling: [0xc06bff, 0.3], warrior: [0xc06bff, 0.3], hopper: [0xc06bff, 0.3], tanker: [0xc06bff, 0.3],
-  needler: [0xc06bff, 0.3]
+  needler: [0xc06bff, 0.3],
+  warden: [0xc06bff, 0.3], breacher: [0xff7a4a, 0.3], queen: [0xff5a8a, 0.34], eater: [0xff8a3a, 0.36]
 };
 
 const loaded = {};
@@ -98,11 +104,17 @@ function dress(scene, spec) {
     src.traverse((o) => { if (hide.test(o.name)) gone.push(o); });
     for (const o of gone) o.removeFromParent();
   }
-  if (spec.tint) {
-    const painted = new Map();
+  if (spec.tint || spec.glow) {
+    const painted = new Map(), tint = spec.tint || {}, glow = spec.glow || {};
     const paint = (m) => {
-      if (!(m.name in spec.tint)) return m;
-      if (!painted.has(m)) { const c = m.clone(); c.color.set(spec.tint[m.name]); painted.set(m, c); }
+      if (!(m.name in tint) && !(m.name in glow)) return m;
+      if (!painted.has(m)) {
+        const c = m.clone();
+        if (m.name in tint) c.color.set(tint[m.name]);
+        // lit from within (eyes, a throat): it stays bright in shadow and at night
+        if (m.name in glow) { c.emissive.set(glow[m.name]); c.emissiveIntensity = spec.glowPower ?? 1.6; }
+        painted.set(m, c);
+      }
       return painted.get(m);
     };
     src.traverse((o) => {
@@ -242,6 +254,7 @@ function instance(kind, L, tier = 0) {
   root.userData.weapon = weapon;
   root.userData.solid = !L.turret;   // no turret: the whole model turns to aim
   root.userData.fromFile = true;
+  root.userData.height = L.height;   // standing height in model units, for crowns and health bars
 
   const clips = Object.values(L.clips).filter(Boolean);
   if (clips.length) {

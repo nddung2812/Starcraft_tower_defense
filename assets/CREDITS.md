@@ -30,6 +30,19 @@ All base models are by Quaternius, from Poly Pizza. Most colours are replaced in
 | `goliath.glb` | Mech (Finn the Frog chassis) | https://poly.pizza/m/o3Ps8z8ByP | Removed animal pilot; added armoured cockpit, emissive visor, vents, antenna and cannon sleeves. Recoloured the atlas steel-blue/graphite, welded geometry, retained Idle/Walk/Shoot_Big/Death clips. CC0 verified 14 Nov 2026. |
 | `falcon.glb` | Spaceship | https://poly.pizza/m/PQzePrvBCD | None. |
 
+## Swarm models (`assets/models/`)
+
+All by Quaternius, downloaded unmodified from Poly Pizza; CC0 read from each page on 17 Nov 2026.
+The files keep their original colours: the swarm's palette and glowing eyes are painted on in the
+game (`tint` and `glow` in `MODEL_FILES`), which is how one file serves more than one creature.
+
+| File | Source model | Page | Used for |
+|---|---|---|---|
+| `needler.glb` | Spider | https://poly.pizza/m/yRYJiAJyiM | Needler; in bone white, the Hollow Queen boss. |
+| `behemoth.glb` | Triceratops | https://poly.pizza/m/IGvrUqGrRM | Behemoth. |
+| `warden.glb` | Stegosaurus | https://poly.pizza/m/eFcNbOlpvl | Rift Warden boss. |
+| `tyrant.glb` | T-Rex | https://poly.pizza/m/UYtneO5FpF | The Breacher and the World Eater bosses. |
+
 ## Textures (`assets/textures/`)
 
 From Poly Haven (https://polyhaven.com/license). Colour maps only, recompressed as JPEG.

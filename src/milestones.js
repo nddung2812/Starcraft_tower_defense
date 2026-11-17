@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { milestonePlan } from './config.js';
 import { Zergling } from './entities.js';
+import { makeModel } from './assets.js';
 
 /** Existing creature animation/model contract, with a unique crown and boss stats. */
 export class MilestoneBoss extends Zergling {
@@ -13,12 +14,17 @@ export class MilestoneBoss extends Zergling {
     this.armor = plan.armor;
     this.speed = plan.speed;
     this.scale = plan.scale;
+    // each boss has a body of its own (MODEL_FILES); a missing file leaves the oversized Brute
+    const body = plan.model ? makeModel(plan.model) : null;
+    if (body) { this.obj.remove(this.model); this.model = body; this.obj.add(body); }
+    const tall = this.model.userData.height;   // only a model from a file knows its height
     const crown = new THREE.Mesh(
       new THREE.TorusGeometry(0.7, 0.065, 6, 32).rotateX(Math.PI / 2),
       new THREE.MeshBasicMaterial({ color: 0xff684b, transparent: true, opacity: 0.9 })
     );
-    crown.position.y = 1.5;
+    crown.position.y = tall ? tall + 0.3 : 1.5;
     this.model.add(crown);
+    if (tall) this.bar.group.position.y = (tall + 0.55) * this.scale;
     this.crown = crown;
   }
 }
