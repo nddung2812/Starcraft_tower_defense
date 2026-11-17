@@ -83,8 +83,11 @@ export class Game {
     this.scv = null;
   }
 
-  reset(seed = null) {
+  /** `mapLevel` pins the battlefield for a match whose wave number (`level`) climbs on one map. */
+  reset(seed = null, { mapLevel = null } = {}) {
     this.wipeUnits();
+    this.match = null;       // the Skirmish layer installs its director here; null in the endless stand
+    this.mapLevel = mapLevel;
     this.level = 1;
     this.mawSeen = false;
     this.mapVersion = MAP_VERSION;
@@ -154,7 +157,7 @@ export class Game {
     this.clearCrates();
     this.streak = 0;
 
-    const layout = carveLevel(this.level, this.mapSeed, this.mapVersion);
+    const layout = carveLevel(this.mapLevel || this.level, this.mapSeed, this.mapVersion);
     this.layout = layout;
     this.grid.load(layout);
     this.stage.setMapSize(layout.cols, layout.rows);
@@ -197,7 +200,7 @@ export class Game {
     }
 
     // mountains: one heightfield around the lanes
-    const terrain = buildTerrain(layout.depth, (this.mapSeed ^ (this.level * 2654435761)) >>> 0, layout.cols, layout.rows);
+    const terrain = buildTerrain(layout.depth, (this.mapSeed ^ ((this.mapLevel || this.level) * 2654435761)) >>> 0, layout.cols, layout.rows);
     this.zoneMesh = terrain.mesh;
     this.heightAt = terrain.heightAt;
     this.updateWater = terrain.update;
@@ -237,6 +240,8 @@ export class Game {
   /* ---------------- economy + building ---------------- */
 
   get baseUpgradeCost() { return baseUpgradeCost(this.baseLevel); }
+  /** The run is over, lost or won: nothing simulates and nothing can be ordered. */
+  get ended() { return this.state === 'defeat' || this.state === 'victory'; }
   get combatTargets() {
     return ['wave', 'raid'].includes(this.state) ? this.zerglings.concat(this.hives) : this.zerglings;
   }
@@ -483,13 +488,13 @@ export class Game {
   }
 
   offerEvolution(bossName) {
-    if (this.pendingEvolution || this.state === 'defeat') return;
+    if (this.pendingEvolution || this.ended) return;
     this.pendingEvolution = { level: this.level, bossName };
     this.emit('change');
   }
 
   chooseEvolution(id) {
-    if (!this.pendingEvolution || this.state === 'defeat' || !EVOLUTIONS.some(e => e.id === id)) return false;
+    if (!this.pendingEvolution || this.ended || !EVOLUTIONS.some(e => e.id === id)) return false;
     this.evolutions[id] = (this.evolutions[id] || 0) + 1;
     this.pendingEvolution = null;
     for (const unit of [...this.gunners, ...this.bunkers]) syncEvolutionVisual(unit, this);
@@ -634,7 +639,7 @@ export class Game {
   }
 
   collectCrate(crate) {
-    if (!crate || crate.dead || !this.crates.includes(crate) || this.state === 'defeat') return false;
+    if (!crate || crate.dead || !this.crates.includes(crate) || this.ended) return false;
     crate.dead = true;
     this.minerals += crate.value;
     const recharge = this.airStrikeCd > 0 && Math.random() < SUPPLY.strikeChance;
@@ -649,7 +654,7 @@ export class Game {
   }
 
   togglePause() {
-    if (this.state === 'defeat' || this.pendingEvolution) return;
+    if (this.ended || this.pendingEvolution) return;
     this.paused = !this.paused;
     this.emit('change');
   }
@@ -711,7 +716,23 @@ export class Game {
     this.fx.explosion({ x: this.core.x, y: 1, z: this.core.z }, 3);
     this.stage.kick(9);
     sfx.defeat();
-    this.emit('over', false);
+    // A lost match reports through its director: it is never saved and never reaches the kills board.
+    if (this.match) this.match.finish(false);
+    else this.emit('over', false);
+  }
+
+  /** Every hive is gone. In a match that is the win; in the endless stand it ends the round. */
+  hivesDestroyed() {
+    if (!this.match) { this.completeWave(); return; }
+    this.state = 'victory';
+    this.pendingEvolution = null;
+    this.assault.clearMarks();
+    this.drama = 1;
+    this.focus = null;
+    this.stage.kick(5);
+    sfx.victory();
+    this.emit('change');
+    this.match.finish(true);
   }
 
   startRaid() {
@@ -841,7 +862,7 @@ export class Game {
 
   /** One press sends every combat unit, including bunker troops, toward enemy bases. Defenders stay. */
   commandAdvanceArmy() {
-    if (this.state === 'defeat' || this.pendingEvolution) return 0;
+    if (this.ended || this.pendingEvolution) return 0;
     let n = 0;
     for (const unit of this.gunners) {
       if (unit.dead || unit.downed || unit.defend) continue;
@@ -969,7 +990,7 @@ export class Game {
   /* ---------------- tick ---------------- */
 
   update(dt) {
-    if (this.paused || this.pendingEvolution || this.state === 'defeat') return;
+    if (this.paused || this.pendingEvolution || this.ended) return;
     this.laserCharge = Math.min(BASE_LASER.chargeTime, this.laserCharge + dt);
     if (this.laserCharge >= BASE_LASER.chargeTime - 1e-9) this.laserCharge = BASE_LASER.chargeTime;
     if (this.baseUpgradeT > 0) {
@@ -984,7 +1005,7 @@ export class Game {
 
     // Base destruction ends the round even if a swarm or boss is still alive.
     if (['wave', 'raid'].includes(this.state) && this.hives.length && this.hives.every(h => h.dead)) {
-      this.completeWave();
+      this.hivesDestroyed();
       return;
     }
     for (const hive of this.hives) hive.update(dt, this);
@@ -1009,6 +1030,7 @@ export class Game {
     if (this.state === 'wave') {
       this.assault.update(dt);
       this.spawnTimer += dt;
+      this.match?.update(dt);   // queues the next wave when its timer runs out
       while (this.queue.length && this.queue[0].at <= this.spawnTimer) {
         const s = this.queue.shift();
         const mouths = this.grid.spawns;
@@ -1096,14 +1118,15 @@ export class Game {
     }
 
     const alive = this.zerglings.filter((z) => !z.dead).length;
-    this.drama = this.state === 'wave' && !this.assault.plan && !this.queue.length && alive === 1 ? 0.38 : 1;
+    this.drama = this.state === 'wave' && !this.match && !this.assault.plan && !this.queue.length && alive === 1 ? 0.38 : 1;
     if (this.focus && this.focus.dead) this.focus = null;
 
     if (['wave', 'raid'].includes(this.state) && this.hives.length && this.hives.every(h => h.dead)) {
-      this.completeWave();
+      this.hivesDestroyed();
       return;
     }
-    if (this.state === 'wave' && !this.assault.pending && !this.queue.length && alive === 0) {
+    // A match never pauses for a raid: its hives are the objective from the first second.
+    if (this.state === 'wave' && !this.match && !this.assault.pending && !this.queue.length && alive === 0) {
       this.startRaid();
     }
 

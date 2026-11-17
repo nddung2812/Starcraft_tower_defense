@@ -8,6 +8,7 @@ import { EVOLUTIONS, EVOLUTION_RULES } from './config.js';
 import { evolutionDescription } from './evolutions.js';
 
 const $ = (id) => document.getElementById(id);
+const clock = (seconds) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 
 /* A tiny second renderer that spins the real 3D model in the inspector. */
 class Portrait {
@@ -308,6 +309,15 @@ export class UI {
       $('raidNotice').hidden = false;
       this.raidNoticeTimer = setTimeout(() => { $('raidNotice').hidden = true; }, 2000);
     });
+    // Skirmish (`game.match`, see skirmish.js): the objective readout, wave and hive callouts, the result.
+    game.on('matchStart', ({ hives, waveGap }) => {
+      this.toast('Skirmish', `Destroy ${hives === 2 ? 'both' : `all ${hives}`} hives to win. A bigger wave every ${waveGap} seconds: hold, build up, then push (A).`, 'radio', 9000);
+      this.syncMatch();
+    });
+    game.on('wave', ({ wave, hostiles, bonus, boss }) => this.callout(`Wave ${wave}`,
+      `${boss ? `${boss.name} inbound · ` : ''}${hostiles} hostiles · +${bonus} minerals`, 'unit'));
+    game.on('hiveDown', ({ left }) => this.callout('HIVE DESTROYED', `${left} left · its share of every wave is gone`, 'unit'));
+    game.on('matchOver', (result) => this.showMatchBanner(result));
     game.on('unlock', (u) => this.toast(`Armory unlocked — ${u.name}`, u.effect, 'unlock'));
     game.on('baseUpgraded', (level) => {
       const stage = CORE_STAGES[level - 1];
@@ -544,6 +554,7 @@ export class UI {
     const g = this.game;
     $('rMinerals').textContent = g.minerals;
     $('rWave').textContent = g.level;
+    this.syncMatch();
     this.updateAssault();
     this.syncBase();
     this.syncYamato();
@@ -580,7 +591,7 @@ export class UI {
       ? Math.min(100, (g.kills / next.kills) * 100) + '%'
       : '100%';
 
-    $('btnPause').disabled = g.state === 'defeat' || !$('intro').hidden;
+    $('btnPause').disabled = g.ended || !$('intro').hidden;
     $('btnPause').title = `${g.paused ? 'Resume' : 'Pause'} game (Space)`;
     $('btnPause').textContent = g.paused ? 'Resume' : 'Pause';
     $('btnPause').setAttribute('aria-pressed', String(g.paused));
@@ -645,7 +656,7 @@ export class UI {
       b.disabled = !on;
       if (label) b.querySelector('.cmd__label').textContent = label;
     };
-    set('attack', g.state !== 'defeat' && !g.pendingEvolution && g.gunners.some(u => !u.dead && !u.downed));
+    set('attack', !g.ended && !g.pendingEvolution && g.gunners.some(u => !u.dead && !u.downed));
     document.querySelector('[data-cmd="attack"]').title = 'Send the whole army to destroy enemy bases (A). Shift+A: attack-move selected units to a clicked point.';
     set('stop', units.length > 0);
     const guards = units.filter((u) => UNITS[u.kind]);
@@ -670,6 +681,7 @@ export class UI {
 
   /** Game over: your run, and the leaderboard with your row highlighted. */
   showBanner({ name, score, level, kills, rank, online, scores, best, daily }) {
+    $('banner').classList.remove('is-match');   // a Skirmish result hides the score card and board
     $('bannerTitle').textContent = 'Outpost Overrun';
     $('bannerTitle').classList.remove('is-win');
     const place = rank ? ` · #${rank} ${online ? 'worldwide' : 'on this device'}` : '';
@@ -695,6 +707,35 @@ export class UI {
   }
 
   hideBanner() { $('banner').hidden = true; }
+
+  /** Skirmish objective at the top of the battlefield: hives left, wave, time to the next one. */
+  syncMatch() {
+    const m = this.game.match, hud = $('matchHud');
+    const showing = !!m && $('intro').hidden && !this.game.ended;
+    hud.hidden = !showing;
+    if (!showing) return;
+    const fighting = this.game.state === 'wave';
+    const text = `SKIRMISH · HIVES ${m.hivesLeft}/${m.hives} · WAVE ${m.wave} · ${fighting ? `NEXT ${clock(Math.ceil(m.nextT))}` : 'STAND BY'}`;
+    if (hud.textContent !== text) hud.textContent = text;
+    hud.classList.toggle('is-soon', fighting && m.nextT <= 5);
+  }
+
+  /** A match result: time to win (or how far it got), with the score card and kills board hidden. */
+  showMatchBanner({ name, won, seconds, wave, kills, hives, destroyed, corePct, best, previousBest, improved }) {
+    const killed = `${kills.toLocaleString()} bug${kills === 1 ? '' : 's'} killed`;
+    $('banner').classList.add('is-match');
+    $('bannerTitle').textContent = won ? 'Canyon Cleared' : 'Outpost Overrun';
+    $('bannerTitle').classList.toggle('is-win', won);
+    $('bannerText').textContent = won
+      ? `${name}, you destroyed ${hives === 2 ? 'both hives' : `all ${hives} hives`} in ${clock(seconds)}, on wave ${wave}, with ${killed} and the relay at ${corePct}%. `
+        + (!improved ? `Your best: ${clock(best)}.` : previousBest != null ? `New best time: ${clock(previousBest)} before.` : 'First win on this setup.')
+      : `${name}, the relay fell on wave ${wave} after ${clock(seconds)}. ${destroyed} of ${hives} hives destroyed, ${killed}. `
+        + (best != null ? `Your best win: ${clock(best)}.` : 'Destroy every hive to win.');
+    $('shareStatus').textContent = won ? 'Play again on the same canyon to beat your time.'
+      : 'Same canyon on a rematch. Push before the hives outgrow you, and leave defenders at home (K).';
+    $('banner').hidden = false;
+    this.syncMatch();
+  }
 
   say(html) {
     this.line = html;
@@ -754,7 +795,7 @@ export class UI {
   syncBase() {
     const g = this.game;
     // Base research and the laser live in the inspector: click the Ridge Relay to see them.
-    $('baseActions').hidden = this.inspect.entity?.kind !== 'core' || g.state === 'defeat';
+    $('baseActions').hidden = this.inspect.entity?.kind !== 'core' || g.ended;
     if (g.laserReady && !this.laserAnnounced && ['wave', 'raid'].includes(g.state)) {
       this.toast('Laser ready', 'Auto-fire armed. The cannon fires when an enemy is available.', 'unlock', 5000);
     }
@@ -762,7 +803,7 @@ export class UI {
     const upgrading = g.baseUpgrading, left = Math.ceil(g.baseUpgradeT);
     const done = upgrading ? Math.round((1 - g.baseUpgradeT / g.baseUpgradeTime) * 100) : 0;
     $('btnBaseUpgrade').textContent = upgrading ? `Upgrading base · ${left}s` : `Upgrade base · ${g.baseUpgradeCost} minerals`;
-    $('btnBaseUpgrade').disabled = upgrading || g.minerals < g.baseUpgradeCost || g.state === 'defeat';
+    $('btnBaseUpgrade').disabled = upgrading || g.minerals < g.baseUpgradeCost || g.ended;
     // The button fills as the work goes on.
     $('btnBaseUpgrade').style.backgroundImage = upgrading
       ? `linear-gradient(90deg, rgba(255, 211, 106, 0.45) ${done}%, rgba(255, 211, 106, 0.08) ${done}%)` : '';
@@ -790,7 +831,7 @@ export class UI {
 
   updateAssault() {
     const g = this.game, a = g.assault;
-    const playing = $('intro').hidden && g.state !== 'defeat';
+    const playing = $('intro').hidden && !g.ended;
     $('battleReadouts').hidden = !playing || (!a.plan && !g.treasureLoot.length && !Object.keys(g.evolutions).length);
     $('assaultHud').hidden = !playing || !a.plan;
     if (!a.plan || !playing) return;
@@ -818,6 +859,7 @@ export class UI {
     if (this.pendingHudTime < 0.1) return;
     dt = this.pendingHudTime;
     this.pendingHudTime = 0;
+    this.syncMatch();
     this.updateAssault();
     this.syncBase();
     this.syncYamato();

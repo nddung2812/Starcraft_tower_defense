@@ -1,0 +1,10 @@
+/*
+ * Skirmish (src/skirmish.js): the objective readout at the top of the battlefield, and a match
+ * result without the score card, share buttons and kills board. Kept apart from style.css so the
+ * mode's styles travel with it.
+ */
+.match-hud { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 2; padding: 7px 14px; border: 1px solid rgba(240,178,60,.35); border-radius: 14px; background: #070e18e8; color: var(--gold); font-size: 11px; letter-spacing: .08em; white-space: nowrap; pointer-events: none; }
+.match-hud[hidden] { display: none; }
+.match-hud.is-soon { color: #ff8b65; border-color: #ff8b65; }
+.banner.is-match .share-actions, .banner.is-match .run-card, .banner.is-match .board { display: none; }
+@media (max-width: 760px) { .match-hud { font-size: 9px; padding: 5px 10px; } }

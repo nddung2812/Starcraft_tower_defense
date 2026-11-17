@@ -41,6 +41,7 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 | `src/story.js` | Optional layer. The evacuation frame: one Ember Control radio line a round, a convoy for every round held, the result line and share text. Never touches combat or score. |
 | `src/atmosphere.js` | Optional layer. Sky dome, far ridges and the time-of-day palette (lights, fog and background) that turns every three rounds. |
 | `src/touch.js` | Optional layer. Two-finger pinch zoom and twist rotate. (Tap-to-order is `touchOrder()` in `main.js`.) |
+| `src/skirmish.js` | Optional layer. Skirmish: the `Match` director behind `game.match` (waves on a timer, hive guards, the result and its record) and the start-screen button. Tuning is `SKIRMISH` in config; its styles are `src/skirmish.css`. |
 | `src/maw.js` | Tunnel Maw: `MawAmbush` (timing, warning marks, eruption) and the `TunnelMaw` entity that swallows, holds and releases a unit. Tuning is `MAW` in config. |
 | `src/evolutions.js` | Boss reward abilities: automatic tank siege, walker chain lightning, bunker Last Stand, descriptions and model additions. Tuning lives in config. |
 | `src/grid.js` | Tile grid, A* for player units, the Hammer's all-terrain route search (`driveSearch`), the shared bug route field, line-of-sight helpers. |
@@ -59,6 +60,45 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 | `src/daily.js` | Daily challenge: one seed per UTC day, today's best and day streak in `td.daily.v1`, share text. |
 | `src/fx.js`, `audio.js`, `voice.js` | Particles and decals, synthesised sound effects, speech-synthesis voice lines. |
 | `assets/models/README.md` | How to drop in `.glb` unit models. |
+
+## Skirmish: a match you can win (Nov 17, 2026)
+
+Built because the endless stand never gives the player a win or a decision about when to attack.
+The start screen's Skirmish button plays one continuous battle on one map: two hives, a bigger
+wave every 40 seconds, and the match is won the moment both hives are destroyed. Rules and
+numbers are in `BALANCE.md`; `tests/browser-skirmish.cjs` covers it. This is step one of three:
+a setup screen (hive count, aggression, map size) and hive personalities are not built.
+
+- **`game.match` is the whole switch.** It is null in the endless stand. `skirmish.js` installs a
+  `Match` there and the core calls three methods on it: `update(dt)` each tick of `wave`,
+  `hiveHit(hive)` from `Hive.takeDamage`, and `finish(won)`. Anything mode-specific in a core
+  file must read `game.match?.…` so the stand is untouched and a missing layer costs only the
+  button (it is `hidden` until the layer installs).
+- **The wave number is `game.level`; the map is `game.mapLevel`.** `reset(seed, { mapLevel })`
+  pins the battlefield, and `loadLevel()`/`rebuildTerrain()` carve `mapLevel || level`. That is
+  why unlocks, scouting, wave composition (`wavePlan(level)`), bosses at 5/10/15, the Maw from 9
+  and the sky all follow a match with no code of their own. `Match.launchWave()` never emits
+  `level` (main.js would cancel placement and clear the selection); it emits `wave`.
+- **A match never leaves `wave`.** No raid, no `completeWave()`, no refund, no slow-motion on the
+  last bug. `hivesDestroyed()` is the one place that decides what dead hives mean: `completeWave()`
+  in the stand, `state = 'victory'` in a match. Use `game.ended` (defeat or victory) for "the run
+  is over"; test `state === 'defeat'` only when you mean a loss.
+- **Results stay out of the stand's systems.** A match ends through `Match.finish()`, which emits
+  `matchOver` and never `over`, so nothing is submitted to the kills board, the daily is not
+  recorded and the saved stand is not deleted. Matches are never checkpointed
+  (`retention.active` stays false; the pause menu offers Quit match). The record is the fastest
+  win per setup in `td.skirmish.v1`, keyed by hive count.
+- **Starting one.** `launchNewRun(name, true, seed, 'skirmish')` in `main.js`; `runMode` makes
+  Play Again and Restart a rematch on the same seed. `ui.js` draws the readout (`syncMatch`),
+  the wave and hive callouts and the result (`showMatchBanner`) from `matchStart`, `wave`,
+  `hiveDown` and `matchOver`.
+- **Hives in the stand are not what the older notes below say.** They can be attacked for the
+  whole round, they hatch a brood every 30 seconds, the raid has no time limit, and a round ends
+  only when every hive is destroyed.
+- **Four suites were already failing before Skirmish** (checked against a clean export of
+  `e465309`) and still fail the same way; their causes have not been investigated:
+  `browser-base` ("paused"), `browser-scouting` (8 !== 7), `browser-maw` ("A Maw kept a cleared
+  round open") and `browser-balance` ("Starting squad cannot protect opening seed 0").
 
 ## First impression, story, sky and touch (Nov 15, 2026)
 

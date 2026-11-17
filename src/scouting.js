@@ -36,7 +36,7 @@ export function installScouting(game) {
   const dialog = document.getElementById('scoutDialog');
   let resume = false;
   button.addEventListener('click', () => {
-    if (dialog.open || game.pendingEvolution || game.state === 'defeat') return;
+    if (dialog.open || game.pendingEvolution || game.ended) return;
     const report = scoutRound(game.level);
     document.getElementById('scoutTitle').textContent = `Round ${game.level} · Scouting report`;
     document.getElementById('scoutSummary').textContent = `${report.total} planned enemies · ${game.grid.spawns.length} approaches. Full round composition, including enemies already spawned; destroying a hive prevents its remaining spawns.${report.maws ? ` Tunnel Maws also ambush exposed ground units, ${report.maws === 2 ? 'two at a time' : 'one at a time'}: move when the ground shakes, or kill the Maw to free a swallowed unit.` : ''}`;
@@ -53,7 +53,7 @@ export function installScouting(game) {
   });
   document.getElementById('scoutClose').addEventListener('click', () => dialog.close());
   dialog.addEventListener('close', () => {
-    if (resume && game.paused && game.state !== 'defeat') game.togglePause();
+    if (resume && game.paused && !game.ended) game.togglePause();
     resume = false;
   });
   dialog.addEventListener('click', event => {
@@ -63,7 +63,7 @@ export function installScouting(game) {
     game.emit('pick', counter.dataset.counter);
   });
   const sync = () => {
-    button.disabled = !document.getElementById('intro').hidden || game.state === 'defeat' || !!game.pendingEvolution;
+    button.disabled = !document.getElementById('intro').hidden || game.ended || !!game.pendingEvolution;
     button.title = `Scout round ${game.level}: enemy composition and counters (pauses battle)`;
   };
   game.on('change', sync);

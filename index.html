@@ -22,6 +22,7 @@
 <meta name="twitter:description" content="An evacuation behind you, an endless swarm in front. How many rounds can you hold? Free in your browser.">
 <meta name="twitter:image" content="https://protectyourhome.vercel.app/assets/og.jpg">
 <link rel="stylesheet" href="src/style.css">
+<link rel="stylesheet" href="src/skirmish.css">
 <script type="importmap">
 {
   "imports": {
@@ -101,6 +102,7 @@
       <button id="guideDismiss" type="button" aria-label="Dismiss field manual">×</button>
     </div>
     <div id="challengeHud" class="challenge-hud" hidden aria-live="polite"></div>
+    <div id="matchHud" class="match-hud" role="status" hidden></div>
     <div id="achievementNotice" class="achievement-notice" role="status" aria-live="polite" hidden></div>
 
     <section id="pauseMenu" class="banner pause-menu" aria-label="Game paused" hidden>
@@ -151,6 +153,8 @@
         <span class="intro__hint">Start with 3 soldiers. They fire automatically.</span>
         <button id="btnDaily" class="btn btn--gold" type="submit" name="deploy" value="daily">Daily challenge</button>
         <span id="dailyInfo" class="intro__hint"></span>
+        <button id="btnSkirmish" class="btn btn--gold" type="submit" name="deploy" value="skirmish" hidden>Skirmish · destroy the hives</button>
+        <span id="skirmishInfo" class="intro__hint" hidden></span>
         <button class="btn btn--ghost" type="submit" name="deploy" value="build">Build my own defense</button>
         <button id="introCareer" class="career-teaser" type="button" data-career></button>
         <details id="introScores" class="intro__scores">

@@ -779,7 +779,8 @@ export class Hive {
 
   update(dt, game) {
     if (this.dead) return;
-    if (['wave', 'raid'].includes(game.state)) {
+    // In a match the director sends the waves and grows the hive; there is no separate brood timer.
+    if (!game.match && ['wave', 'raid'].includes(game.state)) {
       this.evolutionT += dt;
       while (this.evolutionT >= HIVE_RAID.evolutionInterval) {
         this.evolutionT -= HIVE_RAID.evolutionInterval;
@@ -820,7 +821,7 @@ export class Hive {
   takeDamage(amount, game) {
     if (this.dead || !['wave', 'raid'].includes(game.state)) return;
     this.hp = Math.max(0, this.hp - amount);
-    if (this.hp > 0) return;
+    if (this.hp > 0) { game.match?.hiveHit(this); return; }
     this.dead = true;
     this.obj.visible = false;
     // A destroyed base cannot send future troops; surviving lanes keep their waves.

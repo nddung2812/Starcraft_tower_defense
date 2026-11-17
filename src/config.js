@@ -336,6 +336,17 @@ export function applyBaseUpgrade(stats, level) {
 }
 export const BASE_LASER = { chargeTime: 90, damage: 600, halfWidth: 0.8, duration: 0.45 };
 export const HIVE_RAID = { duration: 60, evolutionInterval: 30, broodBase: 2, broodPerEvolution: 2, broodCap: 12, hp: 300, hpPerLevel: 45, reward: 100, rewardPerLevel: 25 };
+/*
+ * Skirmish: one continuous match on one map. A bigger wave leaves the hives every `waveGap`
+ * seconds; destroying every hive wins. Hives are tougher than in the endless stand, grow with
+ * every wave, and hatch guards (at most once per `guardGap` seconds) when they are hit.
+ */
+export const SKIRMISH = {
+  mapLevel: 1,                       // the 56×56 canyon with two hives on one side
+  waveGap: 40,
+  hiveHp: 1800, hiveHpPerWave: 300, hiveReward: 250,
+  guardGap: 6, guardBase: 3, guardPerWave: 0.5, guardCap: 10
+};
 /* Kills landed within `window` seconds of each other build a streak; each tier pays once per streak. */
 export const STREAK = {
   window: 2.5,

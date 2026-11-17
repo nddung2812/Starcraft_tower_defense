@@ -23,7 +23,7 @@ export class Retention {
     document.querySelectorAll('[data-career]').forEach(b => b.addEventListener('click', () => this.openCareer()));
     $('closeCareer').addEventListener('click', () => $('careerDialog').close());
     $('careerDialog').addEventListener('close', () => {
-      if (this.resumeAfterCareer && game.state !== 'defeat' && $('intro').hidden) game.togglePause();
+      if (this.resumeAfterCareer && !game.ended && $('intro').hidden) game.togglePause();
       this.resumeAfterCareer = false;
     });
     $('cosmeticLoadout').addEventListener('click', ev => {
@@ -38,7 +38,7 @@ export class Retention {
     });
     $('replaceDialog').addEventListener('close', () => {
       this.pendingNewRun = null;
-      if (this.resumeAfterReplace && game.state !== 'defeat' && $('intro').hidden) game.togglePause();
+      if (this.resumeAfterReplace && !game.ended && $('intro').hidden) game.togglePause();
       this.resumeAfterReplace = false;
     });
     game.on('checkpoint', () => this.checkpoint());
@@ -95,6 +95,7 @@ export class Retention {
   }
 
   quit() {
+    if (this.game.match) { this.onQuit(); this.refresh(); this.syncPause(); return; }
     this.checkpoint();
     if (!this.save || !this.writeSave()) { this.syncPause(); return; }
     this.active = false;
@@ -123,7 +124,7 @@ export class Retention {
   requestNewRun(action) {
     if (!this.save) { action(); return; }
     this.pendingNewRun = action;
-    this.resumeAfterReplace = $('intro').hidden && !this.game.paused && this.game.state !== 'defeat';
+    this.resumeAfterReplace = $('intro').hidden && !this.game.paused && !this.game.ended;
     if (this.resumeAfterReplace) this.game.togglePause();
     $('replaceText').textContent = `This replaces your saved Round ${this.save.level} run (${count(this.save.kills)} kills). Your achievements and cosmetics stay with you.`;
     $('replaceDialog').showModal();
@@ -132,12 +133,18 @@ export class Retention {
 
   syncPause() {
     const g = this.game;
-    const showing = g.paused && $('intro').hidden && g.state !== 'defeat';
+    const showing = g.paused && $('intro').hidden && !g.ended;
     if (!showing) this.planning = false;
     $('pauseMenu').hidden = !showing || this.planning;
     $('pausePlanBar').hidden = !showing || !this.planning;
     document.querySelector('.stage').classList.toggle('is-planning', showing && !!this.planning);
     if (!showing) return;
+    $('btnSaveQuit').textContent = g.match ? 'Quit match' : 'Save & quit';
+    if (g.match) {
+      $('pauseSaveInfo').textContent = `Skirmish matches are not saved. Quitting ends this match${this.save ? '; your saved stand is untouched' : ''}.`;
+      $('btnSaveQuit').disabled = false;
+      return;
+    }
     $('pauseSaveInfo').textContent = this.save
       ? (['wave', 'raid'].includes(g.state)
         ? `Checkpoint: start of Round ${this.save.level}, ${count(this.save.kills)} kills and ${count(this.save.minerals)} minerals. Save & quit returns here; this round's combat will replay.`
@@ -184,7 +191,7 @@ export class Retention {
 
   openCareer() {
     if ($('careerDialog').open) return;
-    this.resumeAfterCareer = $('intro').hidden && this.game.state !== 'defeat' && !this.game.paused;
+    this.resumeAfterCareer = $('intro').hidden && !this.game.ended && !this.game.paused;
     if (this.resumeAfterCareer) this.game.togglePause();
     this.renderCareer(); $('careerDialog').showModal();
   }

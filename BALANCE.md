@@ -435,3 +435,59 @@ bonus, armour, aircraft/garrison protection, wall occlusion, Yamato survival and
 - Brood Rays join at round 7: 220 base HP, 3 armour, 18 acid damage every 1.65s, 4.8 range, 2.1 speed, and 7 bounty. They fly and target both ground and air. Waves grow from 1 to a maximum of 8.
 - From round 5, every fourth enemy in an evolved hive's brood is a Wraith. From round 7 and evolution 2, the final brood member becomes a Brood Ray. These replace ground brood members, preserving the brood size cap.
 - Scouting recommends Atlas mechs against both flying strains.
+
+## Skirmish (Nov 17, 2026)
+
+One continuous match on one map, started from the Skirmish button. Destroy every hive to win;
+lose if the relay falls. Tuning is `SKIRMISH` in `src/config.js`; the rules are in
+`src/skirmish.js`. This is the first of three planned steps: the setup is fixed, and a setup
+screen and hive personalities are not built.
+
+| Rule | Value |
+| --- | --- |
+| Map | The round-1 battlefield for the seed: 56×56, two hives on one side, two routes |
+| Start | 480 minerals, three Troopers placed (the Quick Deploy squad) |
+| Waves | Wave 1 at the start, then one every 40 seconds whether or not the last is dead |
+| Wave N | The endless stand's round-N swarm (`wavePlan(N)`), split between the hives |
+| Pay for each wave held | 40 + 15 × the wave just held, paid as the next wave leaves. Kills pay as usual |
+| Hive health | 1,800, plus 300 for every wave launched (max and current) |
+| Hive guards | Hit a hive and it hatches round(3 + 0.5 × (wave − 1)) bugs beside itself, 10 at most, once per 6 seconds per hive. Rippers, with every fourth a Brute from wave 4, at +10% health per wave |
+| Hive bounty | 250 minerals |
+| A destroyed hive | Stops sending what it had queued, and its share of every later wave is gone |
+| Unlocks, bosses, Maw | By wave number: Torch 2, Spectre 3, Medic 4, Titan 5; bosses on waves 5, 10, 15…; Tunnel Maw from wave 9 |
+| Not in a match | Round refunds, Redeploy, salvage, the raid phase, last-bug slow motion, checkpoints, the kills leaderboard |
+
+For comparison, a round-1 hive in the endless stand has 300 health and pays 100.
+
+The result is the time to win. The best time, wins and matches played are kept per browser
+(`td.skirmish.v1`). Play Again is a rematch on the same seed.
+
+**What the numbers were tuned against.** A bot played 6 seeds per plan. It spends everything on
+Troopers, with an Atlas for every fourth unit from wave 3; when it pushes it keeps a quarter of
+the army home and keeps sending the rest. It never promotes, builds walls or bunkers, researches,
+or uses the strike or the laser, so these are a floor for a careful player, not a prediction.
+
+| Bot plan | Wins | Typical end |
+| --- | ---: | --- |
+| All-in from the first second | 0 / 6 | Relay falls in 1:12–1:59, no hive taken |
+| Push at wave 3 | 0 / 6 | |
+| Push at wave 5 | 2 / 6 | Wins at about 5:20 |
+| Push at wave 6 | 1 / 6 | |
+| Push at wave 7 | 0 / 6 | Takes one hive in half the matches; relay falls on waves 9–16 |
+| Push at wave 8 | 3 / 6 | Wins at about 8:10 |
+| Push at wave 9 | 5 / 6 | Wins at about 7:55 |
+| Push at wave 10 | 5 / 6 | Wins at about 8:05 |
+| Push at wave 12 | 0 / 6 | No hive taken. In the one match traced, the army was ground down in the canyon before reaching a hive |
+| Never push | 0 / 6 | Relay falls on waves 15–18 (9:50–11:50) |
+
+- Softer hives (1,500 health, +200 a wave, fewer guards) let the all-in rush win 2 of 4, so the
+  hive numbers were left where the rush fails.
+- For this bot the window closes after wave 10. The likely causes are the decade boss on wave 10
+  (at about 6:06) and the size of the waves after it, but that has not been isolated. Whether a
+  player with promotions, Hammers and Titans can still break out late has not been tested.
+- No person has played a full match yet. Pacing, the wave-10 wall and whether the timing
+  decision is fun all need playtesting before the next step is built.
+
+`tests/browser-skirmish.cjs` checks the rules above, the result and record, that a match never
+touches the saved stand or the kills board, and two bot matches: the rush loses and a wave-9
+push wins (up to three attempts, because combat is not seeded).

@@ -60,7 +60,9 @@ export class MilestoneAssault {
   }
 
   spawnBoss() {
-    const g = this.game, sp = g.grid.spawns[0];
+    const g = this.game;
+    // From the lead hive, or the first one still standing if that has been destroyed.
+    const sp = g.grid.spawns[g.hives.findIndex(h => !h.dead)] || g.grid.spawns[0];
     this.boss = new MilestoneBoss(sp.x + 0.5, sp.y + 0.85, this.plan);
     g.zerglings.push(this.boss);
     g.world.add(this.boss.obj);

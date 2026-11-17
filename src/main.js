@@ -913,12 +913,13 @@ let runGeneration = 0;
 let guideDismissed = false;
 let guideDismissTimer = null;
 let quickDeployment = true;
+let runMode = 'stand';          // 'skirmish' while a match is being played, so a rematch stays one
 const guide = document.getElementById('fieldGuide');
 const challengeHud = document.getElementById('challengeHud');
 const retention = new Retention(game, {
   getMeta: () => ({ player: player || 'Commander', quickDeployment, guideDismissed }),
   onContinue: save => {
-    runGeneration++; completedRun = null;
+    runGeneration++; completedRun = null; runMode = 'stand';
     player = save.player; quickDeployment = save.quickDeployment; guideDismissed = save.guideDismissed;
     rememberName(player);
     document.getElementById('pilot').textContent = player === 'Commander' ? player : `Commander ${player}`;
@@ -943,7 +944,7 @@ if (challenge) {
 }
 function updateChallenge() {
   if (!challenge) return;
-  challengeHud.hidden = game.mapSeed !== challenge.seed;
+  challengeHud.hidden = game.mapSeed !== challenge.seed || !!game.match;
   const beaten = game.kills > challenge.kills;
   challengeHud.classList.toggle('is-beaten', beaten);
   challengeHud.textContent = beaten
@@ -951,7 +952,7 @@ function updateChallenge() {
     : `BEAT ${challenge.name} · ${(challenge.kills + 1 - game.kills).toLocaleString()} more kills to win`;
 }
 function updateGuide() {
-  guide.hidden = guideDismissed || !intro.hidden || ['defeat', 'raid'].includes(game.state) || game.level > 1;
+  guide.hidden = guideDismissed || !intro.hidden || game.ended || game.state === 'raid' || game.level > 1;
   if (guide.hidden) {
     clearTimeout(guideDismissTimer);
     guideDismissTimer = null;
@@ -1043,24 +1044,29 @@ async function showIntro() {
   ui.renderBoard(document.getElementById('introBoard'), scores, player ? { name: player, score: -1 } : null);
 }
 
-function launchNewRun(name, quick, seed = challenge?.seed ?? null) {
+function launchNewRun(name, quick, seed = challenge?.seed ?? null, mode = 'stand') {
+  // A Skirmish is one winnable match on one map; without its layer the button is never shown.
+  const skirmish = mode === 'skirmish' ? extras.skirmish : null;
   clearTimeout(guideDismissTimer);
   guideDismissTimer = null;
   retention.active = false;
   runGeneration++; completedRun = null;
-  player = name; quickDeployment = quick; guideDismissed = false;
+  runMode = skirmish ? 'skirmish' : 'stand';
+  player = name; guideDismissed = false;
+  if (!skirmish) quickDeployment = quick;   // a match always opens with the squad; keep the stand's choice
   rememberName(player);
   beginRunSession();
-  game.reset(seed);
+  game.reset(seed, skirmish?.options());
   cancelModes(); select(null); groups.forEach(g => { g.length = 0; });
   ui.hideBanner(); ui.hideReel();
   document.getElementById('btnSpeed').textContent = '1x';
   document.getElementById('pilot').textContent = name === 'Commander' ? name : `Commander ${name}`;
   intro.hidden = true;
-  retention.begin();
+  if (skirmish) skirmish.begin();   // never checkpointed, so the saved stand is left alone
+  else retention.begin();
   sfx.resume();
   voice.unlock();
-  if (quickDeployment) game.quickDeploy();
+  if (quick) game.quickDeploy();
   else { game.startWave(); game.togglePause(); retention.plan(); }
   ui.sync();
   updateTip();
@@ -1073,11 +1079,13 @@ document.getElementById('introForm').addEventListener('submit', (ev) => {
   const name = cleanName(nameInput.value) || 'Commander';
   const mode = ev.submitter?.value;
   if (mode === 'daily') { retention.requestNewRun(() => launchNewRun(name, true, dailyStatus().seed)); return; }
+  if (mode === 'skirmish') { launchNewRun(name, true, null, 'skirmish'); return; }
   const quick = mode !== 'build';
   retention.requestNewRun(() => launchNewRun(name, quick));
 });
 
 game.on('over', async () => {
+  if (game.match) return;   // a Skirmish shows its own result and never reaches the kills board
   const generation = runGeneration;
   const previousBest = localBest();
   const run = { name: player || 'Commander', score: game.score, level: game.level, kills: game.kills,
@@ -1107,7 +1115,9 @@ game.on('over', async () => {
 
 game.on('restart', () => {
   const seed = game.mapSeed;
-  if (intro.hidden) retention.requestNewRun(() => launchNewRun(player || 'Commander', quickDeployment, seed));
+  if (!intro.hidden) return;
+  if (runMode === 'skirmish') launchNewRun(player || 'Commander', true, seed, 'skirmish');
+  else retention.requestNewRun(() => launchNewRun(player || 'Commander', quickDeployment, seed));
 });
 let alertShownAt = -99;
 game.on('alert', (e) => {
@@ -1199,7 +1209,7 @@ function frame(now) {
   animationFrame = 0;
   if (document.hidden) return;
   animationFrame = requestAnimationFrame(frame);
-  const idle = !intro.hidden || game.state === 'defeat';
+  const idle = !intro.hidden || game.ended;
   if (inputPending) { interactiveUntil = now + 250; inputPending = false; }
   const interacting = now < interactiveUntil || drag.on || keys.size > 0 || minimap.dragging;
   const resting = idle || (game.paused && !interacting);
@@ -1214,7 +1224,7 @@ function frame(now) {
   if (!idle && !game.paused) {
     // Keep movement and combat steps small when rendering at a lower frame rate.
     let remaining = dt;
-    while (remaining > 0.000001 && game.state !== 'defeat') {
+    while (remaining > 0.000001 && !game.ended) {
       const step = Math.min(0.05, remaining);
       game.update(step);
       remaining -= step;
@@ -1286,6 +1296,9 @@ function layer(name, install) {
 layer('touch', async () => (await import('./touch.js')).installTouch(canvas, stage, { cancelDrag: endDrag }));
 layer('atmosphere', async () => (await import('./atmosphere.js')).installAtmosphere(game, stage));
 layer('story', async () => (await import('./story.js')).installStory(game, ui));
+layer('skirmish', async () => (await import('./skirmish.js')).installSkirmish({
+  game, ui, intro, getPlayer: () => player || 'Commander'
+}));
 layer('opening', async () => {
   const [opening, touch] = await Promise.all([import('./opening.js'), import('./touch.js')]);
   return opening.installOpening({ game, stage, ui, canvas, intro, isTouch: () => touch.touchScreen(extras.touch) });
