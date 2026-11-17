@@ -54,6 +54,24 @@ cursor.add(rangeRing);
 cursor.visible = false;
 stage.scene.add(cursor);
 
+const placementGrid = new THREE.Group();
+placementGrid.name = 'PlacementGrid';
+const placementTile = new THREE.PlaneGeometry(0.86, 0.86).rotateX(-Math.PI / 2);
+const placementMeshes = {
+  valid: new THREE.InstancedMesh(placementTile, new THREE.MeshBasicMaterial({
+    color: 0x28ff78, transparent: true, opacity: 0.24, depthWrite: false
+  }), 49),
+  invalid: new THREE.InstancedMesh(placementTile, new THREE.MeshBasicMaterial({
+    color: 0xff334d, transparent: true, opacity: 0.3, depthWrite: false
+  }), 49)
+};
+for (const mesh of Object.values(placementMeshes)) {
+  mesh.frustumCulled = false;
+  placementGrid.add(mesh);
+}
+placementGrid.visible = false;
+stage.scene.add(placementGrid);
+
 const selRange = new THREE.Mesh(
   new THREE.RingGeometry(0.97, 1, 64).rotateX(-Math.PI / 2),
   new THREE.MeshBasicMaterial({ color: 0x5ad7ff, transparent: true, opacity: 0.35, depthWrite: false, side: THREE.DoubleSide })
@@ -98,6 +116,7 @@ let placing = null;
 let airAim = false;
 let laserAim = false;
 let targeting = null;          // 'attack' while waiting for the A-click
+const placementTransform = new THREE.Object3D();
 const drag = { on: false, mode: null, x: 0, y: 0, sx: 0, sy: 0, moved: 0, anchor: null, pointerId: null };
 const keys = new Set();
 const PAN_SPEED = 14;
@@ -353,6 +372,7 @@ function setPlacing(id) {
   if (placing) { setLaserAim(false); airAim = false; ui.setAirArmed(false); setTargeting(null); }
   ui.setPlacing(placing);
   rangeRing.visible = !!(placing && UNITS[placing]);
+  updatePlacementGrid();
   if (placing) select(null);
   updateTip();
 }
@@ -367,6 +387,7 @@ function setAirAim(on) {
     setLaserAim(false);
     placing = null;
     ui.setPlacing(null);
+    placementGrid.visible = false;
     setTargeting(null);
   }
   ui.setAirArmed(airAim);
@@ -380,6 +401,7 @@ function setTargeting(mode) {
     setLaserAim(false);
     placing = null;
     ui.setPlacing(null);
+    placementGrid.visible = false;
     airAim = false;
     ui.setAirArmed(false);
   }
@@ -605,13 +627,20 @@ canvas.addEventListener('pointermove', (ev) => {
       const t = tileAt(ev);
       if (t && (!hoverTile || t.x !== hoverTile.x || t.y !== hoverTile.y)) tryPlace(t);
     }
-    if (drag.mode === 'pan' || drag.mode === 'orbit') cursor.visible = false;
+    if (drag.mode === 'pan' || drag.mode === 'orbit') {
+      cursor.visible = false;
+      placementGrid.visible = false;
+    }
     drag.x = ev.clientX; drag.y = ev.clientY;
     if (drag.mode !== 'build') return;
   }
 
   hoverTile = tileAt(ev);
-  if (!hoverTile) { cursor.visible = false; return; }
+  if (!hoverTile) {
+    cursor.visible = false;
+    placementGrid.visible = false;
+    return;
+  }
 
   const paint = (col) => {
     cursor.visible = true;
@@ -634,6 +663,7 @@ canvas.addEventListener('pointermove', (ev) => {
   } else if (placing) {
     const ok = !game.atUnitLimit(placing) && game.canBuildAt(hoverTile.x, hoverTile.y) && game.canAfford(BUILD[placing].cost);
     paint(ok ? 0x5ef08a : 0xff5a4a);
+    updatePlacementGrid();
     const spec = UNITS[placing];
     rangeRing.visible = !!(spec && ok);
     if (spec) {
@@ -642,8 +672,34 @@ canvas.addEventListener('pointermove', (ev) => {
     }
   } else {
     cursor.visible = false;
+    placementGrid.visible = false;
   }
 });
+
+function updatePlacementGrid() {
+  if (!placing || !hoverTile) {
+    placementGrid.visible = false;
+    return;
+  }
+  let valid = 0, invalid = 0;
+  const globallyAllowed = !game.atUnitLimit(placing) && game.canAfford(BUILD[placing].cost);
+  for (let y = hoverTile.y - 3; y <= hoverTile.y + 3; y++) {
+    for (let x = hoverTile.x - 3; x <= hoverTile.x + 3; x++) {
+      if (!game.grid.inside(x, y)) continue;
+      const ok = globallyAllowed && game.canBuildAt(x, y);
+      const mesh = ok ? placementMeshes.valid : placementMeshes.invalid;
+      const index = ok ? valid++ : invalid++;
+      placementTransform.position.set(x + 0.5, (game.heightAt?.(x + 0.5, y + 0.5) || 0) + 0.035, y + 0.5);
+      placementTransform.updateMatrix();
+      mesh.setMatrixAt(index, placementTransform.matrix);
+    }
+  }
+  placementMeshes.valid.count = valid;
+  placementMeshes.invalid.count = invalid;
+  placementMeshes.valid.instanceMatrix.needsUpdate = true;
+  placementMeshes.invalid.instanceMatrix.needsUpdate = true;
+  placementGrid.visible = true;
+}
 
 function tryPlace(t) {
   if (!placing) return;
@@ -652,6 +708,7 @@ function tryPlace(t) {
     : game.placeGunner(placing, t.x, t.y);
   if (!ok) { sfx.deny(); return; }
   if (placing !== 'wall') setPlacing(null);
+  else updatePlacementGrid();
 }
 
 canvas.addEventListener('pointerdown', (ev) => {
