@@ -429,7 +429,7 @@ const PLACE_TIP = {
   bunker: 'Bunker faces the bugs. Select Troopers and right-click it to garrison.',
   scorcher: 'Torch. Burns every ground bug in a short cone. Put it where the swarm bunches up.',
   deadeye: 'Spectre. Very long range, ignores armour, shoots the biggest target. Keep it behind the line.',
-  mender: 'Medic. Heals the most injured unit nearby. Place it just behind your fighters.'
+  mender: 'Medic. Heals the most injured unit nearby and throws 3 mines around the tile you place it on. Place it just behind your fighters.'
 };
 
 function updateTip() {
@@ -1295,6 +1295,7 @@ function layer(name, install) {
 }
 layer('touch', async () => (await import('./touch.js')).installTouch(canvas, stage, { cancelDrag: endDrag }));
 layer('atmosphere', async () => (await import('./atmosphere.js')).installAtmosphere(game, stage));
+layer('mines', async () => (await import('./mines.js')).installMines(game));
 layer('story', async () => (await import('./story.js')).installStory(game, ui));
 layer('skirmish', async () => (await import('./skirmish.js')).installSkirmish({
   game, ui, intro, getPlayer: () => player || 'Commander'

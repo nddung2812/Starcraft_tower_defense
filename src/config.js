@@ -38,7 +38,7 @@ export const BUILD = {
   scorcher: { id: 'scorcher', name: 'Torch', cost: 110, icon: 'C', key: 'C', unlock: 2, desc: 'Flame trooper. Burns every ground bug in a short cone. Weak against armour.' },
   deadeye: { id: 'deadeye', name: 'Spectre', cost: 150, icon: 'D', key: 'D', unlock: 3, desc: 'Marksman. Very long range, ignores armour, picks the biggest target. Fragile.' },
   cruiser: { id: 'cruiser', name: 'Titan', cost: 900, maxActive: 3, icon: 'Y', key: 'J', unlock: 5, desc: 'Maximum 3 active Titans. Armoured capital ship. Four batteries hit ground and air. Charges Yamato automatically against heavy targets; Y fires manually. Flies over terrain.' },
-  mender: { id: 'mender', name: 'Medic', cost: 100, icon: '+', key: 'H', unlock: 4, desc: 'Field medic. Heals the most injured unit nearby. Carries no weapon.' }
+  mender: { id: 'mender', name: 'Medic', cost: 100, icon: '+', key: 'H', unlock: 4, desc: 'Field medic. Heals the most injured unit nearby and scatters 3 mines where it is placed. Carries no weapon.' }
 };
 export const unlockRound = id => BUILD[id]?.unlock || 1;
 
@@ -126,6 +126,9 @@ export const DEADEYE_INFO = {
   quote: '"Biggest one first."'
 };
 
+/* Medic mines: `count` are scattered once, on free tiles `near`–`far` tiles from where a Medic is
+ * placed. A ground bug within `trigger` sets one off for `damage` to every ground enemy in `blast`. */
+export const MINES = { count: 3, damage: 100, near: 1.2, far: 3.2, trigger: 0.5, blast: 1.2, arm: 0.5 };
 export const MENDER_TIERS = [
   { rank: 'Field Medic', hp: 80, damage: 12, attackSpeed: 0.8, range: 4.2, upgradeCost: 120 },
   { rank: 'Chief Medic', hp: 115, damage: 20, attackSpeed: 0.7, range: 4.8, upgradeCost: null }
@@ -133,7 +136,7 @@ export const MENDER_TIERS = [
 export const MENDER_INFO = {
   id: 'mender', name: 'Medic', faction: 'Breachline Compact', role: 'Field Medic',
   armor: 1, accent: '#7dffb0',
-  bio: 'Outpost medic with a repair-foam projector. Automatically patches the most injured soldier, walker, crawler or aircraft in reach. Unarmed, and cannot raise the fallen; that is still Patch Rig work.',
+  bio: 'Outpost medic with a repair-foam projector. Automatically patches the most injured soldier, walker, crawler or aircraft in reach. Throws three proximity mines onto the ground around the spot where it is first placed. Otherwise unarmed, and cannot raise the fallen; that is still Patch Rig work.',
   quote: '"Hold still. Almost done."'
 };
 
@@ -193,7 +196,7 @@ export const UNITS = {
   },
   mender: {
     id: 'mender', shots: 1, tiers: MENDER_TIERS, info: MENDER_INFO, visualScale: 0.56,
-    heals: true, shell: false, splash: 0, canBunker: false, canStim: false,
+    heals: true, mines: MINES, shell: false, splash: 0, canBunker: false, canStim: false,
     armory: false, turret: false, mobile: true, speed: 2.05, accent: 0x7dffb0
   }
 };

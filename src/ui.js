@@ -493,6 +493,7 @@ export class UI {
         statRow('Range', s.range.toFixed(1) + ' tiles', s.range / 8, accent) +
         (spec.splash ? statRow('Blast', (spec.splash + (entity?.siegeDeployed ? EVOLUTION_RULES.siegeSplash : 0)).toFixed(2) + ' tiles', spec.splash / 2, accent) : '') +
         statRow('Targets', spec.heals ? 'Allies' : spec.flame ? 'Ground · cone' : spec.pierce ? 'Largest · ignores armour' : spec.targetsAir === false ? 'Ground' : 'Ground + Air', 1, accent) +
+        (spec.mines && g.minefield ? statRow('Mines', (entity ? g.minefield.count(entity) + ' of ' + spec.mines.count + ' left' : spec.mines.count + ' on placement') + ' · ' + spec.mines.damage + ' each', 1, '#ff8a7a') : '') +
         (kind === 'cruiser' ? statRow('Yamato', `${Math.round(YAMATO.damage * s.damage / 30)} + splash · ${YAMATO.cooldown}s`, 1, '#ffbd69') : '') +
         statRow('Move Speed', spec.mobile ? s.moveSpeed.toFixed(1) + ' t/s' : 'Emplaced', s.moveSpeed / 3, accent);
     } else {

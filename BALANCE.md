@@ -320,6 +320,13 @@ Three specialists join the build bar one round at a time, so the opening roster 
 - **Medic:** 15 HP/s to the most injured soldier, walker, crawler, aircraft or Patch Rig in
   reach. It has no weapon, cannot be given attack orders, cannot overheal, and cannot revive downed
   units. Base research scales healing like damage.
+- **Medic mines (Nov 17, 2026):** placing a Medic throws 3 proximity mines onto random free tiles
+  1.2–3.2 tiles around it; they arm after 0.5 s. A ground bug within 0.5 tiles (plus its own
+  girth) sets one off for 100 damage, before armor, to every ground enemy within 1.2 tiles.
+  Aircraft neither trigger nor take the blast, and our own units are safe. Mines are laid once per
+  placement (so Redeploy lays a fresh set each round), are flat 100 whatever the Medic's rank or
+  base research, do not block building or routing, are cleared with the map at the end of a round,
+  and go back with the Medic if it is salvaged.
 - None of the three can garrison, use Overdrive, or receive armory and treasure bonuses.
 
 Kill streaks: kills within 2.5 s of each other chain. Reaching 10 / 25 / 50 / 100 pays

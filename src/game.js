@@ -49,6 +49,7 @@ export class Game {
     this.listeners = {};
     this.assault = new MilestoneAssault(this);
     this.ambush = new MawAmbush(this);
+    this.minefield = null;   // the mines layer installs the Medic's minefield here; without it no mines are laid
     this.reset();
   }
 
@@ -155,6 +156,7 @@ export class Game {
     this.bombs = [];
     this.fx.clear();
     this.clearCrates();
+    this.minefield?.clear();
     this.streak = 0;
 
     const layout = carveLevel(this.mapLevel || this.level, this.mapSeed, this.mapVersion);
@@ -357,6 +359,7 @@ export class Game {
     if (!m.flying) this.grid.set(tx, ty, CELL.TOWER, m);
     this.gunners.push(m);
     this.world.add(m.obj);
+    this.minefield?.deployed(m);   // a Medic scatters its mines once, around the tile it is placed on
     this.minerals -= spec.cost;
     this.fx.ring({ x: m.x, z: m.z }, kind === 'tank' ? 1.9 : 1.6, UNITS[kind].accent);
     sfx.place();
@@ -444,6 +447,7 @@ export class Game {
       : entity.invested;
     const value = Math.round(cost * ECON.refundRate);
     this.removeStructure(entity);
+    this.minefield?.recall(entity);
     this.minerals += value;
     this.fx.label({ x: entity.x, y: 1, z: entity.z }, '+' + value, 'cash');
     sfx.ui();
@@ -1059,6 +1063,7 @@ export class Game {
     }
     if (this.streak && this.time - this.lastKillT > STREAK.window) this.streak = 0;
     this.ambush.update(dt);
+    this.minefield?.update(dt);
 
     for (const m of this.gunners) m.update(dt, this);
     for (const w of this.walls) w.update(dt, this);

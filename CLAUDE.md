@@ -42,6 +42,7 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 | `src/atmosphere.js` | Optional layer. Sky dome, far ridges and the time-of-day palette (lights, fog and background) that turns every three rounds. |
 | `src/touch.js` | Optional layer. Two-finger pinch zoom and twist rotate. (Tap-to-order is `touchOrder()` in `main.js`.) |
 | `src/skirmish.js` | Optional layer. Skirmish: the `Match` director behind `game.match` (waves on a timer, hive guards, the result and its record) and the start-screen button. Tuning is `SKIRMISH` in config; its styles are `src/skirmish.css`. |
+| `src/mines.js` | Optional layer. Medic mines: the `Minefield` behind `game.minefield` (scatter on placement, arming, detonation, salvage recall, checkpoint field). Tuning is `MINES` in config. |
 | `src/maw.js` | Tunnel Maw: `MawAmbush` (timing, warning marks, eruption) and the `TunnelMaw` entity that swallows, holds and releases a unit. Tuning is `MAW` in config. |
 | `src/evolutions.js` | Boss reward abilities: automatic tank siege, walker chain lightning, bunker Last Stand, descriptions and model additions. Tuning lives in config. |
 | `src/grid.js` | Tile grid, A* for player units, the Hammer's all-terrain route search (`driveSearch`), the shared bug route field, line-of-sight helpers. |
@@ -99,6 +100,22 @@ a setup screen (hive count, aggression, map size) and hive personalities are not
   `e465309`) and still fail the same way; their causes have not been investigated:
   `browser-base` ("paused"), `browser-scouting` (8 !== 7), `browser-maw` ("A Maw kept a cleared
   round open") and `browser-balance` ("Starting squad cannot protect opening seed 0").
+
+## Medic mines (Nov 17, 2026)
+
+- Placing a Medic scatters 3 proximity mines (100 damage each) on free tiles around it. Rules and
+  numbers are in `BALANCE.md`; `UNITS.mender.mines` (the `MINES` config) is the spec flag.
+- **`game.minefield` is null until the `mines` layer installs it**, like `game.match`. The core
+  calls it in five places, always as `this.minefield?.…`: `placeGunner` (`deployed`), `update`,
+  `loadLevel` (`clear`), `sell` (`recall`) and the checkpoint (`capture` / `restore`).
+- **Only `placeGunner` lays mines.** A checkpoint restore builds units directly, so it lays none
+  and puts back the saved ones from the optional `mines` field (`{ x, z, unit }`, `unit` an index
+  into `units` or -1). Redeploy goes through `placeGunner`, so it lays a new set.
+- A mine never owns a grid tile and is not in any entity list: it does not block building, routing
+  or selection. Every mine shares one set of geometry and materials (`parts()`); do not dispose
+  or recolour them per mine.
+- `tests/browser-mines.cjs` covers placement, arming, blast, aircraft, salvage, saves and a
+  missing layer.
 
 ## First impression, story, sky and touch (Nov 15, 2026)
 

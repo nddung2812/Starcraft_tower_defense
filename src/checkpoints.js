@@ -31,7 +31,8 @@ export function captureCheckpoint(g, meta) {
       placed: m.isPlaced(g), bunker: g.bunkers.indexOf(m.bunker),
       garrisonOrder: m.order?.type === 'garrison' ? g.bunkers.indexOf(m.order.bunker) : -1,
       attackMove: m.order?.type === 'amove', advancing: m.order?.type === 'advance' })),
-    scv: { x: g.scv.x, z: g.scv.z, hp: g.scv.hp, dead: g.scv.dead, yaw: g.scv.yaw }
+    scv: { x: g.scv.x, z: g.scv.z, hp: g.scv.hp, dead: g.scv.dead, yaw: g.scv.yaw },
+    mines: g.minefield?.capture()   // optional: dropped from the snapshot when the mines layer is absent
   };
   // Detach paths and metadata from the live simulation.
   return JSON.parse(JSON.stringify(snapshot));
@@ -100,6 +101,8 @@ export function validateCheckpoint(s) {
           (p.cx == null || integer(p.cx, 0, grid.COLS - 1)) && (p.cy == null || integer(p.cy, 0, grid.ROWS - 1))))) return false;
       return !u.driving || (u.waypoints?.length > u.wp);
     })) return false;
+    if (s.mines !== undefined && (!Array.isArray(s.mines) || s.mines.length > 5000 ||
+      !s.mines.every(m => pos(m) && integer(m.unit, -1, s.units.length - 1)))) return false;
     const scvStats = { hp: 70 };
     applyBaseUpgrade(scvStats, s.baseLevel ?? 0);
     return pos(s.scv) && number(s.scv.hp, 0, scvStats.hp) && typeof s.scv.dead === 'boolean' &&
@@ -162,6 +165,7 @@ export function restoreCheckpoint(g, s) {
       : u.attackMove ? { type: 'amove' } : null;
     g.gunners.push(e); g.world.add(e.obj);
   }
+  g.minefield?.restore(s.mines);
   // A build checkpoint also needs a countdown: there is no separate Launch control.
   g.startWave();
   g.paused = true;
