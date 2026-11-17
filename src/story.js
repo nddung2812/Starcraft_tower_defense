@@ -44,6 +44,18 @@ const MARKED = {
   21: 'They are all around you now. The last districts are loading. Hold, Twenty-Nine.'
 };
 
+const RADIO_BRIEF = {
+  1: 'First convoy loading. Buy us time.',
+  3: 'Spitters incoming. Keep behind cover.',
+  5: 'Air contacts. Watch the sky.',
+  7: 'Multiple fronts. Do not get flanked.',
+  8: 'Heavy contact moving in.',
+  9: 'Tunnelling detected. Keep moving.',
+  10: 'Ten rounds held. Keep going.',
+  16: 'Three fronts. Hold.',
+  21: 'Surrounded. Last districts loading.'
+};
+
 export function radioLine(round) {
   return MARKED[round] || SCRIPT[round - 1] || LATER[(round * 5) % LATER.length];
 }
@@ -69,9 +81,15 @@ export function shareLine(run) {
 }
 
 export function installStory(game, ui) {
-  game.on('brief', () => ui.toast('Ember Control', radioLine(game.level), 'radio', 7000));
-  game.on('roundCleared', ({ level }) => ui.toast(`Convoy ${level} away`,
-    `+${convoySize(level).toLocaleString()} people out. ${evacuated(level).toLocaleString()} evacuated so far.`, 'ok', 5500));
+  game.on('brief', () => {
+    const line = RADIO_BRIEF[game.level];
+    if (line) ui.toast('Ember Control', line, 'radio', 4200);
+  });
+  game.on('roundCleared', ({ level }) => {
+    if (!RADIO_BRIEF[level + 1]) {
+      ui.toast(`Convoy ${level} away · ${evacuated(level).toLocaleString()} saved`, '', 'ok', 2800);
+    }
+  });
   // The opening sweep is silent on its own; these are its two captions.
   game.on('openingSweep', (beat) => {
     if (beat === 'start') ui.callout('Outpost 29', 'Ember Reach is evacuating behind you · nobody else is coming', 'unit');

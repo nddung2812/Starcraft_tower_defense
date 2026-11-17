@@ -36,14 +36,15 @@ const layers = () => ['opening', 'touch', 'story', 'atmosphere'].every(k => wind
     assert.equal(script.share, 'BREACHLINE: 29. I held Outpost 29 for 5 rounds, stopped 123 bugs and got 1,050 people out. Same canyon, can you hold longer?');
     assert.match(script.shareEarly, /I stopped 1 bug before Outpost 29 fell/);
 
-    /* ---------- in a run: one radio line a round, a convoy for every round held ---------- */
+    /* ---------- in a run: compact progress, with radio reserved for threat milestones ---------- */
     await page.locator('#introBtn').click();
     const toasts = () => page.evaluate(() => [...document.querySelectorAll('#toasts .toast')].map(t => [t.querySelector('b').textContent, t.querySelector('span').textContent]));
-    assert.deepEqual((await toasts()).find(t => t[0] === 'Ember Control'), ['Ember Control', 'Outpost 29, this is Ember Control. The first convoy is loading. Buy us time.']);
+    assert.deepEqual((await toasts()).find(t => t[0] === 'Ember Control'), ['Ember Control', 'First convoy loading. Buy us time.']);
+    await page.evaluate(() => { document.getElementById('toasts').replaceChildren(); });
     await page.evaluate(() => { const g = game; g.stage.render = () => {}; g.state = 'wave'; g.queue = []; g.completeWave(); });
-    assert.deepEqual((await toasts()).find(t => /^Convoy/.test(t[0])), ['Convoy 1 away', '+150 people out. 150 evacuated so far.']);
-    await page.evaluate(() => { game.startWave(); });
-    assert.match((await toasts()).map(t => t[1]).join('|'), /Convoy one is on the road/);
+    assert.deepEqual(await toasts(), [['Convoy 1 away · 150 saved', '']]);
+    await page.evaluate(() => { document.getElementById('toasts').replaceChildren(); game.level = 3; game.emit('brief', {}); });
+    assert.deepEqual(await toasts(), [['Ember Control', 'Spitters incoming. Keep behind cover.']]);
 
     /* ---------- the result: what the stand was worth, then the score ---------- */
     await page.evaluate(() => { navigator.share = async (data) => { window.shared = data; }; });
@@ -108,6 +109,6 @@ const layers = () => ['opening', 'touch', 'story', 'atmosphere'].every(k => wind
     assert.deepEqual(bareErrors, []);
 
     assert.deepEqual(errors, []);
-    console.log('PASS: evacuation totals, sixty radio lines, round toast, convoy toast, result line once, share text, four light phases with rounds 1-3 unchanged, camera-following backdrop, and a game that still runs with a layer missing');
+    console.log('PASS: evacuation totals, radio script, compact round messages, result line once, share text, four light phases with rounds 1-3 unchanged, camera-following backdrop, and a game that still runs with a layer missing');
   } finally { await browser.close(); }
 })().catch(e => { console.error(e); process.exit(1); });
