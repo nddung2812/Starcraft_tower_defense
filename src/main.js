@@ -1392,6 +1392,7 @@ function layer(name, install) {
   return install().then((part) => { extras[name] = part; game.emit('change'); })
     .catch((error) => console.warn(`[extras] ${name} unavailable`, error));
 }
+layer('menu', async () => (await import('./menu.js')).installMenu());
 layer('touch', async () => (await import('./touch.js')).installTouch(canvas, stage, { cancelDrag: endDrag }));
 layer('atmosphere', async () => (await import('./atmosphere.js')).installAtmosphere(game, stage));
 layer('story', async () => (await import('./story.js')).installStory(game, ui));

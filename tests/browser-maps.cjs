@@ -8,7 +8,7 @@ const path = require('node:path');
     const page = await browser.newPage({viewport:{width:1440,height:1000}});
     const errors=[]; page.on('pageerror',e=>errors.push(e.message));
     await page.goto('http://127.0.0.1:8765/'); await page.waitForFunction(()=>window.game?.stage);
-    await page.getByRole('button',{name:'Build my own defense'}).click();
+    await page.getByRole('button',{name:'Defense mode'}).click();
     const layouts=await page.evaluate(async()=>{
       const THREE=await import('three');
       const {Zergling}=await import('/src/entities.js');

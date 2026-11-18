@@ -145,7 +145,7 @@ const assert = require('node:assert/strict');
     assert.equal(await page.locator('#intro').isVisible(), true);
     await page.waitForTimeout(350);
     await page.screenshot({path:'/tmp/td-continue-390.png'});
-    await page.getByRole('button', { name: 'Build my own defense' }).click();
+    await page.getByRole('button', { name: 'Defense mode' }).click();
     await page.locator('#confirmReplace').click();
     assert.equal(await page.locator('#pausePlanBar').isVisible(), true);
     assert.equal(await page.locator('#pauseMenu').isVisible(), false);

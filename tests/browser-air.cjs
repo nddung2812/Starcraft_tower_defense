@@ -9,7 +9,7 @@ const os = require('node:os');
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     await page.goto('http://127.0.0.1:8765/?seed=12345');
     await page.waitForFunction(() => window.game);
-    await page.getByRole('button', {name:'Build my own defense'}).click();
+    await page.getByRole('button', {name:'Defense mode'}).click();
     const results = await page.evaluate(async () => {
       const { Zergling, Shell } = await import('/src/entities.js');
       const { CELL, wavePlan } = await import('/src/config.js');

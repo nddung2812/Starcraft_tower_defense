@@ -69,7 +69,7 @@ const os = require('node:os');
   await page.goto(copied);
   await page.waitForFunction(() => window.game?.stage);
   assert.match(await page.locator('#challengeIntro').textContent(), /9 kills/);
-  await page.getByRole('button', { name: 'Build my own defense' }).click();
+  await page.getByRole('button', { name: 'Defense mode' }).click();
   // Following a challenge preserves the previous run until replacement is chosen.
   await page.locator('#confirmReplace').click();
   assert.deepEqual(await page.evaluate(() => ({ state: game.state, paused: game.paused, squad: game.gunners.length })), { state: 'brief', paused: true, squad: 0 });

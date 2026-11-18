@@ -23,6 +23,7 @@
 <meta name="twitter:image" content="https://protectyourhome.vercel.app/assets/og.jpg">
 <link rel="stylesheet" href="src/style.css">
 <link rel="stylesheet" href="src/skirmish.css">
+<link rel="stylesheet" href="src/menu.css">
 <script type="importmap">
 {
   "imports": {
@@ -141,35 +142,6 @@
         <button id="bannerBtn" class="btn btn--primary">Play Again</button>
       </div>
     </div>
-
-    <div id="intro" class="banner">
-      <form id="introForm" class="banner__inner intro" autocomplete="off">
-        <span class="intro__eyebrow">BREACHLINE: 29</span>
-        <h2 class="is-win">Hold the Line</h2>
-        <p>Ember Reach is evacuating. Outpost 29 is all that stands between the convoys and the swarm. Every round you hold gets more people out.</p>
-        <p id="challengeIntro" class="challenge-intro" hidden></p>
-        <section id="savedRun" class="saved-run" aria-label="Saved run" hidden>
-          <button id="btnContinue" class="btn btn--primary" type="button">Continue game</button>
-          <p id="savedRunInfo"></p>
-        </section>
-        <p id="introSaveFeedback" class="save-feedback" role="status"></p>
-        <label class="intro__label" for="playerName">Name <span>(optional)</span></label>
-        <input id="playerName" class="intro__input" maxlength="16" placeholder="Commander" spellcheck="false">
-        <button id="introBtn" class="btn btn--primary" type="submit" name="deploy" value="quick">Play →</button>
-        <span class="intro__hint">Start with 3 soldiers. They fire automatically.</span>
-        <button id="btnDaily" class="btn btn--gold" type="submit" name="deploy" value="daily">Daily challenge</button>
-        <span id="dailyInfo" class="intro__hint"></span>
-        <button id="btnSkirmish" class="btn btn--gold" type="button" aria-haspopup="dialog" aria-controls="skirmishDialog" hidden>Skirmish · set up your battle</button>
-        <span id="skirmishInfo" class="intro__hint" hidden></span>
-        <button class="btn btn--ghost" type="submit" name="deploy" value="build">Build my own defense</button>
-        <button id="introCareer" class="career-teaser" type="button" data-career></button>
-        <details id="introScores" class="intro__scores">
-          <summary>High scores</summary>
-          <p class="intro__sub" id="boardTitle">Top commanders</p>
-          <ol id="introBoard" class="board"></ol>
-        </details>
-      </form>
-    </div>
   </main>
 
 
@@ -252,6 +224,47 @@
     <p class="quote" id="pQuote"></p>
   </aside>
 
+</div>
+
+<div id="intro" class="banner menu-shell">
+  <div class="menu-scope" aria-hidden="true">
+    <i class="menu-scope__sweep"></i>
+  </div>
+  <div class="menu-rail menu-rail--top" aria-hidden="true"><span>Outpost 29</span><span>Ember Reach evacuation in progress</span></div>
+  <div class="menu-rail menu-rail--bottom" aria-hidden="true"></div>
+  <form id="introForm" class="banner__inner intro" autocomplete="off">
+    <div class="menu__brief">
+      <span class="intro__eyebrow">BREACHLINE<i>:</i> <b>29</b></span>
+      <h2 class="is-win">Hold the Line</h2>
+      <p class="menu__story">Ember Reach is evacuating. Outpost 29 is all that stands between the convoys and the swarm. Every round you hold gets more people out.</p>
+      <p id="challengeIntro" class="challenge-intro" hidden></p>
+      <p id="introSaveFeedback" class="save-feedback" role="status"></p>
+      <label class="intro__label" for="playerName">Name <span>(optional)</span></label>
+      <input id="playerName" class="intro__input" maxlength="16" placeholder="Commander" spellcheck="false">
+      <div class="menu__records">
+        <button id="introCareer" class="career-teaser" type="button" data-career></button>
+        <details id="introScores" class="intro__scores">
+          <summary>High scores</summary>
+          <p class="intro__sub" id="boardTitle">Top commanders</p>
+          <ol id="introBoard" class="board"></ol>
+        </details>
+      </div>
+    </div>
+    <div class="menu__orders">
+      <section id="savedRun" class="saved-run" aria-label="Saved run" hidden>
+        <button id="btnContinue" class="btn btn--primary" type="button">Continue game</button>
+        <p id="savedRunInfo" class="intro__hint"></p>
+      </section>
+      <button id="introBtn" class="btn btn--primary" type="submit" name="deploy" value="quick">Survival mode</button>
+      <span class="intro__hint">Start with 3 soldiers and hold for as long as you can.</span>
+      <button id="btnDefense" class="btn" type="submit" name="deploy" value="build">Defense mode</button>
+      <span class="intro__hint">The battle waits while you build your line. Resume when you are ready.</span>
+      <button id="btnDaily" class="btn btn--gold" type="submit" name="deploy" value="daily">Daily challenge</button>
+      <span id="dailyInfo" class="intro__hint"></span>
+      <button id="btnSkirmish" class="btn btn--gold" type="button" aria-haspopup="dialog" aria-controls="skirmishDialog" hidden>Skirmish</button>
+      <span id="skirmishInfo" class="intro__hint" hidden></span>
+    </div>
+  </form>
 </div>
 
 <dialog id="evolutionDialog" class="evolution-dialog" aria-labelledby="evolutionTitle" aria-describedby="evolutionHelp">

@@ -155,7 +155,7 @@ export class Retention {
 
   refresh() {
     $('savedRun').hidden = !this.save;
-    $('introBtn').textContent = this.save ? 'New game' : 'Play →';
+    $('introBtn').textContent = 'Survival mode';
     $('introBtn').classList.toggle('btn--primary', !this.save);
     if (this.save) {
       $('btnContinue').textContent = `Continue — Round ${this.save.level}`;

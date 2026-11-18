@@ -42,6 +42,7 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 | `src/atmosphere.js` | Optional layer. Sky dome, far ridges and the time-of-day palette (lights, fog and background) that turns every three rounds. |
 | `src/touch.js` | Optional layer. Two-finger pinch zoom and twist rotate. (Tap-to-order is `touchOrder()` in `main.js`.) |
 | `src/skirmish.js` | Optional layer. Skirmish: the setup screen, the `Match` director behind `game.match` (waves on a timer, hive guards, the result and its record) and the start-screen button. Tuning is `SKIRMISH` in config; its styles are `src/skirmish.css`. |
+| `src/menu.js`, `src/menu.css` | Optional layer. Start menu motion: the description beside the highlighted order and the blast doors on exit (a copy of `#intro`, which is hidden at once because the game reads `intro.hidden`). The stylesheet also dresses pause, results and the menu's dialogs. |
 | `src/mines.js` | Optional layer. Medic mines: the `Minefield` behind `game.minefield` (scatter on placement, arming, detonation, salvage recall, checkpoint field). Tuning is `MINES` in config. |
 | `src/groundfire.js` | Optional layer. Air strike flames: the `GroundFire` behind `game.groundFire` (a patch per bomb, burn damage that does not stack, cleared with the map). Tuning is `AIR_STRIKE.fire` in config. |
 | `src/plasma.js` | Optional layer. The plasma shield behind `game.plasma`: a globe over the base from research level 3, wider every third level. Friendly `takeDamage` calls `game.plasma?.absorb()` first. Tuning is `PLASMA_SHIELD` in config; `tests/browser-plasma.cjs` covers it. |
@@ -457,7 +458,7 @@ the balance suite checks the starting squad can clear both opening approaches.
   promoted units, positions, movement paths, grid ownership and bunker garrisons. The SCV resumes
   idle, ready for new orders. Selection, control groups and camera return to the current base.
 - Pause offers Resume, Plan defense while paused, Save & quit, and achievements. Planning keeps
-  the battlefield interactive without advancing combat. Build my own defense opens this planning
+  the battlefield interactive without advancing combat. Defense mode opens this planning
   view directly. Open pause menu returns to the save controls.
 - Starting a new run or restarting a live run asks before replacing a saved checkpoint. Cancel
   preserves it. Defeat removes the checkpoint; Play Again keeps the same seed and deployment mode.
