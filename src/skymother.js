@@ -418,7 +418,7 @@ class Skyfleet {
 
   get alive() { return this.game.zerglings.filter((z) => z.isSkymother && !z.dead).length; }
 
-  room() { return this.alive < SKYMOTHER.maxAlive; }
+  room() { return this.alive < (this.game.match ? SKYMOTHER.matchAlive : SKYMOTHER.maxAlive); }
 
   hatch(x, z, spawn) {
     const g = this.game;

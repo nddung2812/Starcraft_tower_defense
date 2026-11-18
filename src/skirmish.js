@@ -21,7 +21,7 @@
  * `launchNewRun(..., 'skirmish')`): without it the Skirmish button simply stays hidden. `ui.js`
  * draws the readout, callouts and result from the events emitted here.
  */
-import { SKIRMISH, ECON, BUILD, wavePlan } from './config.js';
+import { SKIRMISH, ECON, BUILD, SKYMOTHER, wavePlan } from './config.js';
 import { Zergling } from './entities.js';
 
 const RECORD_KEY = 'td.skirmish.v1';
@@ -101,7 +101,7 @@ export class Match {
    */
   wave(level) {
     const size = this.rules.swarm, out = [];
-    wavePlan(level).forEach((s, i) => {
+    wavePlan(level).filter((s) => s.breed !== 'skymother' || level >= SKYMOTHER.matchFirstWave).forEach((s, i) => {
       const copies = Math.floor((i + 1) * size + 1e-9) - Math.floor(i * size + 1e-9);
       for (let c = 0; c < copies; c++) out.push({ ...s, at: s.at + c * 0.15 });
     });

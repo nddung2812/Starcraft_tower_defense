@@ -103,6 +103,15 @@ const URL = process.env.TEST_URL || 'http://127.0.0.1:8765/';
       check(!g.skyfleet.room(), 'Live cap');
       g.queue = [{ at: 0, breed: 'skymother', hpScale: 2, speedScale: 1 }]; g.spawnTimer = 1; g.update(0.05);
       check(g.zerglings.filter((z) => z.isSkymother).length === SKYMOTHER.maxAlive, 'Cap ignored in the wave loop');
+
+      // A Survival match brings her later, and one at a time
+      g.reset(4242, g.extras.skirmish.options()); const match = g.extras.skirmish.begin();
+      const inMatch = (n) => match.wave(n).filter((s) => s.breed === 'skymother').length;
+      check(inMatch(11) === 0 && inMatch(SKYMOTHER.matchFirstWave - 1) === 0, 'Too early in a match');
+      check(inMatch(SKYMOTHER.matchFirstWave) > 0, 'Missing from a late match wave');
+      check(g.skyfleet.room(), 'Room for the first one in a match');
+      spawn(10, 10);
+      check(!g.skyfleet.room(), 'Only one at a time in a match');
       return out;
     });
     assert.deepEqual(errors, []);

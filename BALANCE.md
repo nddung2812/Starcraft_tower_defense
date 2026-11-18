@@ -484,7 +484,7 @@ The swarm's answer to the Titan: a slow armoured flyer that fights only through 
 
 - **Arrival.** From round 11, 9 seconds into the wave. One per wave, two from round 21, three from round 31.
   Never on a boss round (every fifth), and at most three alive at once. HP grows with the round like any bug
-  (1,700 at round 11).
+  (1,700 at round 11). In Survival mode, where a wave comes every 40 seconds, she joins from wave 16, one at a time.
 - **Talons.** She carries 8 and launches one every 0.3 s at anything within 7.5 tiles, a Titan first. They hit
   ground and air. Each shot does 5, 10 to a Titan, and 2 to buildings. With nothing in reach they fly home.
 - **Regrowth.** One lost Talon grows back every 6 seconds. Talons score nothing and pay nothing, because she can

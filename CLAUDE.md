@@ -146,6 +146,8 @@ hive personalities are not.
 - A Talon that docks marks itself `dead` with `escaped` set, like a Maw that dives. All of them fall when she dies, so
   they can never hold a round open.
 - `wavePlan()` lists her, and the spawn loop in `game.js` skips her when `game.skyfleet` is missing or `room()` is false.
+- **Survival mode holds her back** (`matchFirstWave`, `matchAlive`): at wave 11 she made the default match unwinnable for the
+  `browser-skirmish` bot, which won 1 of 4 runs with her and 4 of 4 without.
 
 ## Medic mines (Nov 17, 2026)
 

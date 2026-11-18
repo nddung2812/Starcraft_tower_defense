@@ -254,10 +254,12 @@ export const MAW = {
  * She has no gun. She carries `brood` Talons, launches one every `launchGap` seconds, and grows a
  * lost one back every `regrow` seconds. Talons do `structureShare` of their damage to buildings
  * and `titanBonus` extra to a Titan, so they can bite through its plate without shredding infantry.
+ * A Survival match sends a wave every 40 seconds, so there she joins at `matchFirstWave`, `matchAlive` at a time.
  */
 export const SKYMOTHER = {
   firstRound: 11, roundsPerExtra: 10, maxPerWave: 3, maxAlive: 3, arrive: 9, spacing: 8,
-  brood: 8, launchGap: 0.3, regrow: 6, altitude: 3.6, structureShare: 0.4, titanBonus: 5
+  brood: 8, launchGap: 0.3, regrow: 6, altitude: 3.6, structureShare: 0.4, titanBonus: 5,
+  matchFirstWave: 16, matchAlive: 1
 };
 export const BREEDS = {
   skymother: { id: 'skymother', name: 'Skymother', role: 'Armoured Brood Carrier', flying: true, targetsAir: true, hp: 850, armor: 5, damage: 0, attackSpeed: 1, range: 7.5, speed: 1.1, scale: 1.75, bounty: 25, ranged: true,
