@@ -42,12 +42,14 @@ const start = async page => {
       const clearBugs = () => { for (const z of g.zerglings) g.world.remove(z.obj); g.zerglings = []; };
       const fight = () => { g.state = 'wave'; g.paused = false; g.crateT = 1e9; g.queue = [{ at: 1e9, breed: 'zergling', hpScale: 1, speedScale: 1 }]; };
       const out = {};
+      corps.cd = { grenade: 1e9, shield: 1e9, robot: 1e9 };   // the skills get their own section below
 
       // ---- level 1 is a Trooper with extra health and armour ----
       const u = hero(), base = MARINE_TIERS[0];
       check(u?.isHero && g.gunners.includes(u), 'The hero is on the field from the first round');
       check(g.gunners.filter(m => m.isHero).length === 1, 'Exactly one hero');
-      check(u.stats.damage === base.damage && u.stats.attackSpeed === base.attackSpeed && u.stats.range === base.range, 'Gun matches a Recruit Trooper');
+      check(u.stats.damage === base.damage && u.stats.range === base.range, 'Gun matches a Recruit Trooper');
+      check(u.stats.attackSpeed === HERO.attackSpeed && HERO.attackSpeed < base.attackSpeed, 'The hero fires a little faster than a Trooper');
       check(u.stats.moveSpeed === UNITS.marine.speed, 'Speed matches a Trooper');
       check(u.maxHp === base.hp + HERO.extraHp && HERO.extraHp > 0, 'Extra health');
       check(u.stats.armor === MARINE_INFO.armor + HERO.extraArmor && HERO.extraArmor > 0, 'Extra armour');
@@ -169,6 +171,55 @@ const start = async page => {
       const bombs = g.bombs.length; corps.killed(bug(u.x + 1, u.z, 'zergling', 10));
       check(g.bombs.length === bombs + LOOT.legendaries.skyfall.bombs, 'Skyfall Sigil calls a strike');
       clearBugs(); wearOnly();
+
+      // ---- passive skills: grenade, plasma shield, War Robot ----
+      const skills = HERO.skills, tick = (seconds, step = () => corps.tickSkills(0.05)) => { for (let i = 0; i < Math.round(seconds * 20); i++) step(); };
+      fight(); clearBugs(); u.hp = u.maxHp; u.silenceT = 0;
+      check(skills.grenade.cooldown === 15 && skills.shield.cooldown === 30 && skills.robot.cooldown === 60, 'Skills reset in 15, 30 and 60 seconds');
+      corps.cd = { grenade: 0, shield: 1e9, robot: 1e9 };
+      const blastA = bug(u.x + 3, u.z), blastB = bug(u.x + 3.4, u.z), blastFar = bug(u.x + 3, u.z + 4);
+      corps.tickSkills(0.05);
+      check(corps.grenades.length === 1 && corps.cd.grenade === 15, 'The grenade goes off by itself and starts its timer');
+      tick(skills.grenade.flight + 0.2);
+      const blast = 100 + 10 * p.level;
+      check(blastA.maxHp - blastA.hp === blast && blastB.maxHp - blastB.hp === blast, `A grenade deals 100 + 10 per level (${blast})`);
+      check(blastFar.hp === blastFar.maxHp, 'Bugs outside the blast are untouched');
+
+      clearBugs(); corps.cd = { grenade: 1e9, shield: 0, robot: 1e9 };
+      const buddy = g.gunners.find(m => !m.isHero && !m.flying), guardFoe = bug(u.x + 2, u.z);
+      buddy.x = u.x + 1; buddy.z = u.z + 1; buddy.hp = buddy.maxHp * 0.5;
+      corps.tickSkills(0.05);
+      check(corps.shielded(buddy) && corps.shielded(u), 'The shield covers allied units nearby');
+      const guarded = buddy.hp; buddy.takeDamage(500, g, 0);
+      check(buddy.hp === guarded && !buddy.downed, 'A shielded unit takes no damage');
+      tick(skills.shield.seconds - 0.5);
+      check(corps.shielded(buddy), 'The shield is still up before 7 seconds');
+      tick(0.6);
+      check(!corps.shielded(buddy) && corps.cd.shield > 29, 'It drops after 7 seconds and starts its 30 second reset');
+      buddy.hp = buddy.maxHp;
+
+      clearBugs(); corps.cd = { grenade: 1e9, shield: 1e9, robot: 0 };
+      const groundDamage = u.stats.damage, groundSpeed = u.stats.moveSpeed, groundCooldown = u.stats.attackSpeed, tileX = u.tx, tileY = u.ty;
+      const r1 = bug(u.x + 3, u.z), r2 = bug(u.x + 3, u.z + 1), r3 = bug(u.x + 3, u.z - 1);
+      corps.tickSkills(0.05);
+      check(u.robotT === skills.robot.seconds && u.flying, 'A crowd brings out the War Robot');
+      check(g.grid.occupant(tileX, tileY) !== u, 'In the air the hero owns no ground tile');
+      check(Math.abs(u.stats.damage - groundDamage * 1.5) < 1e-6 && Math.abs(u.stats.moveSpeed - groundSpeed * 1.5) < 1e-6 && Math.abs(u.stats.attackSpeed - groundCooldown / 1.5) < 1e-6, 'Speed, attack speed and damage all rise');
+      check(u.robot.visible && !u.model.visible && u.robot.userData.tips.length === 2 && u.robot.userData.wings.length === 2, 'Twin guns and wings replace the suit');
+      const shotsBefore = g.tracers.length; u.target = r1; u.fire(g);
+      check(g.tracers.length === shotsBefore + 2, 'Both guns fire');
+      g.tracers.forEach(t => { t.dead = true; });
+      check(!u.inReach(r1), 'The robot shoots rather than using the blade');
+      u.hp = 3; u.takeDamage(99999, g, 0);
+      check(u.robotT === 0 && !u.flying && !u.dead && !u.downed && u.hp > 3 && u.isPlaced(g), 'A lethal hit breaks the robot and leaves the hero standing');
+      check(corps.cd.robot === skills.robot.cooldown, 'Losing the robot starts its reset');
+      corps.cd.robot = 0; corps.tickSkills(0.05);
+      check(u.robotT > 0, 'The robot can return');
+      for (let i = 0; i < (skills.robot.seconds + 1) * 20; i++) u.update(0.05, g);
+      g.tracers.forEach(t => { t.dead = true; });
+      check(u.robotT === 0 && !u.flying && u.isPlaced(g) && g.grid.occupant(u.tx, u.ty) === u, 'After 30 seconds the hero lands on open ground');
+      check(corps.cd.robot === skills.robot.cooldown && Math.abs(u.stats.damage - groundDamage) < 1e-6, 'Stats return to normal and the 60 second reset starts');
+      clearBugs(); u.hp = u.maxHp; corps.cd = { grenade: 1e9, shield: 1e9, robot: 1e9 };
 
       // ---- the hero is not army hardware ----
       g.state = 'build';

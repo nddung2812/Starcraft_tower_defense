@@ -43,6 +43,7 @@ export class HeroPanel {
       </header>
       <div class="hero-xp" role="progressbar" aria-label="Experience" aria-valuemin="0" aria-valuemax="100"><i id="heroXpFill"></i><span id="heroXpText"></span></div>
       <dl id="heroStats" class="hero-stats"></dl>
+      <section aria-label="Passive skills"><h3 class="hero-skills__title">Passive skills</h3><div id="heroSkills" class="hero-skills"></div></section>
       <div class="hero-gear">
         <section aria-label="Worn gear"><h3>Worn</h3><div id="heroWorn" class="hero-worn"></div></section>
         <section aria-label="Bag"><h3 id="heroBagTitle"></h3><div id="heroBag" class="hero-bag"></div></section>
@@ -113,6 +114,13 @@ export class HeroPanel {
       const box = el('div');
       box.append(el('dt', '', k), el('dd', '', String(v)));
       return [box];
+    }));
+
+    $('heroSkills').replaceChildren(...this.corps.skillSheet().map(skill => {
+      const card = el('article', 'hero-skill'), head = el('div', 'hero-skill__head');
+      head.append(el('strong', '', skill.name), el('span', skill.state === 'Ready' ? 'is-up' : '', skill.state));
+      card.append(head, el('p', '', skill.text), el('small', '', `Automatic · resets in ${skill.every}s`));
+      return card;
     }));
 
     $('heroWorn').replaceChildren(...SLOTS.map(slot => {

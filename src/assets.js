@@ -167,7 +167,7 @@ function prepare(gltf, spec) {
   const turret = spec.turret === 'all' ? 'all'
     : spec.turret ? { parts: re(spec.turret.parts), pivot: re(spec.turret.pivot || spec.turret.parts) } : null;
   const tiers = spec.tierTint ? { nodes: re(spec.tierTint.nodes), colors: spec.tierTint.colors, mats: new Map() } : null;
-  return { src, yaw: spec.yaw ?? Math.PI / 2, k, offset, muzzles, clips, height: scaled.y, turret, tiers };
+  return { src, yaw: spec.yaw ?? Math.PI / 2, k, offset, muzzles, clips, speeds: spec.speeds, height: scaled.y, turret, tiers };
 }
 
 function rimmed(mat, color, strength) {
@@ -269,6 +269,7 @@ function instance(kind, L, tier = 0) {
     for (const [state, clip] of Object.entries(L.clips)) {
       if (!clip) continue;
       const a = mixer.clipAction(clip);
+      a.timeScale = L.speeds?.[state] ?? 1;
       if (state === 'death') { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; }
       actions[state] = a;
     }

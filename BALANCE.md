@@ -486,10 +486,14 @@ bonus, armour, aircraft/garrison protection, wall occlusion, Yamato survival and
 
 One free soldier named after the commander. Levels and gear are saved in the browser and carry across runs and modes.
 
-- **Level 1** is a Recruit Trooper (8 damage, 0.8 s, 4.4 range, 2.15 speed) with +40 health (110) and +1 armour (2).
+- **Level 1** is a Recruit Trooper (8 damage, 4.4 range, 2.15 speed) with +40 health (110), +1 armour (2) and a faster trigger: 0.65 s a shot against the Trooper's 0.8 s.
 - **Each level** adds 12% health, 10% damage and 1% attack speed. Every 10th level adds 1 armour. The cap is level 30.
 - **Melee.** Anything on the ground within 1.5 tiles takes the blade for 2× gun damage. Right-clicking a ground bug charges it.
 - **XP.** A kill pays 0.04 per point of the bug's health, or 40% of that when the hero is over 9 tiles away. A boss adds 60 × its round.
+- **Passive skills** fire by themselves in a fight. Each reset counts from the moment its effect ends.
+  - **Frag Grenade** (15 s): 100 + 10 per hero level to every ground enemy within 1.8 tiles of the thickest group in 6 tiles.
+  - **Plasma Shield** (30 s): when an ally within 5 tiles is below 80% health, every allied unit in that radius takes no damage for 7 seconds.
+  - **War Robot** (60 s): with 3 enemies within 7 tiles, a boss near, or the hero under half health, the hero flies as a winged robot for 30 seconds. It is 50% bigger with twin guns, 1.5× speed, attack speed and damage, and +1.5 range. It fires on the move, cannot use the blade, and a lethal hit only ends the form, leaving the hero on 25% health.
 - **Death.** The hero returns after 15 seconds and loses nothing. It cannot be salvaged and costs nothing to redeploy.
 - **Drops.** Medium bosses drop 2 items and hard bosses 3, walked over or clicked; leftovers go to the bag when the fight ends.
   Odds are 55/35/10 (medium) and 20/50/30 (hard) for magic/rare/legendary.

@@ -24,6 +24,16 @@
 .hero-stats dt { font-size: 11px; color: #8fa1ac; }
 .hero-stats dd { margin: 0; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
 
+.hero-skills__title { margin: 0 0 6px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #8fa1ac; }
+.hero-skills { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-bottom: 14px; }
+.hero-skill { padding: 7px 9px; background: #0e161c; border: 1px solid #2a353d; }
+.hero-skill__head { display: flex; justify-content: space-between; gap: 6px; font-size: 13px; }
+.hero-skill__head strong { color: #ffd98a; }
+.hero-skill__head span { color: #9fb0ba; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.hero-skill__head .is-up { color: #5ef08a; }
+.hero-skill p { margin: 4px 0; font-size: 12px; line-height: 1.35; }
+.hero-skill small { color: #8fa1ac; font-size: 11px; }
+
 .hero-gear { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 20px; }
 .hero-gear h3 { margin: 0 0 6px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #8fa1ac; }
 .hero-worn { display: grid; grid-template-columns: repeat(4, 56px); gap: 8px; }
@@ -58,6 +68,7 @@
   .hero-sheet__head { flex-direction: column-reverse; }
   .hero-sheet__head .btn { align-self: stretch; }
   .hero-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hero-skills { grid-template-columns: minmax(0, 1fr); }
   .hero-gear { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .hero-worn { grid-template-columns: repeat(4, minmax(0, 56px)); justify-content: space-between; }
   .hero-bag { grid-template-columns: repeat(6, minmax(0, 44px)); justify-content: space-between; }

@@ -567,19 +567,25 @@ export function milestonePlan(level) {
 
 /*
  * The hero: one soldier who carries the commander's name and keeps levels and gear between runs.
- * Level 1 is a Recruit Trooper with `extraHp` and `extraArmor`. Each level adds `perLevel` of those
+ * Level 1 is a Recruit Trooper with `extraHp`, `extraArmor` and a quicker trigger (`attackSpeed` seconds a shot). Each level adds `perLevel` of those
  * starting numbers; `armorEvery` levels add a point of armour. Anything within `melee.reach` of the
  * hero takes the blade for `melee.multiplier` times the gun's damage.
  * XP: a kill pays `perHp` per point of the bug's health, `far` of that when the hero is over `near` tiles away.
  */
 export const HERO = {
-  maxLevel: 30, extraHp: 40, extraArmor: 1, visualScale: 0.48,
+  maxLevel: 30, extraHp: 40, extraArmor: 1, attackSpeed: 0.65, visualScale: 0.56,
   perLevel: { hp: 0.12, damage: 0.1, haste: 0.01 }, armorEvery: 10,
   melee: { multiplier: 2, reach: 1.5 }, critMultiplier: 2, respawn: 15, introDelay: 10,
   xp: { perHp: 0.04, near: 9, far: 0.4, bossPerRound: 60, first: 40, curve: 1.6 },
-  bag: 12
+  bag: 12,
+  /* Passive skills fire on their own in a fight. `cooldown` counts from the moment the effect ends. */
+  skills: {
+    grenade: { name: 'Frag Grenade', base: 100, perLevel: 10, cooldown: 15, range: 6, radius: 1.8, flight: 0.7 },
+    shield: { name: 'Plasma Shield', seconds: 7, cooldown: 30, radius: 5, hurt: 0.8 },
+    robot: { name: 'War Robot', seconds: 30, cooldown: 60, speed: 1.5, haste: 1.5, damage: 1.5, range: 1.5, sight: 7, crowd: 3 }
+  }
 };
-export const HERO_TIERS = [{ ...MARINE_TIERS[0], rank: 'Hero', hp: MARINE_TIERS[0].hp + HERO.extraHp, upgradeCost: null }];
+export const HERO_TIERS = [{ ...MARINE_TIERS[0], rank: 'Hero', hp: MARINE_TIERS[0].hp + HERO.extraHp, attackSpeed: HERO.attackSpeed, upgradeCost: null }];
 export const HERO_INFO = {
   id: 'hero', name: 'Hero', faction: 'Breachline Compact', role: 'Hero', armor: MARINE_INFO.armor + HERO.extraArmor, accent: '#ffc24a',
   bio: 'Your own soldier on the line. Shoots like a Trooper, and anything that gets close takes the blade for double damage. Right-click a bug to charge it. Levels and gear stay with the hero from run to run.',
@@ -590,7 +596,13 @@ UNITS.hero = {
   shell: false, splash: 0, canBunker: false, canStim: false, armory: false, turret: false,
   mobile: true, speed: UNITS.marine.speed, accent: 0xffc24a
 };
-MODEL_FILES.hero = soldier('AK', 0x8f2a24, 0x2c2320, { muzzle: [1.3, 1.0, 0], tierTint: { nodes: '^ShoulderPad', colors: [0xffc24a] } });
+/* The hero's own suit (sources in assets/CREDITS.md): obsidian plate, gold trim and a lit visor. `speeds` plays a clip faster. */
+MODEL_FILES.hero = {
+  file: 'assets/models/hero.glb', fit: 'height', size: 1.25, seat: '^SpaceSuit_(Legs|Feet)',
+  clips: { idle: 'Idle_Gun', walk: 'Run_Shoot', shoot: 'Idle_Gun_Shoot', attack: 'Sword_Slash', death: 'Death' }, speeds: { attack: 1.8 },
+  tint: { SciFi_Main: 0x161a23, SciFi_MainDark: 0x0a0c11, SciFi_Light: 0xe9ae35, SciFi_Light_Accent: 0xa8101c, Grey: 0x0d3f58 },
+  glow: { Grey: 0x12a8d8 }, glowPower: 0.75
+};
 
 /*
  * Boss loot. Every boss drops `drops` items, rolled on `odds`. The first item a hero ever finds is at

@@ -806,6 +806,7 @@ export class Marine {
   }
 
   takeDamage(amount, game, fromAngle) {
+    if (game.hero?.shielded(this)) return;
     if (game.plasma?.absorb(this, amount)) return;
     if (this.downed) { this.finishDeath(game); return; }
     const dealt = mitigate(amount, this.stats.armor + (this.bunker ? 2 : 0));

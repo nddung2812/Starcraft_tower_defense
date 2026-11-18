@@ -26,6 +26,7 @@ All base models are by Quaternius, from Poly Pizza. Most colours are replaced in
 | File | Source model | Page | Changes to the file |
 |---|---|---|---|
 | `soldier.glb` | Character Soldier | https://poly.pizza/m/PpLF4rt4ah | Kept three of its guns and five animation clips; welded and quantized. Used by the Lineguard, Scorcher, Deadeye and Mender. |
+| `hero.glb` | Astronaut (Ultimate Modular Men Pack) | https://poly.pizza/m/3hC2i0CTuO | Kept eight animation clips; pruned, welded, resampled and quantized. Colours are set in the game. CC0 read from the page on 18 Nov 2026. |
 | `tank.glb` | Tank | https://poly.pizza/m/jWS1CLA0RO | Kept the forward track animation; welded and quantized. |
 | `goliath.glb` | Mech (Finn the Frog chassis) | https://poly.pizza/m/o3Ps8z8ByP | Removed animal pilot; added armoured cockpit, emissive visor, vents, antenna and cannon sleeves. Recoloured the atlas steel-blue/graphite, welded geometry, retained Idle/Walk/Shoot_Big/Death clips. CC0 verified 14 Nov 2026. |
 | `falcon.glb` | Spaceship | https://poly.pizza/m/PQzePrvBCD | None. |

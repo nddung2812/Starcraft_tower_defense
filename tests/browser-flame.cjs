@@ -6,6 +6,7 @@ const assert = require('node:assert/strict');
   const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true, args: ['--enable-unsafe-swiftshader'] });
   try {
     const page = await browser.newPage({ viewport: { width: 1100, height: 760 } });
+    await page.route('**/src/hero.js', route => route.abort());   // this suite measures flame particles, and the hero's skills throw sparks of their own
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     await page.addInitScript(() => { window.requestAnimationFrame = () => 1; });
     await page.goto('http://127.0.0.1:8765/');

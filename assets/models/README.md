@@ -6,6 +6,7 @@ built-in shape. Reload the page; the browser console says which files were picke
 | File | Unit |
 |---|---|
 | `soldier.glb` | Trooper, Torch, Spectre and Medic (one file, each with its own gun and colours) |
+| `hero.glb` | The hero's armoured suit |
 | `goliath.glb` | Atlas |
 | `tank.glb` | Not loaded any more: the Hammer uses the built-in model. Add a `tank` entry back to `MODEL_FILES` to use a file. |
 | `falcon.glb` | Vector |
