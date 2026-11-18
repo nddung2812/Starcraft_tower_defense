@@ -141,7 +141,7 @@ export class Retention {
     if (!showing) return;
     $('btnSaveQuit').textContent = g.match ? 'Quit match' : 'Save & quit';
     if (g.match) {
-      $('pauseSaveInfo').textContent = `Skirmish matches are not saved. Quitting ends this match${this.save ? '; your saved stand is untouched' : ''}.`;
+      $('pauseSaveInfo').textContent = `Survival matches are not saved. Quitting ends this match${this.save ? '; your saved stand is untouched' : ''}.`;
       $('btnSaveQuit').disabled = false;
       return;
     }
@@ -155,7 +155,7 @@ export class Retention {
 
   refresh() {
     $('savedRun').hidden = !this.save;
-    $('introBtn').textContent = 'Survival mode';
+    $('introBtn').textContent = 'Endless mode';
     $('introBtn').classList.toggle('btn--primary', !this.save);
     if (this.save) {
       $('btnContinue').textContent = `Continue — Round ${this.save.level}`;

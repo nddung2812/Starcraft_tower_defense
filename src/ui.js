@@ -323,7 +323,7 @@ export class UI {
     });
     // Skirmish (`game.match`, see skirmish.js): the objective readout, wave and hive callouts, the result.
     game.on('matchStart', ({ hives, waveGap }) => {
-      this.toast('Skirmish', `Destroy ${hives === 1 ? 'the hive' : hives === 2 ? 'both hives' : `all ${hives} hives`} to win. Bigger wave every ${waveGap}s.`, 'radio');
+      this.toast('Survival mode', `Destroy ${hives === 1 ? 'the hive' : hives === 2 ? 'both hives' : `all ${hives} hives`} to win. Bigger wave every ${waveGap}s.`, 'radio');
       this.syncMatch();
     });
     game.on('wave', ({ wave, hostiles, bonus, boss }) => this.callout(`Wave ${wave}`,
@@ -763,7 +763,7 @@ export class UI {
     hud.hidden = !showing;
     if (!showing) return;
     const fighting = this.game.state === 'wave';
-    const text = `SKIRMISH · HIVES ${m.hivesLeft}/${m.hives} · WAVE ${this.game.level} · ${fighting ? `NEXT ${clock(Math.ceil(m.nextT))}` : 'STAND BY'}`;
+    const text = `SURVIVAL · HIVES ${m.hivesLeft}/${m.hives} · WAVE ${this.game.level} · ${fighting ? `NEXT ${clock(Math.ceil(m.nextT))}` : 'STAND BY'}`;
     if (hud.textContent !== text) hud.textContent = text;
     hud.classList.toggle('is-soon', fighting && m.nextT <= 5);
   }

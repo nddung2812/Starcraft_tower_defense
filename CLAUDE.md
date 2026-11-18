@@ -82,6 +82,8 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 
 ## Skirmish: a match you can win (Nov 17, 2026)
 
+Players see this mode as **Survival mode** and the endless stand as **Endless mode** (renamed Nov 18, 2026, the owner dislikes the word "Skirmish"). Never show "Skirmish" to players. Code, element IDs and storage keys keep `skirmish` so saved records carry over.
+
 Built because the endless stand never gives the player a win or a decision about when to attack.
 The start screen's Skirmish button opens a setup screen (1–7 hives, Calm/Standard/Fierce swarm,
 map size, starting minerals, open with the squad or plan first) and then plays one continuous

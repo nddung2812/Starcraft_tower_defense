@@ -496,6 +496,8 @@ bonus, armour, aircraft/garrison protection, wall occlusion, Yamato survival and
 
 ## Skirmish (Nov 17, 2026)
 
+Shown to players as Survival mode; the endless stand is shown as Endless mode.
+
 One continuous match on one map, set up by the player from the Skirmish button. Destroy every
 hive to win; lose if the relay falls. Tuning is `SKIRMISH` in `src/config.js`; the rules are in
 `src/skirmish.js` and the maps come from `carveMatch()` in `src/levels.js`. Hive personalities,

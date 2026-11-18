@@ -223,7 +223,7 @@ export function carveMatch(seed, { hives, size }) {
   // carveFronts and finishLevel take a round number for bends, boulder count and the name.
   const layout = finishLevel(1, (seed ^ salt) >>> 0, MAP_VERSION, rng, carveFronts(count, seed, n, rng, plan));
   const sides = [...new Set(layout.sides)];
-  layout.name = count === 1 ? 'Skirmish · one hive' : `Skirmish · ${count} hives`;
+  layout.name = count === 1 ? 'Survival · one hive' : `Survival · ${count} hives`;
   layout.blurb = `${n}×${n} battlefield. ${count === 1 ? 'One hive attacks' : `${count} hives attack`} from the ${sides.length === 1 ? sides[0]
     : `${sides.slice(0, -1).join(', ')} and ${sides[sides.length - 1]}`}. Destroy ${count === 1 ? 'it' : 'them all'} to win.`;
   return layout;

@@ -328,13 +328,13 @@
         <button id="btnContinue" class="btn btn--primary" type="button">Continue game</button>
         <p id="savedRunInfo" class="intro__hint"></p>
       </section>
-      <button id="introBtn" class="btn btn--primary" type="submit" name="deploy" value="quick">Survival mode</button>
+      <button id="introBtn" class="btn btn--primary" type="submit" name="deploy" value="quick">Endless mode</button>
       <span class="intro__hint">Start with 3 soldiers and hold for as long as you can.</span>
       <button id="btnDefense" class="btn" type="submit" name="deploy" value="build">Defense mode</button>
       <span class="intro__hint">The battle waits while you build your line. Resume when you are ready.</span>
       <button id="btnDaily" class="btn btn--gold" type="submit" name="deploy" value="daily">Daily challenge</button>
       <span id="dailyInfo" class="intro__hint"></span>
-      <button id="btnSkirmish" class="btn btn--gold" type="button" aria-haspopup="dialog" aria-controls="skirmishDialog" hidden>Skirmish</button>
+      <button id="btnSkirmish" class="btn btn--gold" type="button" aria-haspopup="dialog" aria-controls="skirmishDialog" hidden>Survival mode</button>
       <span id="skirmishInfo" class="intro__hint" hidden></span>
     </div>
   </form>
@@ -360,7 +360,7 @@
 </dialog>
 
 <dialog id="skirmishDialog" class="career-dialog skirmish-dialog" aria-labelledby="skirmishTitle">
-  <div class="career-heading"><div><span class="intro__eyebrow">SKIRMISH</span><h2 id="skirmishTitle">Set up your battle</h2></div><button id="closeSkirmish" class="btn" type="button" aria-label="Close setup">×</button></div>
+  <div class="career-heading"><div><span class="intro__eyebrow">SURVIVAL MODE</span><h2 id="skirmishTitle">Set up your battle</h2></div><button id="closeSkirmish" class="btn" type="button" aria-label="Close setup">×</button></div>
   <p class="career-help">One map, one match. Destroy every hive to win; lose if the relay falls.</p>
   <div id="skirmishSetup" class="skirmish-setup"></div>
   <p id="skirmishSummary" class="skirmish-summary" role="status"></p>

@@ -46,7 +46,7 @@ const SEED = 12345;
     }));
     assert.deepEqual({ ...setup, hud: null, saved: null }, { asked: false, intro: true, match: true, map: { hives: 2, size: 56 }, level: 1, state: 'brief',
       squad: 3, size: [56, 56], hives: [[2600, 2600, 250], [2600, 2600, 250]], hud: null, saved: null });
-    assert.match(setup.hud, /^SKIRMISH · HIVES 2\/2 · WAVE 1 · /);
+    assert.match(setup.hud, /^SURVIVAL · HIVES 2\/2 · WAVE 1 · /);
     assert.equal(setup.saved, saved, 'starting a match must not replace the saved stand');
 
     /* ---------- waves on a timer, on the same map, with no raid and no refund ---------- */
@@ -231,7 +231,7 @@ const SEED = 12345;
       gap: 32, next: 32, lanes: [0, 1, 2, 3], reach: true, built: true });
     assert.deepEqual(custom.planned, custom.expected, 'four Fierce hives send 175% of the standard swarm');
     assert.equal(custom.wave1, custom.planned[0], 'wave 1 is scaled like every other wave');
-    assert.match(custom.hud, /^SKIRMISH · HIVES 4\/4 · WAVE 1 · /);
+    assert.match(custom.hud, /^SURVIVAL · HIVES 4\/4 · WAVE 1 · /);
     assert.deepEqual(custom.stored, { hives: 4, size: 88, mood: 'fierce', minerals: 800, quick: false }, 'the setup is remembered');
     assert.deepEqual(custom.wave2, [2, [3360, 3360, 3360, 3360], 'wave'], 'the second wave leaves after 32 seconds and Fierce hives grow by 240');
     assert.equal(custom.won[0], 'victory');
