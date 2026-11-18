@@ -216,6 +216,9 @@ export class UI {
     installScouting(game);
     this.portrait = new Portrait($('portrait'));
     this.inspect = { kind: 'marine', tier: 0, entity: null };
+    this.preview = null;         // the unit a build card is offering, shown instead of the selection
+    this.hoverKind = null;
+    this.placingKind = null;
 
     const icons = buildIcons(this.portrait.renderer);
     $('buildBar').innerHTML = Object.values(BUILD).map((b) => `
@@ -233,6 +236,14 @@ export class UI {
     $('buildBar').addEventListener('click', (e) => {
       const btn = e.target.closest('[data-build]');
       if (btn) game.emit('pick', btn.dataset.build);
+    });
+    $('buildBar').addEventListener('pointerover', (e) => {
+      this.hoverKind = e.target.closest('[data-build]')?.dataset.build || null;
+      this.syncPreview();
+    });
+    $('buildBar').addEventListener('pointerleave', () => {
+      this.hoverKind = null;
+      this.syncPreview();
     });
 
     $('cmdCard').innerHTML = COMMANDS.map((c) => `
@@ -380,6 +391,8 @@ export class UI {
   }
 
   setPlacing(id) {
+    this.placingKind = id || null;
+    this.syncPreview();
     if (id) this.newCards.delete(id);
     document.querySelectorAll('[data-build]').forEach((b) => {
       b.classList.toggle('card--on', b.dataset.build === id);
@@ -423,8 +436,42 @@ export class UI {
     this.renderStats();
   }
 
+  /** A build card under the pointer, or the unit being placed, shows its stats without changing the selection. */
+  syncPreview() {
+    const kind = [this.hoverKind, this.placingKind].find(id => UNITS[id]) || null;
+    if (kind === this.preview) return;
+    this.preview = kind;
+    this.renderStats();
+  }
+
+  /** The corner card repeats the panel's numbers, so the two can never disagree. */
+  syncUnitCard() {
+    const entity = this.preview ? null : this.inspect.entity;
+    $('unitCard').hidden = !this.preview && !entity;
+    if ($('unitCard').hidden) return;
+    const note = this.preview ? `${BUILD[this.preview].cost} minerals` : $('selCount').textContent;
+    $('cardName').textContent = $('pName').textContent;
+    $('cardRole').textContent = [$('pRole').textContent, note].filter(Boolean).join(' · ');
+    $('cardStats').innerHTML = [...$('stats').querySelectorAll('.stat')]
+      .map(row => [row.querySelector('.stat__k').textContent, row.querySelector('.stat__v').textContent])
+      .filter(([label]) => !entity || label !== 'Hit Points')   // the health bar shows these live
+      .map(([label, value]) => `<div class="${value.length > 12 ? 'is-wide' : ''}"><span>${label}</span><b>${value}</b></div>`)
+      .join('');
+    this.paintUnitCard();
+  }
+
+  paintUnitCard() {
+    const entity = this.preview ? null : this.inspect.entity;
+    $('cardHealth').hidden = !entity;
+    if (!entity) return;
+    const pct = Math.max(0, Math.min(1, entity.hp / entity.maxHp));
+    $('cardHealthBar').style.width = pct * 100 + '%';
+    $('cardHealthBar').style.background = pct > 0.55 ? '#2fae62' : pct > 0.25 ? '#b9862a' : '#c23f35';
+    $('cardHealthText').textContent = `${Math.ceil(entity.hp)} / ${Math.round(entity.maxHp)}`;
+  }
+
   renderStats() {
-    const { kind, tier, entity } = this.inspect;
+    const { kind, tier, entity } = this.preview ? { kind: this.preview, tier: 0, entity: null } : this.inspect;
     const g = this.game;
 
     if (entity?.kind === 'core' || entity?.kind === 'hive') {
@@ -433,6 +480,13 @@ export class UI {
       $('pRole').textContent = hive ? `Evolution ${entity.evolution} · hatches in ${Math.ceil(30 - entity.evolutionT)}s · ${entity.reward} minerals` : 'Army research / piercing laser';
       $('pFaction').textContent = hive ? 'The Rift Brood' : 'Breachline Compact';
       $('pBio').textContent = hive ? 'This brood egg evolves every 30 combat seconds, hatching a larger swarm each time. Destroy it to stop reinforcements and earn minerals. Attack (A) sends the whole army. Destroy every enemy base to finish the round. Surviving bases keep evolving until you destroy them.' : 'Upgrade the base to boost every current and future unit. The cannon tracks enemies and automatically fires a piercing laser every 90 seconds when a target is available. Upgrades and energy carry across rounds.';
+      $('pQuote').textContent = '';
+      $('stats').innerHTML = statRow('Hit Points', Math.ceil(entity.hp) + ' / ' + entity.maxHp, entity.hp / entity.maxHp, '#5ef08a');
+    } else if (entity?.kind === 'wall') {
+      $('pName').textContent = BUILD.wall.name;
+      $('pRole').textContent = 'Fortification';
+      $('pFaction').textContent = 'Breachline Compact';
+      $('pBio').textContent = BUILD.wall.desc;
       $('pQuote').textContent = '';
       $('stats').innerHTML = statRow('Hit Points', Math.ceil(entity.hp) + ' / ' + entity.maxHp, entity.hp / entity.maxHp, '#5ef08a');
     } else if (entity?.kind === 'scv' || entity?.kind === 'bunker') {
@@ -503,6 +557,7 @@ export class UI {
         statRow('Move Speed', b.speed.toFixed(2) + ' t/s', b.speed / 4, '#c06bff');
     }
 
+    this.syncUnitCard();
     this.syncActions();
   }
 
@@ -616,6 +671,7 @@ export class UI {
       </button>`).join('');
     this.paintChips();
     this.syncCommands();
+    this.syncUnitCard();
   }
 
   paintChips() {
@@ -869,7 +925,7 @@ export class UI {
       this.chipT = 0.2;
       this.paintChips();
       this.syncCommands();
-      if (this.inspect.entity && (this.inspect.entity.evolutionRank || this.inspect.entity.bunker?.evolutionRank)) this.renderStats();
+      if (this.inspect.entity) this.renderStats();   // promotions, Overdrive and bunker bonuses change the numbers
     }
   }
 }
