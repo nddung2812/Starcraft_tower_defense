@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { installScouting } from './scouting.js';
 import { startYamato, yamatoTarget } from './battlecruiser.js';
-import { BUILD, ZERG_INFO, BREEDS, ECON, UNITS, AIR_STRIKE, OVERDRIVE, BASE_UPGRADE, BASE_LASER, YAMATO, applyBaseUpgrade } from './config.js';
+import { BUILD, ZERG_INFO, BREEDS, ECON, UNITS, AIR_STRIKE, OVERDRIVE, BASE_UPGRADE, BASE_LASER, YAMATO, CRUISER_TIERS, applyBaseUpgrade } from './config.js';
 import { buildZergling, buildWall, buildCore, buildHatchery, CORE_STAGES } from './models.js';
 import { makeModel, loadedModels } from './assets.js';
 import { EVOLUTIONS, EVOLUTION_RULES } from './config.js';
@@ -526,7 +526,8 @@ export class UI {
         $('pBio').textContent += ` ${EVOLUTIONS.find(e => e.id === evolution).name} · Rank ${g.evolutions[evolution]}. ${evolutionDescription(evolution, g.evolutions[evolution])}`;
         if (kind === 'tank' && entity) $('pRole').textContent += entity.siegeDeployed ? ' · SIEGE DEPLOYED' : ' · MOBILE';
       }
-      if (entity?.defend) $('pRole').textContent += ' · DEFENDING';
+      if (entity?.sieged) $('pRole').textContent += entity.siegeReady ? ' · SIEGE MODE' : ' · DEPLOYING';
+      else if (entity?.defend) $('pRole').textContent += ' · DEFENDING';
       $('pQuote').textContent = spec.info.quote;
       const accent = spec.info.accent;
       $('stats').innerHTML =
@@ -538,8 +539,8 @@ export class UI {
         (spec.splash ? statRow('Blast', (spec.splash + (entity?.siegeDeployed ? EVOLUTION_RULES.siegeSplash : 0)).toFixed(2) + ' tiles', spec.splash / 2, accent) : '') +
         statRow('Targets', spec.heals ? 'Allies' : spec.flame ? 'Ground · cone' : spec.pierce ? 'Largest · ignores armour' : spec.targetsAir === false ? 'Ground' : 'Ground + Air', 1, accent) +
         (spec.mines && g.minefield ? statRow('Mines', (entity ? g.minefield.count(entity) + ' of ' + spec.mines.count + ' left' : spec.mines.count + ' on placement') + ' · ' + spec.mines.damage + ' each', 1, '#ff8a7a') : '') +
-        (kind === 'cruiser' ? statRow('Yamato', `${Math.round(YAMATO.damage * s.damage / 30)} + splash · ${YAMATO.cooldown}s`, 1, '#ffbd69') : '') +
-        statRow('Move Speed', spec.mobile ? s.moveSpeed.toFixed(1) + ' t/s' : 'Emplaced', s.moveSpeed / 3, accent);
+        (kind === 'cruiser' ? statRow('Yamato', `${Math.round(YAMATO.damage * s.damage / CRUISER_TIERS[0].damage)} + splash · ${YAMATO.cooldown}s`, 1, '#ffbd69') : '') +
+        statRow('Move Speed', entity?.sieged ? 'Locked' : spec.mobile ? s.moveSpeed.toFixed(1) + ' t/s' : 'Emplaced', entity?.sieged ? 0 : s.moveSpeed / 3, accent);
     } else {
       const b = entity?.breed || BREEDS.zergling;
       $('pName').textContent = b.name;
@@ -712,7 +713,7 @@ export class UI {
     const defendButton = document.querySelector('[data-cmd="defend"]');
     defendButton.classList.toggle('cmd--on', guarding);
     defendButton.title = guarding ? 'Release the selected units so they join the army attack again (D).'
-      : 'Keep the selected units home: they hold their ground and defend when the army attacks (D).';
+      : 'Keep the selected units home: they hold their ground and defend when the army attacks (D). Hammers lock into siege mode: they stop moving, reach farther and hit 50% harder.';
     set('air', fighting && g.airStrikeReady, fighting && !g.airStrikeReady ? `Air ${Math.ceil(g.airStrikeCd)}s` : 'Air Strike');
     set('stim', g.stimUnlocked && units.some((u) => u.kind === 'marine' && u.stimT <= 0 && u.silenceT <= 0 && u.hp > OVERDRIVE.hpCost));
     const cost = primary && UNITS[primary.kind] && !primary.downed ? primary.upgradeCost : null;

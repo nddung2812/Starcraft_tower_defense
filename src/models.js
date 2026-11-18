@@ -412,6 +412,24 @@ export function buildTank() {
   return root;
 }
 
+/** The four stabiliser legs a Hammer drops in siege mode. `spread(k)` moves them from stowed (0) to planted (1). */
+export function buildSiegeRig() {
+  const rig = new THREE.Group(), legs = [];
+  for (const x of [-1, 1]) for (const z of [-1, 1]) {
+    const leg = new THREE.Group();
+    leg.rotation.y = Math.atan2(-z * 0.4, x * 0.42);
+    leg.add(mesh(box(0.34, 0.06, 0.09, 0.015), MAT.steelDark, 0.1, 0, 0));
+    leg.add(mesh(box(0.14, 0.05, 0.11, 0.012), MAT.gunmetal, 0.2, -0.05, 0));
+    leg.add(mesh(new THREE.CylinderGeometry(0.11, 0.13, 0.04, 10), MAT.steel, 0.28, -0.1, 0));
+    rig.add(leg);
+    legs.push({ leg, x: x * 0.42, z: z * 0.4 });
+  }
+  rig.userData.spread = (k) => {
+    for (const { leg, x, z } of legs) leg.position.set(x * (0.72 + k * 0.42), 0.13 + k * 0.03, z * (0.72 + k * 0.42));
+  };
+  return rig;
+}
+
 /* ------------------------------------------------------------------ */
 /*  ZERGLING — faces +X, ~0.8 units long, low to the ground            */
 /* ------------------------------------------------------------------ */

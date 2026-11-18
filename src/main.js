@@ -592,7 +592,10 @@ function smartCommand(t) {
   if (game.commandMove(units, t.x, t.y, 'move')) {
     marker(t.world.x, t.world.z, 'move', e);
     sfx.ui();
-  } else sfx.deny();
+  } else {
+    sfx.deny();
+    if (units.some(u => u.sieged)) ui.toast('Hammer in siege mode', 'Press D to pack up before moving.');
+  }
 }
 
 /** Left-click while A is armed: a bug means focus it, ground means attack-move. */

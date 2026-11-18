@@ -242,7 +242,7 @@ spawning, routing, stats or score.
 - **Nothing may assume west hives or an east base.** Use `layout.sides`/`layout.front`,
   `game.deployAnchor()` and `game.threatYaw(x, z)`; the last faces a bunker or idle unit up the
   swarm's route (`grid.upstreamYaw`) once there is more than one front.
-- **Defend (D).** `unit.defend` is a per-unit flag toggled by `game.commandDefend(units)`.
+- **Defend (D).** `unit.defend` is a per-unit flag toggled by `game.commandDefend(units)`. On a Hammer it is also siege mode (`unit.sieged`, `SIEGE_MODE` in config, `tests/browser-siege.cjs`).
   `commandAdvanceArmy()` skips defenders, so they stay home (and in their bunkers) when Attack is
   pressed; direct orders still move them. It is an optional checkpoint field on units and on
   `lastArmy`, so Redeploy restores it. Marked by `guardMark` (gold diamond), a gold chip border

@@ -3,7 +3,7 @@ import { packHeading, swarmStepClear } from './swarm.js';
 import { updateBattlecruiser } from './battlecruiser.js';
 import { cleaveDefenders } from './ultralisk.js';
 import { CELL, UNITS, BREEDS, UNIT_SCALE, BUG_SCALE, OVERDRIVE, applyBaseUpgrade, HIVE_RAID, BASE_LASER, SUPPLY, BUNKER_WEAPONS } from './config.js';
-import { buildWall, buildCore, upgradeCore, buildHatchery, buildCrate, LASER_CELL_OFF, LASER_CORE_OFF } from './models.js';
+import { buildWall, buildCore, upgradeCore, buildHatchery, buildCrate, buildSiegeRig, LASER_CELL_OFF, LASER_CORE_OFF } from './models.js';
 import { makeModel } from './assets.js';
 import { EVOLUTION_RULES, evolutionPower } from './config.js';
 import { packSiege, updateUnitEvolution, updateBunkerEvolution, triggerLastStand, chainLightning } from './evolutions.js';
@@ -128,6 +128,7 @@ export class Marine {
     this.yamatoCd = 0;
     this.yamatoCharge = 0;
     this.yamatoLock = null;
+    this.siegeAmount = 0;        // siege mode: 0 is mobile, 1 is fully deployed
     this.blindT = 0;
     this.silenceT = 0;
     this.bunker = null;
@@ -186,12 +187,18 @@ export class Marine {
     this.hp = Math.min(s.hp, s.hp * ratio);
   }
 
+  /** A Hammer on Defend is in siege mode: ordered to lock down, and `siegeReady` once it has. */
+  get sieged() { return !!this.spec?.siegeMode && !!this.defend; }
+  get siegeReady() { return this.sieged && this.siegeAmount >= 1; }
+  get siegeLocked() { return !!this.spec?.siegeMode && this.siegeAmount > 0; }
+
   get attackRange() {
-    const siege = this.siegeDeployed ? EVOLUTION_RULES.siegeRange + EVOLUTION_RULES.siegeRangeStep * evolutionPower(this.evolutionRank) : 0;
+    const walking = this.siegeDeployed ? EVOLUTION_RULES.siegeRange + EVOLUTION_RULES.siegeRangeStep * evolutionPower(this.evolutionRank) : 0;
+    const siege = Math.max(walking, this.siegeReady ? this.spec.siegeMode.range : 0);
     return (this.stats.range + siege + (this.bunker ? BUNKER_WEAPONS.rangeBonus : 0)) * (this.blindT > 0 ? 0.5 : 1);
   }
 
-  get attackDamage() { return this.stats.damage * (this.bunker ? BUNKER_WEAPONS.damageMultiplier : 1); }
+  get attackDamage() { return this.stats.damage * (this.bunker ? BUNKER_WEAPONS.damageMultiplier : 1) * (this.siegeReady ? this.spec.siegeMode.damage : 1); }
 
   get maxHp() { return this.stats.hp; }
   get upgradeCost() { return this.tiers[this.tier].upgradeCost; }
@@ -323,6 +330,7 @@ export class Marine {
   /** Re-route toward an attack target that is out of range. */
   chase(game) {
     if (this.spec.heals) { this.followArmy(game); return; }
+    if (this.sieged) return;     // locked down: it shoots what comes into reach
     const t = this.order.target;
     if (this.flying) { this.orderMove(Math.floor(t.x), Math.floor(t.z), game); return; }
     const off = this.spec.offroad, cx = Math.floor(this.x), cz = Math.floor(this.z), reach = this.attackRange * 0.9;
@@ -499,7 +507,7 @@ export class Marine {
     }
     // attack-move: plant feet while something is in the sights, then carry on
     const engaged = (o?.type === 'amove' || o?.type === 'advance') && !!this.seek(game);
-    const driving = this.bunker || engaged || holding ? false : this.stepMove(dt, game);
+    const driving = this.bunker || engaged || holding || this.siegeLocked ? false : this.stepMove(dt, game);
 
     if (this.bunker) {
       this.x = this.bunker.x;
@@ -534,7 +542,8 @@ export class Marine {
       this.yaw = angleLerp(this.yaw, want, Math.min(1, dt * 9));
       this.cooldown -= dt;
       const aligned = Math.abs(normAngle(want - this.yaw)) < 0.3;
-      if (this.cooldown <= 0 && aligned && this.silenceT <= 0 && !this.yamatoLock) {
+      const shifting = this.sieged ? this.siegeAmount < 1 : this.siegeLocked;   // no firing while the legs go down or come up
+      if (this.cooldown <= 0 && aligned && this.silenceT <= 0 && !this.yamatoLock && !shifting) {
         this.fire(game);
         this.cooldown = this.stats.attackSpeed * (this.stimT > 0 ? 1 / OVERDRIVE.fireRate : 1)
           / (this.bunker?.lastStandT > 0 ? EVOLUTION_RULES.standFireRate : 1);
@@ -559,6 +568,7 @@ export class Marine {
     ud.torso.position.y = ud.torso.userData.baseY + (anim ? 0 : bob);
     if (anim) anim(driving ? 'walk' : this.target ? 'shoot' : 'idle', dt);
     if (this.spec.heals) this.syncHealAura(dt, game);
+    if (this.spec.siegeMode) this.syncSiegeMode(dt, game);
 
     this.bar.set(this.hp / this.maxHp, game.camera);
   }
@@ -616,6 +626,20 @@ export class Marine {
     const y = (ally.flying ? ally.obj.position.y : 0) + 1.3;
     game.fx.label({ x: ally.x, y, z: ally.z }, '+' + Math.round(amount), 'heal');
     game.sfx.heal();
+  }
+
+  /** Hammer: drop the legs and run the cannon out while on Defend; reverse it all when released. */
+  syncSiegeMode(dt, game) {
+    const mode = this.spec.siegeMode, was = this.siegeAmount, ud = this.model.userData;
+    const deploying = this.defend && !this.driving;
+    this.siegeAmount = Math.max(0, Math.min(1, was + (deploying ? dt / mode.deploy : -dt / mode.pack)));
+    if (was < 1 && this.siegeAmount >= 1) { game.fx.ring(this, 1.3, 0xf0b23c); game.sfx.place(); }
+    const k = this.siegeAmount * this.siegeAmount * (3 - 2 * this.siegeAmount);
+    ud.weapon.scale.x = 1 + k * 0.55;      // the barrels run out
+    ud.weapon.rotation.z = k * 0.16;       // and lift for the long shot
+    ud.torso.position.y -= k * 0.04;
+    if (!this.siegeRig && k > 0) { this.siegeRig = buildSiegeRig(); this.model.add(this.siegeRig); }
+    if (this.siegeRig) { this.siegeRig.visible = k > 0; this.siegeRig.userData.spread(k); }
   }
 
   /** While a Medic is healing, each hand holds a soft green glow that swells with every heal. */
@@ -704,7 +728,7 @@ export class Marine {
       game.fx.muzzleFlash(muzzle, -this.yaw);
       if (this.spec.shell) {
         const splash = this.spec.splash + (this.siegeDeployed ? EVOLUTION_RULES.siegeSplash : 0);
-        game.spawnShell(muzzle, this.target.x, this.target.z, this.stats.damage, splash);
+        game.spawnShell(muzzle, this.target.x, this.target.z, this.attackDamage, splash);
         if (this.siegeDeployed) game.fx.ring(this, 1.1, 0xf0b23c);
       }
       else {

@@ -33,7 +33,7 @@ export const BUILD = {
   bunker: { id: 'bunker', name: 'Bunker', cost: 80, hp: 300, icon: 'B', key: 'B', desc: 'Two cannons, one per Trooper. Garrison up to two: +50% damage and +2 range. Troopers survive bunker destruction.' },
   goliath: { id: 'goliath', name: 'Atlas', cost: 160, icon: 'G', key: 'G', desc: 'Walker with twin rocket pods. Long reach. Too big for a bunker.' },
   falcon: { id: 'falcon', name: 'Vector', cost: 240, icon: 'V', key: 'V', desc: 'Flying gunship. Twin cannons attack ground and air. Flies over terrain; vulnerable to spines and flying hunters.' },
-  tank: { id: 'tank', name: 'Hammer', cost: 280, icon: 'H', key: 'T', desc: 'Silver heavy tank. Twin cinder launchers. Right-click the canyon to drive it.' },
+  tank: { id: 'tank', name: 'Hammer', cost: 280, icon: 'H', key: 'T', desc: 'Silver heavy tank. Twin cinder launchers. Right-click the canyon to drive it. Defend (D) locks it into siege mode.' },
   // Specialists join the build bar one round at a time (`unlock` is the first round they can be built).
   scorcher: { id: 'scorcher', name: 'Torch', cost: 110, icon: 'C', key: 'C', unlock: 2, desc: 'Flame trooper. Burns every ground bug in a short cone. Weak against armour.' },
   deadeye: { id: 'deadeye', name: 'Spectre', cost: 150, icon: 'D', key: 'X', unlock: 3, desc: 'Marksman. Very long range, ignores armour, picks the biggest target. Fragile.' },
@@ -78,6 +78,9 @@ export const GOLIATH_INFO = {
   quote: '"Target locked. Both barrels."'
 };
 
+/* Siege mode: a Hammer set to Defend (D) locks in place. `deploy` and `pack` are seconds to change over,
+ * during which it cannot fire or move. Deployed it reaches `range` tiles farther and hits `damage` times as hard. */
+export const SIEGE_MODE = { damage: 1.5, range: 4.5, deploy: 1.6, pack: 1.2 };
 export const TANK_TIERS = [
   { rank: 'Foundry I', hp: 340, damage: 38, attackSpeed: 2.4, range: 7.0, upgradeCost: null }
 ];
@@ -177,7 +180,7 @@ export const UNITS = {
   },
   tank: {
     targetsAir: false,
-    id: 'tank', shots: 2, tiers: TANK_TIERS, info: TANK_INFO,
+    id: 'tank', shots: 2, tiers: TANK_TIERS, info: TANK_INFO, siegeMode: SIEGE_MODE,
     shell: true, splash: 1.65, canBunker: false, canStim: false, armory: false, turret: true,
     mobile: true, speed: 1.25, accent: 0xd21f28,
     // All-terrain tracks: the share of road speed kept on mountain rock and wading a lake, and the

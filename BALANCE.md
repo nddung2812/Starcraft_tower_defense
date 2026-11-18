@@ -224,6 +224,14 @@ Presentation only: damage, cone, range and firing interval are unchanged.
 - About 80 particles for one Torch in sustained fire; from the ninth Torch on they share one
   budget (20 Torches measured at about 1,000 particles, cap 3,000).
 
+## Hammer siege mode (Nov 18, 2026)
+
+- Defend (D) on a Hammer locks it into siege mode. It parks, then takes 1.6 seconds to deploy, and cannot
+  fire while changing over. Deployed: 57 × 2 damage (+50%) and 11.5 range (+4.5). Fire rate and blast
+  are unchanged. It ignores move orders and does not chase; attack orders only work on targets in reach.
+- Press D again to pack up, which takes 1.2 seconds before it can move. Walking Fortress does not stack
+  its range with siege mode: the larger bonus applies, and its extra blast still counts.
+
 ## Hammer all-terrain driving (Nov 15, 2026)
 
 - The Hammer is the only ground unit that leaves the canyon floor. It drives over mountain rock

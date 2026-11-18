@@ -862,7 +862,7 @@ export class Game {
     for (const unit of units) {
       if (!UNITS[unit.kind] || unit.dead) continue;
       unit.defend = on;
-      if (on && unit.order?.type === 'advance') unit.stop(this);   // recalled mid-advance
+      if (on && (unit.order?.type === 'advance' || unit.spec.siegeMode)) unit.stop(this);   // recalled mid-advance; a Hammer parks to deploy
       n++;
     }
     if (n) this.emit('change');
@@ -895,6 +895,7 @@ export class Game {
    * mode: 'move' ignores bugs on the way, 'amove' stops to shoot.
    */
   commandMove(units, tx, ty, mode = 'move') {
+    units = units.filter(u => !u.sieged);    // a Hammer in siege mode stays put until it is released
     const flyers = units.filter(u => u.flying && !u.dead);
     let flown = 0;
     for (let i = 0; i < flyers.length; i++) {
