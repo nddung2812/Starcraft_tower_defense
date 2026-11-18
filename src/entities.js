@@ -683,6 +683,14 @@ export class Marine {
     return true;
   }
 
+  /** Shot from beyond its own reach while idle: go and answer it. Orders and Defend come first. */
+  returnFire(shooter, game) {
+    if (!shooter || shooter.dead || this.dead || this.downed || this.bunker || this.defend) return;
+    if (this.order || this.driving || !this.spec.mobile || this.spec.heals) return;
+    if (game.isEnemy(this.target) || this.distTo(shooter) <= this.attackRange) return;
+    this.orderAttack(shooter, game);
+  }
+
   takeDamage(amount, game, fromAngle) {
     if (game.plasma?.absorb(this, amount)) return;
     if (this.downed) { this.finishDeath(game); return; }
@@ -1219,6 +1227,7 @@ export class Zergling {
       this.swing = 1;
       if (this.breedId === 'ultralisk') cleaveDefenders(this, victim, game, want);
       else victim.takeDamage(this.damage, game, want);
+      game.impacts?.bite(this, victim, want);
     }
     this.moving = 0;
   }
@@ -1255,7 +1264,7 @@ export class Zergling {
       const s = this.scale;
       const shot = new Acid(
         this.x + Math.cos(this.yaw) * mx * s, this.altitude + my * s, this.z + Math.sin(this.yaw) * mx * s,
-        victim, this.damage, this.breed.projectile
+        victim, this.damage, this.breed.projectile, this
       );
       game.acids.push(shot);
       game.scene.add(shot.mesh);
@@ -1604,9 +1613,10 @@ const SPINE_MAT = new THREE.MeshBasicMaterial({ color: 0xf4ead0 });
 
 /** A bug's ranged shot: a slow acid glob (tanker) or a fast bone spine (needler). */
 export class Acid {
-  constructor(x, y, z, target, damage, style = 'acid') {
+  constructor(x, y, z, target, damage, style = 'acid', source = null) {
     this.x = x; this.y = y; this.z = z;
     this.target = target;
+    this.source = source;
     this.damage = damage;
     this.style = style;
     this.speed = style === 'spine' ? 15 : 7.5;
@@ -1623,7 +1633,9 @@ export class Acid {
     if (d <= step) {
       this.dead = true;
       this.target.takeDamage(this.damage, game, Math.atan2(dz, dx));
-      if (this.style === 'spine') {
+      this.target.returnFire?.(this.source, game);
+      if (game.impacts) game.impacts.shot(this.style, this.target, Math.atan2(dz, dx));
+      else if (this.style === 'spine') {
         game.fx.sparks({ x: this.target.x, y: 0.5, z: this.target.z }, Math.atan2(dz, dx) + Math.PI, 6, [0.95, 0.9, 0.75], 3);
       } else {
         game.fx.explosion({ x: this.target.x, y: 0.4, z: this.target.z }, 0.35);

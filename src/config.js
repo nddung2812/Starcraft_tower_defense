@@ -252,10 +252,10 @@ export const BREEDS = {
   zergling: { id: 'zergling', name: 'Ripper', role: 'Melee Swarm', hp: 37, armor: 0, damage: 6, attackSpeed: 0.55, range: 0.95, speed: 2.4, scale: 1, bounty: 1, melee: true, aggro: 2.6 },
   warrior:  { id: 'warrior', name: 'Brute', role: 'Armored Strain', hp: 150, armor: 3, damage: 12, attackSpeed: 0.9, range: 1.05, speed: 1.35, scale: 1.32, bounty: 3, melee: true, aggro: 2.2 },
   hopper:   { id: 'hopper', name: 'Leaper', role: 'Wall Vaulter', hp: 55, armor: 0, damage: 7, attackSpeed: 0.65, range: 0.9, speed: 2.7, scale: 0.82, bounty: 2, melee: true, jump: true, aggro: 3 },
-  broodray: { id: 'broodray', name: 'Brood Ray', role: 'Armoured Acid Flyer', flying: true, targetsAir: true, hp: 220, armor: 3, damage: 18, attackSpeed: 1.65, range: 4.8, speed: 2.1, scale: 1.35, bounty: 7, ranged: true, projectile: 'acid', muzzle: [0.65, 0.2] },
-  skyhunter: { id: 'skyhunter', name: 'Wraith', role: 'Flying Assault', flying: true, targetsAir: true, hp: 100, armor: 1, damage: 10, attackSpeed: 1.15, range: 4.2, speed: 3.1, scale: 1.1, bounty: 4, ranged: true, projectile: 'spine', muzzle: [0.5, 0.3] },
-  needler:  { targetsAir: true, id: 'needler', name: 'Needler', role: 'Spine Launcher', hp: 76, armor: 1, damage: 10, attackSpeed: 1.1, range: 4.0, speed: 1.85, scale: 1, bounty: 3, ranged: true, projectile: 'spine', muzzle: [0.5, 0.36] },
-  tanker:   { id: 'tanker', name: 'Corroder', role: 'Acid Siege', hp: 276, armor: 1, damage: 18, attackSpeed: 1.7, range: 3.6, speed: 1.05, scale: 1.7, bounty: 5, ranged: true }
+  broodray: { id: 'broodray', name: 'Brood Ray', role: 'Armoured Acid Flyer', flying: true, targetsAir: true, hp: 220, armor: 3, damage: 18, attackSpeed: 1.65, range: 5.8, speed: 2.1, scale: 1.35, bounty: 7, ranged: true, projectile: 'acid', muzzle: [0.65, 0.2] },
+  skyhunter: { id: 'skyhunter', name: 'Wraith', role: 'Flying Assault', flying: true, targetsAir: true, hp: 100, armor: 1, damage: 10, attackSpeed: 1.15, range: 5.0, speed: 3.1, scale: 1.1, bounty: 4, ranged: true, projectile: 'spine', muzzle: [0.5, 0.3] },
+  needler:  { targetsAir: true, id: 'needler', name: 'Needler', role: 'Spine Launcher', hp: 76, armor: 1, damage: 10, attackSpeed: 1.1, range: 5.2, speed: 1.85, scale: 1, bounty: 3, ranged: true, projectile: 'spine', muzzle: [0.5, 0.36] },
+  tanker:   { id: 'tanker', name: 'Corroder', role: 'Acid Siege', hp: 276, armor: 1, damage: 18, attackSpeed: 1.7, range: 6.0, speed: 1.05, scale: 1.7, bounty: 5, ranged: true }
 };
 
 /*
@@ -496,6 +496,17 @@ export const TREASURE = [
   { id: 'speed', name: 'Servo Boosters', effect: '+10% Trooper movement speed', apply: s => { s.moveSpeed *= 1.1; } }
 ];
 
+/*
+ * Boss siege magic: a boss takes turns calling a Firestorm and an Earthquake down on your buildings.
+ * Damage per boss is in `milestonePlan()`. `troops` is the share of it a ground unit takes and
+ * `coreShare` the share the Ridge Relay takes. Quake pulses widen, so the centre is hit by all of them.
+ */
+export const BOSS_MAGIC = {
+  order: ['fire', 'quake'], firstDelay: 0.6, enraged: 0.75, bunkerWeight: 3, coreShare: 0.25,
+  fire: { telegraph: 2.4, fall: 0.55, radius: 2.2, seconds: 6, tick: 0.5, troops: 0.5 },
+  quake: { telegraph: 2.6, radius: 4.5, pulses: 3, gap: 0.45, troops: 0.3, scar: 9 }
+};
+
 /* Bosses every five levels; decade bosses are the harder encounters. */
 export function milestonePlan(level) {
   if (level < 5 || level % 5 !== 0) return null;
@@ -514,6 +525,10 @@ export function milestonePlan(level) {
     spellInterval: hard ? 10 : 14, spellTelegraph: 2,
     blindDuration: 5, silenceDuration: 3, spellRadius: 2.8,
     broodCount: Math.min(10, 3 + tier * 2),
+    magicInterval: hard ? 12 : 17,
+    fireImpact: Math.round((50 + tier * 20) * (hard ? 1 : 0.7)),
+    fireDps: Math.round((14 + tier * 4) * (hard ? 1 : 0.7)),
+    quakeDamage: Math.round((40 + tier * 15) * (hard ? 1 : 0.7)),
     strikeInterval: Math.max(5, 11 - tier) * (hard ? 1 : 1.4),
     strikeDamage: Math.round((30 + tier * 15) * (hard ? 1 : 0.6)),
     strikeRadius: 2.3 + Math.min(tier, 5) * 0.3,

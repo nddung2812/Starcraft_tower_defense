@@ -101,18 +101,43 @@ the stronger base infantry and cheaper promotions.
 | Enemy | First round | HP | Armor | Damage / interval | Range | Speed | Bounty multiplier |
 | --- | ---: | ---: | ---: | --- | ---: | ---: | ---: |
 | Ripper | 1 | 37 | 0 | 6 / 0.55 s | 0.95 | 2.4 | 1 |
-| Needler | 3 | 76 | 1 | 10 / 1.10 s | 4.0 | 1.85 | 3 |
+| Needler | 3 | 76 | 1 | 10 / 1.10 s | 5.2 | 1.85 | 3 |
 | Brute | 4 | 150 | 3 | 12 / 0.90 s | 1.05 | 1.35 | 3 |
-| Wraith | 5 | 100 | 1 | 10 / 1.15 s | 4.2 | 3.1 | 4 |
+| Wraith | 5 | 100 | 1 | 10 / 1.15 s | 5.0 | 3.1 | 4 |
 | Leaper | 6 | 55 | 0 | 7 / 0.65 s | 0.9 | 2.7 | 2 |
-| Corroder | 8 | 276 | 1 | 18 / 1.70 s | 3.6 | 1.05 | 5 |
+| Corroder | 8 | 276 | 1 | 18 / 1.70 s | 6.0 | 1.05 | 5 |
 
-Needlers give fresh infantry a small range advantage. Brutes remain armored
-blockers. Leapers trade some melee DPS for their wall-jumping mobility. Wraiths
-are slightly tougher but no longer outrange fresh infantry. Corroders now actually
-appear in round eight; the previous count formula rounded their first wave to zero.
-Existing wave HP/speed growth, boss statistics, bounty multipliers and spawn counts
-otherwise remain intact. Boss names now include Rift Warden and The Hollow Queen.
+Brutes remain armored blockers. Leapers trade some melee DPS for their wall-jumping
+mobility. Corroders now actually appear in round eight; the previous count formula
+rounded their first wave to zero. Boss names now include Rift Warden and The Hollow Queen.
+
+## Longer enemy reach and boss siege magic (Nov 18, 2026)
+
+- **Reach.** Needler 4.0 to 5.2, Wraith 4.2 to 5.0, Brood Ray 4.8 to 5.8, Corroder 3.6 to 6.0. Every one
+  now outranges a fresh Trooper (4.4), and all stay inside a garrisoned bunker's 6.4.
+- **Wave sizes are unchanged.** Adding Needlers and Corroders as well made the default Skirmish
+  unwinnable for the test bot (0 of 3 pushes at wave 9), so only their reach grew.
+- **Return fire.** An idle unit hit by a spine or acid from beyond its own range walks up and answers
+  it. Units with orders, defenders (D), bunker crews and Medics stay where they are.
+- **Firestorm and Earthquake.** A boss alternates the two, first at 60% of its interval, then every 12 s
+  (hard) or 17 s (medium), 25% faster when enraged. Each aims at the thickest knot of buildings
+  (a bunker counts as three walls), then at troops if nothing is built.
+
+| Spell | Warning | Area | Damage to buildings |
+| --- | ---: | ---: | --- |
+| Firestorm | 2.4 s | 2.2 tiles | `fireImpact` on landing, then `fireDps` a second for 6 s |
+| Earthquake | 2.6 s | 4.5 tiles | `quakeDamage` per pulse: 3 widening pulses, so the centre takes 3 and the rim 1 |
+
+| Boss | `fireImpact` | `fireDps` | `quakeDamage` |
+| --- | ---: | ---: | ---: |
+| Round 5 (medium) | 49 | 13 | 39 |
+| Round 10 (hard) | 70 | 18 | 55 |
+| Round 15 (medium) | 63 | 15 | 49 |
+| Round 20 (hard) | 90 | 22 | 70 |
+
+- Ground troops take 50% of fire damage and 30% of quake damage. The Ridge Relay takes 25%. Bunker crews
+  and aircraft take none. Overlapping flames do not stack. The boss's death ends its magic at once.
+- Not playtested by a person. Bot-tuned Skirmish numbers further down predate this change.
 
 ## Naming and compatibility
 

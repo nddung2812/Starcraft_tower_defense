@@ -51,6 +51,8 @@ export class Game {
     this.ambush = new MawAmbush(this);
     this.minefield = null;   // the mines layer installs the Medic's minefield here; without it no mines are laid
     this.groundFire = null;  // the groundfire layer installs the air strike's flames here; without it bombs only explode
+    this.bossMagic = null;   // the bossmagic layer installs the Firestorm and Earthquake here; without it bosses keep their other spells
+    this.impacts = null;     // the impacts layer installs the enemy hit effects here; without it hits show plain sparks
     this.reset();
   }
 
@@ -159,6 +161,7 @@ export class Game {
     this.clearCrates();
     this.minefield?.clear();
     this.groundFire?.clear();
+    this.impacts?.clear();
     this.streak = 0;
 
     const layout = this.matchMap ? carveMatch(this.mapSeed, this.matchMap) : carveLevel(this.level, this.mapSeed, this.mapVersion);
@@ -1067,6 +1070,7 @@ export class Game {
     this.ambush.update(dt);
     this.minefield?.update(dt);
     this.groundFire?.update(dt);
+    this.impacts?.update(dt);
     this.plasma?.update(dt);
 
     for (const m of this.gunners) m.update(dt, this);

@@ -63,6 +63,7 @@ export class MilestoneAssault {
   clearMarks() {
     for (const mark of this.marks) this.removeMark(mark);
     this.marks.length = 0;
+    this.game.bossMagic?.clear();
   }
 
   spawnBoss() {
@@ -217,6 +218,8 @@ export class MilestoneAssault {
       this.game.stage.kick(3);
     }
     this.boss.crown.rotation.y += dt * 2;
+    this.game.bossMagic?.update(dt, this);
+    if (this.game.state !== 'wave') return;   // the magic can bring the base down
     this.spellT -= dt;
     if (this.spellT <= 0) {
       this.castSpell();
