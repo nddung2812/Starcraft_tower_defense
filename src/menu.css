@@ -256,7 +256,7 @@
 
 :is(.pause-card, #banner .banner__inner, .career-dialog) .btn {
   border-radius: 0;
-  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
   transition: transform .26s var(--menu-spring), background .2s ease, border-color .2s ease, color .2s ease, filter .2s ease;
 }
 :is(.pause-card, #banner .banner__inner, .career-dialog) .btn:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.12); }

@@ -1,0 +1,154 @@
+/*
+ * The in-game interface in the start menu's steel console style (colours come from menu.css).
+ * Appearance and motion only: nothing here moves a panel or makes one larger. The HUD and the dock
+ * stay unclipped, because the overflow menu and the toasts hang outside them.
+ */
+:root {
+  --steel-plate: linear-gradient(180deg, #202e3a, #0d151d);
+  --steel-panel: linear-gradient(180deg, #1a2632, #0a1118);
+  --steel-glass: linear-gradient(180deg, #1a2632f2, #0a1118f2);
+  --steel-key: linear-gradient(180deg, #24323f, #0e1720);
+  --steel-key-lit: linear-gradient(180deg, #2f4252, #15212c);
+  --steel-edge: #46596a;
+  --steel-shine: inset 0 1px 0 #ffffff12;
+  --cut-s: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+  --cut-m: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  --cut-l: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+  --cut-tail: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+}
+
+/* ---------------- square off every surface ---------------- */
+
+.app :is(.hud, .stage, .panel, .dock, .minimap, .portrait, .field-guide, .assault-hud, .treasure, .battle-readouts,
+  .challenge-hud, .card, .cmd, .chip, .readout, .toast, .btn, .cam__btn, .tab, .unit-card, .callout, .raid-notice,
+  .match-hud, .pause-plan-bar, .achievement-notice, .hud__tools, .armory, .unit-card__health, .unit-card__health i,
+  .stat__bar, .stat__bar i, .boss-meter, .boss-meter i, .chip__hp, .chip__hp i, .armory__bar),
+.app .assault-hud__top button, .hud, .panel { border-radius: 0; }
+
+/* ---------------- top bar ---------------- */
+
+.app .hud { background: var(--steel-plate); border: 0; box-shadow: 0 1px 0 #5a7184, 0 8px 24px #0006; }
+.app .hud__sigil {
+  color: #171006; font-family: var(--menu-display); font-size: 17px; font-weight: 700;
+  background: linear-gradient(180deg, #f8c665, #c98c25); clip-path: var(--cut-s); border-radius: 0;
+}
+.app .hud__brand h1 { font: 700 16px/1 var(--menu-display); letter-spacing: .14em; }
+.app .hud .readout__k { font-family: var(--menu-display); font-size: 12px; letter-spacing: .12em; }
+.app .hud .readout__v { font-family: var(--menu-display); font-size: 18px; font-weight: 700; letter-spacing: .04em; }
+.app .commander-badge { border-radius: 0; border-color: #a87f3366; font-family: var(--menu-display); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
+
+/* ---------------- buttons ---------------- */
+
+.app .btn, .app .cam__btn, .app .tab, .app .card, .app .cmd, .app .chip {
+  transition: transform .2s var(--menu-spring), background .18s ease, border-color .18s ease, color .18s ease, box-shadow .18s ease, opacity .18s ease, filter .18s ease;
+}
+/* Each button sets a plate and an edge; the two gradients redraw the edge across the cut corners. */
+.app .btn {
+  --plate: var(--steel-key); --edge: var(--steel-edge);
+  box-shadow: var(--steel-shine); clip-path: var(--cut-s); background-origin: border-box;
+  font-family: var(--menu-display); font-size: 13px; font-weight: 600; letter-spacing: .12em;
+}
+.app .btn, .app .btn:hover:not(:disabled) {
+  border-color: var(--edge);
+  background-image:
+    linear-gradient(135deg, transparent 3.2px, var(--edge) 3.2px 4.4px, transparent 4.4px),
+    linear-gradient(315deg, transparent 3.2px, var(--edge) 3.2px 4.4px, transparent 4.4px),
+    var(--plate);
+}
+.app .hud .btn { font-size: 13px; letter-spacing: .1em; box-shadow: var(--steel-shine); }
+.app .btn:hover:not(:disabled) { --plate: var(--steel-key-lit); --edge: var(--menu-ice); color: #fff; }
+.app .btn:active:not(:disabled) { transform: translateY(1px) scale(.97); transition-duration: .07s; }
+.app .btn:focus-visible { outline: 1px solid #ffffff8c; outline-offset: -4px; }
+
+.app .btn--primary { --plate: linear-gradient(180deg, #1c4a5e, #0d2533); --edge: #7fdcf5; color: #eafaff; }
+.app .btn--primary:hover:not(:disabled) { --plate: linear-gradient(180deg, #27637c, #123244); --edge: #c5f2ff; }
+.app .btn--gold { --plate: linear-gradient(180deg, #352a17, #16110a); --edge: #a87f33; color: #ffe2a6; }
+.app .btn--gold:hover:not(:disabled) { --plate: linear-gradient(180deg, #4a3a1e, #1f180c); --edge: var(--menu-amber); color: #fff1cf; }
+.app .btn--strike { --plate: linear-gradient(180deg, #3a1d19, #190d0b); --edge: #a3483a; color: #ffc9bc; }
+.app .btn--strike:hover:not(:disabled) { --plate: linear-gradient(180deg, #512720, #22100d); --edge: #ff7a64; }
+.app .btn--strike.btn--armed { --plate: linear-gradient(180deg, #6b2a21, #2c120e); --edge: #ff5a4a; box-shadow: inset 0 0 12px #ff5a4a55; }
+.app .btn--stim { --plate: linear-gradient(180deg, #43261a, #1c100b); --edge: #b0623a; color: #ffc9a6; }
+.app .btn--ghost { --edge: #6d4a48; color: #ffb9ad; }
+.app .btn--inspector[aria-expanded="true"] { --edge: var(--menu-ice); color: var(--menu-ice); }
+
+.app .hud .cam__btn { transition: color .18s ease, background .18s ease, transform .2s var(--menu-spring); }
+.app .hud .cam__btn:hover { background: #ffffff10; color: var(--menu-ice); }
+.app .hud .cam__btn:active { transform: scale(.9); }
+
+/* ---------------- build bar and orders ---------------- */
+
+.app .dock { background: var(--steel-glass); border: 1px solid var(--steel-edge); box-shadow: var(--steel-shine), 0 8px 24px #0008; }
+.app .dock::before {
+  content: ''; position: absolute; left: -1px; right: -1px; top: -1px; height: 3px; pointer-events: none;
+  background: repeating-linear-gradient(-55deg, #c8922c 0 7px, #11171d 7px 14px);
+}
+.app .dock .card { border-color: #3a4b5a; background: var(--steel-key); box-shadow: var(--steel-shine); clip-path: var(--cut-m); }
+.app .dock .card:hover:not(:disabled) { border-color: var(--menu-ice); background: var(--steel-key-lit); transform: translateY(-2px); }
+.app .dock .card:active:not(:disabled) { transform: scale(.96); transition-duration: .07s; }
+.app .dock .card--on { border-color: var(--menu-ice); background: linear-gradient(180deg, #1c4a5e, #0d2533); box-shadow: inset 0 0 14px #7fe3ff40; }
+.app .dock .card--new { border-color: var(--menu-amber); box-shadow: inset 0 0 12px #f2b13b40; }
+.app .dock .card__cost { font-family: var(--menu-display); font-size: 14px; letter-spacing: .04em; }
+.app .dock .card__key, .app .dock .cmd__key { color: var(--menu-amber); font-family: var(--menu-display); font-size: 11px; font-weight: 700; }
+
+.app .dock .cmd {
+  border-color: #3a4b5a; background: var(--steel-key); box-shadow: var(--steel-shine); clip-path: var(--cut-s);
+  font-family: var(--menu-display); font-size: 12px; font-weight: 600; letter-spacing: .07em;
+}
+.app .dock .cmd:hover:not(:disabled) { border-color: var(--menu-ice); background: var(--steel-key-lit); color: #fff; }
+.app .dock .cmd:active:not(:disabled) { transform: scale(.96); transition-duration: .07s; }
+.app .dock .cmd--armed { border-color: #ff5a4a; background: linear-gradient(180deg, #6b2a21, #2c120e); box-shadow: inset 0 0 10px #ff5a4a55; }
+.app .dock .cmd--on { border-color: var(--menu-amber); background: linear-gradient(180deg, #352a17, #16110a); color: #ffe2a6; }
+
+.app .minimap { border-color: var(--steel-edge); clip-path: var(--cut-m); box-shadow: none; }
+
+/* ---------------- messages over the battlefield ---------------- */
+
+.app .toast { background: var(--steel-glass); border-color: #3a4b5a; clip-path: var(--cut-tail); animation: console-toast .3s var(--menu-out); }
+.app .toast b { font: 700 14px/1.15 var(--menu-display); letter-spacing: .1em; }
+.app .toast span { font-size: 11px; }
+@keyframes console-toast { from { opacity: 0; transform: translateX(-18px); } }
+
+.app .callout, .app .raid-notice {
+  background: linear-gradient(90deg, transparent, #0a1118e6 16%, #0a1118e6 84%, transparent); border: 0;
+  box-shadow: 0 -1px 0 #7fe3ff3d, 0 1px 0 #7fe3ff3d; animation: console-strip .34s var(--menu-out);
+}
+.app .raid-notice { box-shadow: 0 -1px 0 #f2b13b55, 0 1px 0 #f2b13b55; }
+.app .callout strong, .app .raid-notice strong { font: 700 18px/1.1 var(--menu-display); letter-spacing: .14em; text-transform: uppercase; }
+@keyframes console-strip { from { opacity: 0; transform: translate(-50%, -10px); } to { transform: translate(-50%, 0); } }
+
+.app .field-guide {
+  background: var(--steel-glass); border: 1px solid var(--steel-edge); border-left: 3px solid var(--menu-ice);
+  clip-path: var(--cut-tail); box-shadow: none; animation: console-toast .36s var(--menu-out);
+}
+.app .field-guide__tag { font: 600 12px var(--menu-display); letter-spacing: .2em; color: var(--menu-ice); }
+.app .field-guide strong { font: 700 17px/1.15 var(--menu-display); letter-spacing: .06em; color: #eef6fb; }
+
+.app .match-hud, .app .challenge-hud, .app .pause-plan-bar, .app .achievement-notice {
+  background: var(--steel-glass); font-family: var(--menu-display); font-size: 14px; letter-spacing: .1em;
+}
+.app .redeploy { animation: console-strip .34s var(--menu-out); }
+
+.app .unit-card { background: var(--steel-glass); border-color: var(--steel-edge); box-shadow: var(--steel-shine), 0 8px 24px #0008; clip-path: var(--cut-m); animation: console-rise .26s var(--menu-out); }
+.app .unit-card__head strong { font: 700 16px/1 var(--menu-display); letter-spacing: .1em; text-transform: uppercase; }
+@keyframes console-rise { from { opacity: 0; transform: translateY(10px); } }
+
+/* ---------------- side panel ---------------- */
+
+.app .panel { background: var(--steel-panel); border: 1px solid var(--steel-edge); box-shadow: var(--steel-shine), 0 8px 28px #0006; }
+.app .panel__tabs .tab { border-color: #3a4b5a; background: var(--steel-key); clip-path: var(--cut-s); font-family: var(--menu-display); font-size: 11px; font-weight: 600; letter-spacing: .06em; }
+.app .panel__tabs .tab:hover { border-color: var(--menu-ice); color: #fff; }
+.app .panel__tabs .tab--active { border-color: transparent; background: var(--accent); color: #06121a; font-weight: 700; }
+.app .portrait { border-color: var(--steel-edge); clip-path: var(--cut-l); }
+.app .portrait__tag { font-family: var(--menu-display); font-size: 12px; letter-spacing: .18em; }
+.app .panel__head h2 { font: 700 24px/1 var(--menu-display); letter-spacing: .1em; }
+.app .panel__head p, .app .stat__k, .app .armory__k { font-family: var(--menu-display); font-size: 12px; letter-spacing: .1em; }
+.app .armory, .app .treasure { background: #04080c99; border-color: #3a4b5a; }
+.app .armory__v { font-family: var(--menu-display); font-size: 14px; letter-spacing: .06em; }
+.app .assault-hud__title strong { font-family: var(--menu-display); font-size: 21px; }
+
+/* ---------------- phones: the order labels need a smaller size to fit ---------------- */
+
+@media (max-width: 760px) {
+  .app .dock .cmd { font-size: 9px; letter-spacing: .02em; }
+  .app .dock .cmd__key { font-size: 9px; }
+}
