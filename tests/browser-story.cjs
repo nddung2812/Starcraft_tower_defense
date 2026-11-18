@@ -97,6 +97,7 @@ const layers = () => ['opening', 'touch', 'story', 'atmosphere'].every(k => wind
     bare.on('pageerror', e => bareErrors.push(e.message));
     bare.on('console', m => { if (m.type() === 'warning') warnings.push(m.text()); });
     await bare.route('**/src/story.js', route => route.abort());
+    await bare.route('**/src/hero.js', route => route.abort());   // this suite counts the army, so it runs without the hero (tests/browser-hero.cjs covers the hero)
     await bare.addInitScript(() => { window.requestAnimationFrame = () => 1; });
     await bare.goto(URL);
     await bare.waitForFunction(() => window.game?.extras?.opening && window.game.extras.atmosphere && window.game.extras.touch, null, { polling: 50 });

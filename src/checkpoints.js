@@ -14,6 +14,7 @@ const fields = ['tx', 'ty', 'x', 'z', 'hp', 'tier', 'invested', 'yaw', 'restYaw'
 /** Only peaceful planning/countdown states can become checkpoints. Combat replays the round. */
 export function captureCheckpoint(g, meta) {
   if (!['build', 'brief'].includes(g.state)) return null;
+  const roster = g.gunners.filter(m => !m.isHero);   // the hero keeps its own save and musters every round
   const snapshot = {
     version: 1, savedAt: Date.now(), ...meta,
     level: g.level, seed: g.mapSeed, minerals: g.minerals, kills: g.kills, time: g.time,
@@ -27,12 +28,12 @@ export function captureCheckpoint(g, meta) {
     walls: g.walls.map(w => ({ tx: w.tx, ty: w.ty, hp: w.hp })),
     bunkers: g.bunkers.map(b => ({ tx: b.tx, ty: b.ty, hp: b.hp, facing: b.facing,
       lastStandT: b.lastStandT || 0, lastStandCd: b.lastStandCd || 0 })),
-    units: g.gunners.map(m => ({ kind: m.kind, ...Object.fromEntries(fields.map(k => [k, m[k]])),
+    units: roster.map(m => ({ kind: m.kind, ...Object.fromEntries(fields.map(k => [k, m[k]])),
       placed: m.isPlaced(g), bunker: g.bunkers.indexOf(m.bunker),
       garrisonOrder: m.order?.type === 'garrison' ? g.bunkers.indexOf(m.order.bunker) : -1,
       attackMove: m.order?.type === 'amove', advancing: m.order?.type === 'advance' })),
     scv: { x: g.scv.x, z: g.scv.z, hp: g.scv.hp, dead: g.scv.dead, yaw: g.scv.yaw },
-    mines: g.minefield?.capture()   // optional: dropped from the snapshot when the mines layer is absent
+    mines: g.minefield?.capture(roster)   // optional: dropped from the snapshot when the mines layer is absent
   };
   // Detach paths and metadata from the live simulation.
   return JSON.parse(JSON.stringify(snapshot));

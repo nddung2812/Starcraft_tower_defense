@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
   const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true, args: ['--enable-unsafe-swiftshader'] });
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    await page.route('**/src/hero.js', route => route.abort());   // this suite counts the army, so it runs without the hero (tests/browser-hero.cjs covers the hero)
     page.setDefaultTimeout(15000);
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     await page.addInitScript(() => { window.requestAnimationFrame = () => 1; });

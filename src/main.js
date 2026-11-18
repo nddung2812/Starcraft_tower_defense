@@ -869,7 +869,7 @@ canvas.addEventListener('pointerup', (ev) => {
     if (mode === 'box' && drag.moved > 6) boxSelect(ev);
     else {
       const t = tileAt(ev);
-      if (!grabCrate(t) && !touchOrder(t, ev)) clickSelect(t, ev, mode === 'box' || ev.shiftKey);
+      if (!grabCrate(t) && !game.hero?.grabLoot(t?.world) && !touchOrder(t, ev)) clickSelect(t, ev, mode === 'box' || ev.shiftKey);
     }
   }
 });
@@ -1405,6 +1405,7 @@ layer('bossmagic', async () => (await import('./bossmagic.js')).installBossMagic
 layer('impacts', async () => (await import('./impacts.js')).installImpacts(game));
 layer('plasma', async () => (await import('./plasma.js')).installPlasma(game, ui));
 layer('skymother', async () => (await import('./skymother.js')).installSkymother(game, ui));
+layer('hero', async () => (await import('./hero.js')).installHero(game, ui));
 layer('music', async () => (await import('./music.js')).installMusic(game));
 layer('comms', async () => (await import('./comms.js')).installComms({ game, stage, voice, sfx }));
 layer('skirmish', async () => (await import('./skirmish.js')).installSkirmish({

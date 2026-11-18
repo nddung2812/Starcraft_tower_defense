@@ -1,0 +1,64 @@
+/* The hero's toolbar button and gear screen. Loaded by the hero layer, so it leaves with it. */
+.btn--hero { position: relative; display: inline-flex; align-items: center; gap: 4px; color: #ffd98a; font-variant-numeric: tabular-nums; overflow: hidden; }
+.btn--hero.is-down { color: #ff8a7a; }
+.btn--hero i { position: absolute; left: 0; bottom: 0; height: 2px; background: #ffc24a; }
+/* Just above the ⋯ menu's breakpoint the toolbar is full, so everything closes up to make room for the button. */
+@media (min-width: 801px) and (max-width: 1000px) {
+  .hud { gap: 4px; }
+  .hud__readouts { gap: 4px; }
+  .hud__tools, .hud__settings, .hud__controls { gap: 2px; }
+  .hud .btn--hero { padding-inline: 4px; }
+}
+
+.hero-dialog { width: min(720px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto; padding: 20px; color: #dfe7ec; }
+.hero-sheet__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.hero-sheet__head h2 { margin: 0; overflow-wrap: anywhere; color: #ffd98a; }
+.hero-sheet__level { margin: 2px 0 0; color: #9fb0ba; }
+
+.hero-xp { position: relative; height: 18px; margin: 12px 0; background: #0b1218; border: 1px solid #36434c; overflow: hidden; }
+.hero-xp i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #a8731c, #ffc24a); }
+.hero-xp span { position: relative; display: block; text-align: center; font-size: 12px; line-height: 16px; color: #fff; text-shadow: 0 1px 2px #000; }
+
+.hero-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 0 0 14px; }
+.hero-stats div { padding: 5px 8px; background: #0e161c; border: 1px solid #2a353d; }
+.hero-stats dt { font-size: 11px; color: #8fa1ac; }
+.hero-stats dd { margin: 0; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.hero-gear { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 20px; }
+.hero-gear h3 { margin: 0 0 6px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #8fa1ac; }
+.hero-worn { display: grid; grid-template-columns: repeat(4, 56px); gap: 8px; }
+.hero-slot { display: grid; gap: 3px; justify-items: center; font-size: 11px; color: #8fa1ac; }
+.hero-bag { display: grid; grid-template-columns: repeat(6, 44px); gap: 6px; }
+
+.hero-item { --tone: #36434c; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; color: var(--tone); background: #0e161c; border: 1px solid var(--tone); cursor: pointer; }
+.hero-slot .hero-item { width: 56px; height: 56px; }
+.hero-item svg { width: 60%; height: 60%; fill: currentColor; }
+.hero-item.is-empty { cursor: default; opacity: .55; }
+.hero-item.is-magic { --tone: #5aa8ff; }
+.hero-item.is-rare { --tone: #ffd24a; }
+.hero-item.is-legendary { --tone: #ff8a2a; box-shadow: inset 0 0 12px #ff8a2a55; }
+.hero-item[aria-pressed="true"] { outline: 2px solid #fff; outline-offset: 1px; }
+.hero-item:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+
+.hero-detail { min-height: 112px; margin-top: 14px; padding: 10px 12px; background: #0e161c; border: 1px solid #2a353d; }
+.hero-detail h3 { margin: 0; font-size: 16px; }
+.hero-detail h3.is-magic { color: #5aa8ff; }
+.hero-detail h3.is-rare { color: #ffd24a; }
+.hero-detail h3.is-legendary { color: #ff8a2a; }
+.hero-detail p { margin: 4px 0; }
+.hero-detail__kind, .hero-detail__hint { color: #9fb0ba; font-size: 13px; }
+.hero-detail__mods { margin: 6px 0; padding: 0; list-style: none; font-size: 14px; }
+.hero-detail__power { color: #ffb36a; font-size: 14px; }
+.hero-detail .is-up { color: #5ef08a; }
+.hero-detail .is-down { color: #ff8a7a; }
+.hero-detail__acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+
+@media (max-width: 640px) {
+  .hero-dialog { padding: 14px; }
+  .hero-sheet__head { flex-direction: column-reverse; }
+  .hero-sheet__head .btn { align-self: stretch; }
+  .hero-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hero-gear { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .hero-worn { grid-template-columns: repeat(4, minmax(0, 56px)); justify-content: space-between; }
+  .hero-bag { grid-template-columns: repeat(6, minmax(0, 44px)); justify-content: space-between; }
+}

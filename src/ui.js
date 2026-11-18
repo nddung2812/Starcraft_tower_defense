@@ -47,7 +47,7 @@ class Portrait {
     if (kind === 'core' || kind === 'hive') {
       this.current = kind === 'core' ? buildCore(tier) : buildHatchery();
       this.frame(this.current);
-    } else if (['marine', 'scorcher', 'deadeye', 'mender'].includes(kind)) {
+    } else if (['marine', 'scorcher', 'deadeye', 'mender', 'hero'].includes(kind)) {
       this.current = model(kind);
       this.camera.position.set(0, 0.72, 2.0);
       this.camera.lookAt(0, 0.5, 0);
@@ -204,7 +204,7 @@ function buildIcons(renderer) {
   return icons;
 }
 
-const CHIP = { cruiser: 'Y', marine: 'M', goliath: 'G', tank: 'H', falcon: 'V', scorcher: 'C', deadeye: 'D', mender: '+', scv: 'S' };
+const CHIP = { hero: '★', cruiser: 'Y', marine: 'M', goliath: 'G', tank: 'H', falcon: 'V', scorcher: 'C', deadeye: 'D', mender: '+', scv: 'S' };
 
 function unitLike(e) {
   if (!e || e.dead) return false;
@@ -575,7 +575,7 @@ export class UI {
     const isGun = e && UNITS[e.kind];
     const isMine = e && (isGun || e.kind === 'wall' || e.kind === 'bunker');
 
-    sell.hidden = !isMine;
+    sell.hidden = !isMine || !!e.isHero;
     up.hidden = !(isGun && e.tiers.length > 1 && !e.downed);
     stim.hidden = !(e && e.spec?.canStim);
     eject.hidden = !(e && e.bunker);
@@ -724,7 +724,7 @@ export class UI {
     const cost = primary && UNITS[primary.kind] && !primary.downed ? primary.upgradeCost : null;
     set('promote', cost != null && g.minerals >= cost);
     const mine = primary && (UNITS[primary.kind] || primary.kind === 'wall' || primary.kind === 'bunker');
-    set('salvage', g.state === 'build' && !!mine);
+    set('salvage', g.state === 'build' && !!mine && !primary.isHero);
     set('army', g.gunners.some(unitLike));
     set('scv', !!g.scv && !g.scv.dead);
     set('wave', fighting && !!g.lastAlert, 'Last Alert');

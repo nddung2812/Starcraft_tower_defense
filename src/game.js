@@ -54,6 +54,7 @@ export class Game {
     this.bossMagic = null;   // the bossmagic layer installs the Firestorm and Earthquake here; without it bosses keep their other spells
     this.impacts = null;     // the impacts layer installs the enemy hit effects here; without it hits show plain sparks
     this.skyfleet = null;    // the skymother layer installs the swarm's carrier here; without it she stays out of the wave
+    this.hero = null;        // the hero layer installs the commander's hero here; without it the army fights alone
     this.reset();
   }
 
@@ -490,7 +491,7 @@ export class Game {
   }
 
   sell(entity) {
-    if (this.state !== 'build') return false;
+    if (this.state !== 'build' || entity.isHero) return false;
     if (entity.kind === 'bunker') entity.garrison.slice().forEach((m) => this.eject(m));
     const cost = entity.kind === 'wall' ? BUILD.wall.cost
       : entity.kind === 'bunker' ? BUILD.bunker.cost
@@ -739,6 +740,7 @@ export class Game {
     if (bug?.isBoss) this.assault.defeated(bug);
     this.kills++;
     this.score = this.kills;   // your score is simply how many bugs you killed
+    this.hero?.killed(bug);
     this.emit('kill', this.kills);
     this.minerals += ECON.perKill * (bug?.breed?.bounty || 1);
     this.streak = this.time - this.lastKillT <= STREAK.window ? this.streak + 1 : 1;
@@ -1118,6 +1120,7 @@ export class Game {
     this.groundFire?.update(dt);
     this.impacts?.update(dt);
     this.plasma?.update(dt);
+    this.hero?.update(dt);
 
     for (const m of this.gunners) m.update(dt, this);
     for (const w of this.walls) w.update(dt, this);

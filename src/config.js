@@ -564,3 +564,74 @@ export function milestonePlan(level) {
     reward: Math.round((300 + tier * 250) * (hard ? 1 : 0.6))
   };
 }
+
+/*
+ * The hero: one soldier who carries the commander's name and keeps levels and gear between runs.
+ * Level 1 is a Recruit Trooper with `extraHp` and `extraArmor`. Each level adds `perLevel` of those
+ * starting numbers; `armorEvery` levels add a point of armour. Anything within `melee.reach` of the
+ * hero takes the blade for `melee.multiplier` times the gun's damage.
+ * XP: a kill pays `perHp` per point of the bug's health, `far` of that when the hero is over `near` tiles away.
+ */
+export const HERO = {
+  maxLevel: 30, extraHp: 40, extraArmor: 1, visualScale: 0.48,
+  perLevel: { hp: 0.12, damage: 0.1, haste: 0.01 }, armorEvery: 10,
+  melee: { multiplier: 2, reach: 1.5 }, critMultiplier: 2, respawn: 15, introDelay: 10,
+  xp: { perHp: 0.04, near: 9, far: 0.4, bossPerRound: 60, first: 40, curve: 1.6 },
+  bag: 12
+};
+export const HERO_TIERS = [{ ...MARINE_TIERS[0], rank: 'Hero', hp: MARINE_TIERS[0].hp + HERO.extraHp, upgradeCost: null }];
+export const HERO_INFO = {
+  id: 'hero', name: 'Hero', faction: 'Breachline Compact', role: 'Hero', armor: MARINE_INFO.armor + HERO.extraArmor, accent: '#ffc24a',
+  bio: 'Your own soldier on the line. Shoots like a Trooper, and anything that gets close takes the blade for double damage. Right-click a bug to charge it. Levels and gear stay with the hero from run to run.',
+  quote: '"Not one step back."'
+};
+UNITS.hero = {
+  id: 'hero', shots: 1, tiers: HERO_TIERS, info: HERO_INFO, visualScale: HERO.visualScale,
+  shell: false, splash: 0, canBunker: false, canStim: false, armory: false, turret: false,
+  mobile: true, speed: UNITS.marine.speed, accent: 0xffc24a
+};
+MODEL_FILES.hero = soldier('AK', 0x8f2a24, 0x2c2320, { muzzle: [1.3, 1.0, 0], tierTint: { nodes: '^ShoulderPad', colors: [0xffc24a] } });
+
+/*
+ * Boss loot. Every boss drops `drops` items, rolled on `odds`. The first item a hero ever finds is at
+ * least rare, and so is one item from the boss on each of the `rareRounds`.
+ * An affix is worth `base` × (1 + boss round × `growth`), give or take 15%, up to its `cap`.
+ */
+export const LOOT = {
+  drops: { medium: 2, hard: 3 }, rareRounds: [10, 20, 30, 40, 50], growth: 0.03, critCap: 60, leechCap: 20,
+  odds: { medium: { magic: 55, rare: 35, legendary: 10 }, hard: { magic: 20, rare: 50, legendary: 30 } },
+  rarity: {
+    magic: { name: 'Magic', color: '#5aa8ff', mods: 1, scrapXp: 30 },
+    rare: { name: 'Rare', color: '#ffd24a', mods: 2, scrapXp: 80 },
+    legendary: { name: 'Legendary', color: '#ff8a2a', mods: 2, scrapXp: 200 }
+  },
+  slots: {
+    weapon: { name: 'Rifle', bases: ['Pulse Carbine', 'Rail Repeater', 'Ridge Rifle'] },
+    blade: { name: 'Blade', bases: ['Shock Cutlass', 'Chitin Cleaver', 'Mono Sabre'] },
+    armor: { name: 'Armor', bases: ['Impact Plate', 'Ridge Harness', 'Carapace Vest'] },
+    relic: { name: 'Relic', bases: ['Field Beacon', 'Brood Shard', 'Signal Charm'] }
+  },
+  prefixes: { magic: ['Tempered', 'Honed', 'Sturdy'], rare: ['Veteran', 'Outpost', 'Warforged'] },
+  affixes: {
+    damage: { label: '% damage', base: 12, cap: 45, slots: ['weapon', 'blade', 'relic'] },
+    haste: { label: '% attack speed', base: 8, cap: 30, slots: ['weapon', 'relic'] },
+    crit: { label: '% critical chance', base: 5, cap: 20, slots: ['weapon', 'blade', 'relic'] },
+    melee: { label: '% melee damage', base: 20, cap: 80, slots: ['blade'] },
+    range: { label: ' range', base: 0.4, cap: 1.5, step: 0.1, slots: ['weapon'] },
+    hp: { label: '% health', base: 14, cap: 50, slots: ['armor', 'relic'] },
+    armor: { label: ' armor', base: 1, cap: 4, slots: ['armor'] },
+    speed: { label: '% move speed', base: 6, cap: 20, slots: ['armor', 'relic'] },
+    leech: { label: '% life on melee hit', base: 3, cap: 10, slots: ['blade', 'relic'] },
+    regen: { label: ' health per second', base: 2, cap: 12, slots: ['armor'] }
+  },
+  legendaries: {
+    storm: { slot: 'weapon', name: 'Stormcaller', text: 'Every 4th shot arcs lightning through 4 more enemies.', every: 4, hops: 4, radius: 4, damage: 1 },
+    cinder: { slot: 'weapon', name: 'Cinder Repeater', text: 'Every 3rd shot is an explosive round.', every: 3, radius: 1.5, damage: 1.5 },
+    reaper: { slot: 'blade', name: "Reaper's Arc", text: 'Melee strikes hit every ground enemy around you.', radius: 2 },
+    ember: { slot: 'blade', name: 'Emberfang', text: 'Melee strikes throw a wave of fire.', reach: 3.5, arc: 0.6, damage: 0.6 },
+    aegis: { slot: 'armor', name: 'Aegis of the Last Ridge', text: 'Near death: a shockwave and 3 seconds of invulnerability. Ready every 40 seconds.', below: 0.3, seconds: 3, cooldown: 40, radius: 3, damage: 3 },
+    static: { slot: 'armor', name: 'Static Mantle', text: 'Shocks nearby enemies every 5 seconds.', every: 5, radius: 2.6, damage: 1.5 },
+    drone: { slot: 'relic', name: 'Ninth Watch Drone', text: 'A drone orbits you and fires at nearby enemies.', every: 0.7, range: 6, damage: 0.6 },
+    skyfall: { slot: 'relic', name: 'Skyfall Sigil', text: 'Every 20 kills nearby calls down an orbital strike.', kills: 20, bombs: 3, radius: 2.5, damage: 4 }
+  }
+};

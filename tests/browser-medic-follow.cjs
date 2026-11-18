@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
   const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true, args: ['--enable-unsafe-swiftshader'] });
   try {
     const page = await browser.newPage({ viewport: { width: 1000, height: 700 } });
+    await page.route('**/src/hero.js', route => route.abort());   // this suite counts the army, so it runs without the hero (tests/browser-hero.cjs covers the hero)
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     await page.goto(process.env.TEST_URL || 'http://127.0.0.1:8765/?seed=12345'); await page.waitForFunction(() => window.game);
     await page.locator('#introBtn').click();

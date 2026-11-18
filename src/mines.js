@@ -145,8 +145,8 @@ export class Minefield {
   }
 
   /** Checkpoint field: where each mine lies and which unit (by index, -1 for none) laid it. */
-  capture() {
-    return this.mines.filter(m => !m.dead).map(m => ({ x: m.x, z: m.z, unit: this.game.gunners.indexOf(m.owner) }));
+  capture(roster = this.game.gunners) {
+    return this.mines.filter(m => !m.dead).map(m => ({ x: m.x, z: m.z, unit: roster.indexOf(m.owner) }));
   }
 
   restore(list) {

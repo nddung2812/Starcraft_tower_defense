@@ -482,6 +482,31 @@ has four animated legs, overlapping chitin plates, dorsal spikes and paired scyt
 `tests/browser-ultralisk.cjs` validates spawn progression, cleave boundaries, structure
 bonus, armour, aircraft/garrison protection, wall occlusion, Yamato survival and canyon traversal.
 
+## The hero and boss loot (Nov 18, 2026)
+
+One free soldier named after the commander. Levels and gear are saved in the browser and carry across runs and modes.
+
+- **Level 1** is a Recruit Trooper (8 damage, 0.8 s, 4.4 range, 2.15 speed) with +40 health (110) and +1 armour (2).
+- **Each level** adds 12% health, 10% damage and 1% attack speed. Every 10th level adds 1 armour. The cap is level 30.
+- **Melee.** Anything on the ground within 1.5 tiles takes the blade for 2× gun damage. Right-clicking a ground bug charges it.
+- **XP.** A kill pays 0.04 per point of the bug's health, or 40% of that when the hero is over 9 tiles away. A boss adds 60 × its round.
+- **Death.** The hero returns after 15 seconds and loses nothing. It cannot be salvaged and costs nothing to redeploy.
+- **Drops.** Medium bosses drop 2 items and hard bosses 3, walked over or clicked; leftovers go to the bag when the fight ends.
+  Odds are 55/35/10 (medium) and 20/50/30 (hard) for magic/rare/legendary.
+- **Guaranteed rares.** The bosses on rounds 10, 20, 30, 40 and 50 each drop at least one rare item, and so does a hero's very first find.
+- **Slots.** Rifle, Blade, Armor and Relic, each with two legendaries:
+
+| Legendary | Slot | Power |
+|---|---|---|
+| Stormcaller | Rifle | Every 4th shot arcs lightning through 4 more enemies |
+| Cinder Repeater | Rifle | Every 3rd shot is an explosive round |
+| Reaper's Arc | Blade | Melee hits every ground enemy around the hero |
+| Emberfang | Blade | Melee throws a wave of fire |
+| Aegis of the Last Ridge | Armor | Near death: shockwave and 3 s of invulnerability, every 40 s |
+| Static Mantle | Armor | Shocks nearby enemies every 5 s |
+| Ninth Watch Drone | Relic | An orbiting drone fires at nearby enemies |
+| Skyfall Sigil | Relic | Every 20 nearby kills calls an orbital strike |
+
 ## Skymother and Talons (Nov 18, 2026)
 
 The swarm's answer to the Titan: a slow armoured flyer that fights only through its brood.

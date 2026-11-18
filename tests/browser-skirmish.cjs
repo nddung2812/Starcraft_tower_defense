@@ -16,6 +16,7 @@ const SEED = 12345;
   const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true, args: ['--enable-unsafe-swiftshader'] });
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    await page.route('**/src/hero.js', route => route.abort());   // this suite counts the army, so it runs without the hero (tests/browser-hero.cjs covers the hero)
     const errors = []; page.on('pageerror', e => errors.push(process.env.STACK ? e.stack : e.message));
     await page.addInitScript(() => { window.requestAnimationFrame = () => 1; });
     await page.goto(URL);
