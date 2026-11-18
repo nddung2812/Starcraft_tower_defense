@@ -1,0 +1,17 @@
+{
+  "name": "BREACHLINE: 29",
+  "short_name": "Breachline 29",
+  "description": "Free 3D tower defense RTS. Build the line, command your army and hold back an endless bug swarm.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "background_color": "#070e18",
+  "theme_color": "#070e18",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    { "src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

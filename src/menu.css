@@ -149,6 +149,10 @@
 .menu-shell .intro__scores[open] { flex: 1 0 100%; }
 .menu-shell .intro__scores .board { max-height: 150px; margin: 4px 0 0; background: #04080c99; }
 .menu-shell .intro__sub { margin: 0 !important; }
+.menu__about { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 18px; color: var(--menu-dim); font-size: 13px; animation: menu-rise .7s 1s var(--menu-out) backwards; }
+.menu__about span { flex: 1 0 100%; }
+.menu__about a { color: var(--menu-ice); text-underline-offset: 3px; }
+.menu__about a:hover { color: var(--menu-amber); }
 
 /* ---------------- the orders ---------------- */
 
@@ -279,6 +283,7 @@
   .menu-shell .intro__eyebrow { font-size: clamp(50px, 16.5vw, 104px); }
   .menu-shell .intro h2 { letter-spacing: .3em; }
   .menu-shell .menu__story { font-size: 14px; }
+  .menu__about span { display: none; }
   .menu-scope { --r: 82vw; left: 50%; top: 32%; opacity: .34; }
   .menu-rail span:last-child { display: none; }
   .menu-shell .menu__orders .btn:hover:not(:disabled) { transform: none; }

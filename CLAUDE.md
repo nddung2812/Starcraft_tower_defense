@@ -67,6 +67,19 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 | `src/fx.js`, `audio.js`, `voice.js` | Particles and decals, synthesised sound effects, speech-synthesis voice lines. |
 | `assets/models/README.md` | How to drop in `.glb` unit models. |
 
+## Search and public pages (Nov 18, 2026)
+
+- `tower-defense-game.html` (features, modes, FAQ) and `guide.html` (controls, units, enemies, tactics) are the
+  indexable pages, styled by `src/site.css`. `robots.txt`, `sitemap.xml`, `llms.txt`, `site.webmanifest` and the icons
+  sit beside them. The game's own metadata and JSON-LD are in the head of `index.html`.
+- **Links between pages have no `.html`** (`href="guide"`) because Vercel's `cleanUrls` redirects `.html` addresses.
+  They work on Vercel and GitHub Pages but 404 under `python3 -m http.server`.
+- **Every canonical, Open Graph, JSON-LD, sitemap and robots URL names `protectyourhome.vercel.app`.** Replace them all
+  if the domain changes. Update `lastmod` in `sitemap.xml` when a page changes.
+- **Keep the copy true.** Say "inspired by" and keep the non-affiliation notice in the footers. The game is single-player
+  with RPG-style progression, and `/api/scores` returned 503 in production on Nov 18, so do not advertise multiplayer or
+  an online leaderboard. Never add ratings or reviews to the structured data unless they are real.
+
 ## Skirmish: a match you can win (Nov 17, 2026)
 
 Built because the endless stand never gives the player a win or a decision about when to attack.

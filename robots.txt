@@ -1,0 +1,7 @@
+# BREACHLINE: 29. Search engines and AI assistants are welcome.
+# The game's scripts and art stay open so crawlers can render the page.
+User-agent: *
+Allow: /
+Disallow: /api/
+
+Sitemap: https://protectyourhome.vercel.app/sitemap.xml

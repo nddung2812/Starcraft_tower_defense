@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tower Defense Game Inspired by StarCraft &amp; Starship Troopers</title>
+<meta name="description" content="BREACHLINE: 29 is a free 3D tower defense RTS inspired by StarCraft and Starship Troopers, with RPG-style upgrades. Play now in your browser, no download.">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+<meta name="theme-color" content="#070e18">
+<link rel="canonical" href="https://protectyourhome.vercel.app/tower-defense-game">
+<link rel="icon" href="favicon.ico" sizes="32x32">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="en_US">
+<meta property="og:site_name" content="BREACHLINE: 29">
+<meta property="og:title" content="Free Tower Defense Game Inspired by StarCraft &amp; Starship Troopers">
+<meta property="og:description" content="Build the line, command your army and hold back an endless bug swarm. Free in your browser, no download. How long can you last?">
+<meta property="og:url" content="https://protectyourhome.vercel.app/tower-defense-game">
+<meta property="og:image" content="https://protectyourhome.vercel.app/assets/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A thin line of troopers, walkers and a gunship holding a canyon barricade against a glowing swarm.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Free Tower Defense Game Inspired by StarCraft &amp; Starship Troopers">
+<meta name="twitter:description" content="Build the line, command your army and hold back an endless bug swarm. Free in your browser, no download.">
+<meta name="twitter:image" content="https://protectyourhome.vercel.app/assets/og.jpg">
+<meta name="twitter:image:alt" content="A thin line of troopers, walkers and a gunship holding a canyon barricade against a glowing swarm.">
+<link rel="stylesheet" href="src/site.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebPage",
+      "@id": "https://protectyourhome.vercel.app/tower-defense-game#page",
+      "url": "https://protectyourhome.vercel.app/tower-defense-game",
+      "name": "Tower Defense Game Inspired by StarCraft & Starship Troopers",
+      "description": "BREACHLINE: 29 is a free 3D tower defense RTS inspired by StarCraft and Starship Troopers, with RPG-style upgrades.",
+      "inLanguage": "en",
+      "isPartOf": { "@id": "https://protectyourhome.vercel.app/#website" },
+      "about": { "@id": "https://protectyourhome.vercel.app/#game" },
+      "primaryImageOfPage": "https://protectyourhome.vercel.app/assets/og.jpg",
+      "breadcrumb": { "@id": "https://protectyourhome.vercel.app/tower-defense-game#breadcrumb" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://protectyourhome.vercel.app/tower-defense-game#breadcrumb",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Play BREACHLINE: 29", "item": "https://protectyourhome.vercel.app/" },
+        { "@type": "ListItem", "position": 2, "name": "About the game", "item": "https://protectyourhome.vercel.app/tower-defense-game" }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://protectyourhome.vercel.app/tower-defense-game#faq",
+      "mainEntity": [
+        { "@type": "Question", "name": "Is BREACHLINE: 29 free to play?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. The game is free and runs in your browser. You do not need a download or an account." } },
+        { "@type": "Question", "name": "Is this an official StarCraft or Starship Troopers game?", "acceptedAnswer": { "@type": "Answer", "text": "No. BREACHLINE: 29 is an independent game with its own world, units and story. Its RTS controls and last-stand mood are inspired by those classics, but it is not connected to their owners." } },
+        { "@type": "Question", "name": "Is BREACHLINE: 29 an RPG?", "acceptedAnswer": { "@type": "Answer", "text": "It is a tower defense and real-time strategy hybrid with RPG-style progression. You promote units through ranks, earn armory upgrades from kills, collect boss treasure and choose evolutions that last for the whole run." } },
+        { "@type": "Question", "name": "Can I play on a phone or tablet?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Tap a unit, then tap the ground or an enemy to give an order. Pinch to zoom and twist to rotate the camera. A mouse and keyboard give you the full set of RTS shortcuts." } },
+        { "@type": "Question", "name": "Is there multiplayer?", "acceptedAnswer": { "@type": "Answer", "text": "The battle is single-player, but you can compete with friends. After a run you can send a challenge link that opens the same map, and the daily challenge gives everyone the same battlefield." } },
+        { "@type": "Question", "name": "Does the game save my progress?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Your run is saved in your browser at the start of each round, so you can continue later on the same device. Achievements and cosmetic rewards carry across runs." } }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="bar">
+  <div class="wrap bar__in">
+    <a class="brand" href="./">BREACHLINE<b>: 29</b></a>
+    <nav aria-label="Main">
+      <a href="tower-defense-game" aria-current="page">The game</a>
+      <a href="guide">How to play</a>
+    </nav>
+    <a class="cta cta--small" href="./">Play free</a>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero">
+    <img class="hero__art" src="assets/og.jpg" width="1200" height="630" fetchpriority="high" alt="Troopers, walkers and a gunship hold a canyon barricade against a glowing bug swarm in BREACHLINE: 29.">
+    <div class="wrap hero__in">
+      <p class="eyebrow">Free 3D tower defense RTS</p>
+      <h1>The swarm never stops. Can you hold the line?</h1>
+      <p class="lede">Outpost 29 is all that stands between a civilian evacuation and an endless bug swarm. Build the defenses, take command of the army and buy them every second you can.</p>
+      <div class="actions">
+        <a class="cta" href="./">Join the defense</a>
+        <a class="cta cta--quiet" href="guide">Read the field guide</a>
+      </div>
+      <p class="assure">Plays in your browser. No download. No account.</p>
+    </div>
+  </section>
+
+  <dl class="tally wrap" aria-label="What is in the game">
+    <div><dt>Units to command</dt><dd>8</dd></div>
+    <div><dt>Swarm strains</dt><dd>9</dd></div>
+    <div><dt>Giant bosses</dt><dd>4</dd></div>
+    <div><dt>Ways to play</dt><dd>4</dd></div>
+  </dl>
+
+  <section class="block">
+    <div class="wrap">
+      <h2>Tower defense where you lead the fight</h2>
+      <p class="intro">BREACHLINE: 29 is a sci-fi tower defense and real-time strategy game. Your towers are soldiers, walkers, tanks and gunships, and they go where you send them. Wall off a canyon, garrison a bunker, then march out and burn the hives before the next wave lands.</p>
+      <div class="grid">
+        <article class="card">
+          <h3>StarCraft-style command</h3>
+          <p>If you grew up on classic RTS games like StarCraft, your hands already know what to do. Box-select a squad, right-click to give orders, bind control groups to number keys and watch the minimap for the next attack.</p>
+        </article>
+        <article class="card">
+          <h3>A Starship Troopers last stand</h3>
+          <p>The mood comes from the doomed outposts of Starship Troopers: a thin line of soldiers, a narrow canyon and more bugs than bullets. As the rounds climb, the swarm attacks from up to four sides.</p>
+        </article>
+        <article class="card">
+          <h3>RPG-style progression</h3>
+          <p>Promote soldiers through the ranks, unlock armory upgrades with every kill and take silver and gold treasure from fallen bosses. Each boss also lets you choose an evolution that changes your army for the rest of the run.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <h2>Pick your fight</h2>
+      <p class="intro">Play for five minutes or settle in for a long defense. Every mode uses the same army, the same swarm and a battlefield generated from a seed.</p>
+      <div class="grid grid--four">
+        <article class="card">
+          <h3>Endless mode</h3>
+          <p>Start with three soldiers and hold for as long as you can. Your score is every bug you kill before the outpost falls.</p>
+        </article>
+        <article class="card">
+          <h3>Survival mode</h3>
+          <p>A match you can win. Choose from one to seven hives, set how fierce the swarm is, then destroy every hive before your base falls.</p>
+        </article>
+        <article class="card">
+          <h3>Defense mode</h3>
+          <p>The battle waits while you plan. Lay out your walls, bunkers and guns at your own pace, then resume when the line is ready.</p>
+        </article>
+        <article class="card">
+          <h3>Daily challenge</h3>
+          <p>One new map every day. Chase your best score, build a day streak and send a friend a link to the same battlefield.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <h2>Questions from new recruits</h2>
+      <div class="faq">
+        <details open><summary>Is BREACHLINE: 29 free to play?</summary><p>Yes. The game is free and runs in your browser. You do not need a download or an account.</p></details>
+        <details><summary>Is this an official StarCraft or Starship Troopers game?</summary><p>No. BREACHLINE: 29 is an independent game with its own world, units and story. Its RTS controls and last-stand mood are inspired by those classics, but it is not connected to their owners.</p></details>
+        <details><summary>Is BREACHLINE: 29 an RPG?</summary><p>It is a tower defense and real-time strategy hybrid with RPG-style progression. You promote units through ranks, earn armory upgrades from kills, collect boss treasure and choose evolutions that last for the whole run.</p></details>
+        <details><summary>Can I play on a phone or tablet?</summary><p>Yes. Tap a unit, then tap the ground or an enemy to give an order. Pinch to zoom and twist to rotate the camera. A mouse and keyboard give you the full set of RTS shortcuts.</p></details>
+        <details><summary>Is there multiplayer?</summary><p>The battle is single-player, but you can compete with friends. After a run you can send a challenge link that opens the same map, and the daily challenge gives everyone the same battlefield.</p></details>
+        <details><summary>Does the game save my progress?</summary><p>Yes. Your run is saved in your browser at the start of each round, so you can continue later on the same device. Achievements and cosmetic rewards carry across runs.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <section class="block closing">
+    <div class="wrap">
+      <h2>Outpost 29 needs a commander</h2>
+      <p>The convoys are still loading and the first wave is already moving. Your first battle starts in seconds.</p>
+      <a class="cta" href="./">Take command now</a>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <nav aria-label="Footer">
+      <a href="./">Play the game</a>
+      <a href="tower-defense-game">About the game</a>
+      <a href="guide">How to play</a>
+    </nav>
+    <p>BREACHLINE: 29 is an independent game. StarCraft is a trademark of Blizzard Entertainment, Inc. Starship Troopers is a trademark of its respective owner. This game is not affiliated with, endorsed by or sponsored by either of them.</p>
+  </div>
+</footer>
+</body>
+</html>

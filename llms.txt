@@ -1,0 +1,19 @@
+# BREACHLINE: 29
+
+> BREACHLINE: 29 is a free 3D sci-fi tower defense and real-time strategy game that runs in a web browser with no download or account. Players build defenses and command an army to hold a canyon outpost against an endless bug swarm.
+
+It is an independent game. Its RTS controls are inspired by classic games like StarCraft, its last-stand mood is inspired by Starship Troopers, and it has RPG-style progression. It is not affiliated with or endorsed by the owners of those properties.
+
+## Pages
+
+- [Play the game](https://protectyourhome.vercel.app/): Starts the game in the browser.
+- [About the game](https://protectyourhome.vercel.app/tower-defense-game): Features, game modes and frequently asked questions.
+- [How to play](https://protectyourhome.vercel.app/guide): Controls, units, enemy strains, bosses and strategy.
+
+## Key facts
+
+- Genre: tower defense, real-time strategy, with RPG-style unit progression
+- Price: free
+- Platform: modern web browsers on desktop, tablet and phone
+- Players: single-player, with shareable challenge links and a daily challenge
+- Modes: Endless, Survival, Defense and Daily challenge
