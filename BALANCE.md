@@ -305,13 +305,13 @@ Three specialists join the build bar one round at a time, so the opening roster 
 | --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: |
 | Torch | Round 2 | 110 | 130 | 2 | 7 to every ground enemy in the cone | 0.35 s | 2.7 | 2.0 |
 | Spectre | Round 3 | 150 | 60 | 0 | 64, ignores armor | 2.5 s | 9.5 | 2.0 |
-| Medic | Round 4 | 100 | 80 | 1 | Heals 12 | 0.8 s | 4.2 | 2.05 |
+| Medic | Round 4 | 100 | 80 | 1 | Heals 12 | 1.6 s | 4.2 | 2.05 |
 
 | Promotion | Price | Total | HP | Effect | Interval | Range |
 | --- | ---: | ---: | ---: | --- | ---: | ---: |
 | Torch / Inferno | 130 | 240 | 185 | 11 per enemy | 0.32 s | 3.1 |
 | Spectre / Marksman | 170 | 320 | 85 | 100 | 2.1 s | 10.5 |
-| Medic / Chief Medic | 120 | 220 | 115 | Heals 20 | 0.7 s | 4.8 |
+| Medic / Chief Medic | 120 | 220 | 115 | Heals 20 | 1.4 s | 4.8 |
 
 - **Torch:** 20 DPS against each unarmored ground enemy in a 63° cone, so it multiplies with
   pack size. Armor applies to every tick (4 per tick into an Brute), it cannot hit aircraft, and
@@ -319,7 +319,7 @@ Three specialists join the build bar one round at a time, so the opening roster 
 - **Spectre:** 25.6 DPS with armor ignored, at the longest range in the roster, against ground
   and air. It always picks the highest max-HP target in reach, so it wastes shots when only
   Skitters are present, and it dies quickly to anything that reaches it.
-- **Medic:** 15 HP/s to the most injured soldier, walker, crawler, aircraft or Patch Rig in
+- **Medic:** 7.5 HP/s (14.3 as a Chief Medic) to the most injured soldier, walker, crawler, aircraft or Patch Rig in
   reach. It has no weapon, cannot be given attack orders, cannot overheal, and cannot revive downed
   units. Base research scales healing like damage.
 - **Medic mines (Nov 17, 2026):** placing a Medic throws 3 proximity mines onto random free tiles

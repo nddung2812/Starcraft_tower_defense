@@ -130,13 +130,13 @@ export const DEADEYE_INFO = {
  * placed. A ground bug within `trigger` sets one off for `damage` to every ground enemy in `blast`. */
 export const MINES = { count: 3, damage: 100, near: 1.2, far: 3.2, trigger: 0.5, blast: 1.2, arm: 0.5 };
 export const MENDER_TIERS = [
-  { rank: 'Field Medic', hp: 80, damage: 12, attackSpeed: 0.8, range: 4.2, upgradeCost: 120 },
-  { rank: 'Chief Medic', hp: 115, damage: 20, attackSpeed: 0.7, range: 4.8, upgradeCost: null }
+  { rank: 'Field Medic', hp: 80, damage: 12, attackSpeed: 1.6, range: 4.2, upgradeCost: 120 },
+  { rank: 'Chief Medic', hp: 115, damage: 20, attackSpeed: 1.4, range: 4.8, upgradeCost: null }
 ];
 export const MENDER_INFO = {
   id: 'mender', name: 'Medic', faction: 'Breachline Compact', role: 'Field Medic',
   armor: 1, accent: '#7dffb0',
-  bio: 'Outpost medic with a repair-foam projector. Automatically patches the most injured soldier, walker, crawler or aircraft in reach. Throws three proximity mines onto the ground around the spot where it is first placed. Otherwise unarmed, and cannot raise the fallen; that is still Patch Rig work.',
+  bio: 'Outpost medic with healing gauntlets. Automatically patches the most injured soldier, walker, crawler or aircraft in reach. Throws three proximity mines onto the ground around the spot where it is first placed. Otherwise unarmed, and cannot raise the fallen; that is still Patch Rig work.',
   quote: '"Hold still. Almost done."'
 };
 

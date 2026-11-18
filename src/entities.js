@@ -12,6 +12,26 @@ const TAU = Math.PI * 2;
 const _v = new THREE.Vector3();
 const CANNON_HOT = new THREE.Color(0xff4a20);
 
+/* The glow in a Medic's hands. Every hand shares one texture and material; only the sprite's size changes. */
+let handGlow = null;
+function handGlowMaterial() {
+  if (handGlow) return handGlow;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 64;
+  const ctx = canvas.getContext('2d'), fade = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  fade.addColorStop(0, 'rgba(215, 255, 230, 0.95)');
+  fade.addColorStop(0.3, 'rgba(90, 255, 150, 0.7)');
+  fade.addColorStop(0.65, 'rgba(40, 230, 120, 0.22)');
+  fade.addColorStop(1, 'rgba(40, 230, 120, 0)');
+  ctx.fillStyle = fade;
+  ctx.fillRect(0, 0, 64, 64);
+  handGlow = new THREE.SpriteMaterial({
+    // Normal blending stays green over the bright canyon floor; additive washed out to yellow.
+    map: new THREE.CanvasTexture(canvas), transparent: true, depthWrite: false, depthTest: false, toneMapped: false
+  });
+  return handGlow;
+}
+
 function angleLerp(a, b, t) {
   const d = ((b - a + Math.PI) % TAU + TAU) % TAU - Math.PI;
   return a + d * t;
@@ -371,6 +391,7 @@ export class Marine {
     this.hurt = Math.max(0, this.hurt - dt * 4);
     this.stimT = Math.max(0, this.stimT - dt);
     const t = game.time;
+    if (this.healAura) for (const glow of this.healAura) glow.visible = false;
 
     const anim = this.model.userData.anim;
     if (this.dead) {
@@ -487,6 +508,7 @@ export class Marine {
     const bob = driving ? Math.abs(Math.sin(t * (this.spec.turret ? 8 : 12))) * 0.035 : Math.sin(t * 2.2) * 0.008;
     ud.torso.position.y = ud.torso.userData.baseY + (anim ? 0 : bob);
     if (anim) anim(driving ? 'walk' : this.target ? 'shoot' : 'idle', dt);
+    if (this.spec.heals) this.syncHealAura(dt, game);
 
     this.bar.set(this.hp / this.maxHp, game.camera);
   }
@@ -533,22 +555,47 @@ export class Marine {
     return best;
   }
 
-  /** Medic: foam the target ally back toward full health. */
+  /** Medic: mend the target ally. The only thing drawn is the glow in the Medic's own hands. */
   heal(game) {
     const ally = this.target;
     if (this.silenceT > 0 || !this.canHeal(ally, game)) return;
-    this.recoil = 0.5;
+    this.healPulse = 1;
     const amount = Math.min(ally.maxHp - ally.hp, this.stats.damage);
     ally.hp += amount;
     if (ally.hp > ally.maxHp * 0.45) ally.warned = false;
-    const ud = this.model.userData;
-    ud.weapon.updateWorldMatrix(true, false);
-    const from = ud.weapon.userData.muzzle.clone().applyMatrix4(ud.weapon.matrixWorld);
-    const y = (ally.flying ? ally.obj.position.y : 0) + 0.6;
-    game.fx.link(from, { x: ally.x, y, z: ally.z }, 0x7dffb0, 0.22, 0.035);
-    game.fx.sparks({ x: ally.x, y, z: ally.z }, 0, 5, [0.5, 1, 0.7], 2, 6.28);
-    game.fx.label({ x: ally.x, y: y + 0.7, z: ally.z }, '+' + Math.round(amount), 'heal');
+    const y = (ally.flying ? ally.obj.position.y : 0) + 1.3;
+    game.fx.label({ x: ally.x, y, z: ally.z }, '+' + Math.round(amount), 'heal');
     game.sfx.heal();
+  }
+
+  /** While a Medic is healing, each hand holds a soft green glow that swells with every heal. */
+  syncHealAura(dt, game) {
+    if (!this.healHands) {
+      const hands = ['Middle1L', 'Middle1R'].map(name => this.model.getObjectByName(name)).filter(Boolean);
+      this.healHands = hands.length ? hands : [this.model.userData.weapon];   // a built-in model has no hand bones
+      this.healAura = this.healHands.map(() => {
+        const glow = new THREE.Sprite(handGlowMaterial());
+        glow.visible = false;
+        this.obj.add(glow);
+        return glow;
+      });
+    }
+    this.healPulse = Math.max(0, (this.healPulse || 0) - dt * 2.5);
+    if (!this.target || this.silenceT > 0) return;
+    this.healMote = (this.healMote || 0) + dt * 7;
+    const mote = this.healMote >= 1;
+    if (mote) this.healMote -= 1;
+    this.healHands.forEach((hand, i) => {
+      hand.getWorldPosition(_v);
+      const glow = this.healAura[i];
+      glow.visible = true;
+      glow.position.set(_v.x - this.obj.position.x, _v.y - this.obj.position.y, _v.z - this.obj.position.z);
+      glow.scale.setScalar(0.44 + Math.sin(game.time * 6 + i * 2) * 0.04 + this.healPulse * 0.22);
+      if (mote) {
+        game.fx.spawn(_v.x + (Math.random() - 0.5) * 0.12, _v.y, _v.z + (Math.random() - 0.5) * 0.12,
+          0, 0.35 + Math.random() * 0.3, 0, 0.45, 0.05, [0.55, 1, 0.72], { drag: 0.6 });
+      }
+    });
   }
 
   /** Torch: everything on the ground inside the cone burns. */
@@ -859,7 +906,6 @@ export class Core {
     this.obj.add(this.light);
 
     this.bar = new HealthBar(this.obj, 1.6, 0.12, 2.35);
-    this.laserBar = new HealthBar(this.obj, 1.6, 0.12, 2.35, 0xff3020);
     this.buildBar = new HealthBar(this.obj, 1.6, 0.12, 2.35, 0xffd36a);
     this.laserFlash = 0;
     this.light.intensity = 6 + Math.min(level, 12) * 0.5;
@@ -950,13 +996,10 @@ export class Core {
     const pct = this.hp / this.maxHp;
     this.light.color.setHex(pct < 0.35 ? 0xff5a4a : 0xffc56a);
     this.bar.set(pct, game.camera, true);
-    this.laserBar.set(game.laserCharge / BASE_LASER.chargeTime, game.camera, true);
-    if (game.laserReady) this.laserBar.mat.color.setHex(Math.sin(game.time * 7) > 0 ? 0xffc24a : 0xff3020);
-    // Keep the second bar directly below health as the camera rotates and tilts.
-    this.laserBar.group.position.set(0, -0.12, 0).applyQuaternion(game.camera.quaternion).add(this.bar.group.position);
     if (building) {
       this.buildBar.set(this.buildDone, game.camera, true);
-      this.buildBar.group.position.set(0, -0.24, 0).applyQuaternion(game.camera.quaternion).add(this.bar.group.position);
+      // Keep the research bar directly below health as the camera rotates and tilts.
+      this.buildBar.group.position.set(0, -0.12, 0).applyQuaternion(game.camera.quaternion).add(this.bar.group.position);
     } else this.buildBar.group.visible = false;
   }
 

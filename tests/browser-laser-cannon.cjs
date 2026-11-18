@@ -20,6 +20,7 @@ const assert = require('node:assert/strict');
 
       // ---- the bar fills one cell at a time, from the breech ----
       out.cells = ud.laserCells.length === LASER_CELLS && LASER_CELLS === 10;
+      out.noRedBar = core.laserBar === undefined;
       out.steps = [0, 0.1, 0.5, 0.9].map(litAt);
       litAt(0.5);
       out.order = ud.laserCells.slice(0, 5).every(c => !off(c)) && ud.laserCells.slice(5).every(off);
@@ -55,6 +56,7 @@ const assert = require('node:assert/strict');
       return out;
     });
     assert.equal(result.cells, true);
+    assert.equal(result.noRedBar, true, 'The cannon is the only charge bar on the base');
     assert.deepEqual(result.steps, [0, 1, 5, 9], 'Cells lit at 0, 10, 50 and 90 percent');
     assert.equal(result.order, true, 'Cells light from the breech');
     assert.equal(result.full, 10);
