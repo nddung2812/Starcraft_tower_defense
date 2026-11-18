@@ -4,7 +4,7 @@ import { Zergling } from './entities.js';
 
 const ease = (k) => k * k * (3 - 2 * k);
 /** Ground units out in the open. Aircraft, bunker troops and a tank up on the rock or in a lake are out of its reach. */
-const exposed = (u, g) => !u.dead && !u.downed && !u.flying && !u.bunker && u.spec?.mobile && !u.offGround?.(g);
+const exposed = (u, g) => !u.dead && !u.downed && !u.flying && !u.bunker && u.spec?.mobile && !u.offGround?.(g) && !g.plasma?.covers(u);
 
 /**
  * The worm itself: it never marches. It rises where the ambush marked, holds whatever it

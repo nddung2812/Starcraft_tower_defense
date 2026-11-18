@@ -684,6 +684,7 @@ export class Marine {
   }
 
   takeDamage(amount, game, fromAngle) {
+    if (game.plasma?.absorb(this, amount)) return;
     if (this.downed) { this.finishDeath(game); return; }
     const dealt = mitigate(amount, this.stats.armor + (this.bunker ? 2 : 0));
     this.hp -= dealt;
@@ -782,6 +783,7 @@ export class Wall {
   }
 
   takeDamage(amount, game, fromAngle) {
+    if (game.plasma?.absorb(this, amount)) return;
     game.alert(this);
     this.hp -= amount;
     this.shake = 1;
@@ -1004,6 +1006,7 @@ export class Core {
   }
 
   takeDamage(amount, game, fromAngle) {
+    if (game.plasma?.absorb(this, amount)) return;
     game.alert(this);
     this.hp -= amount;
     game.fx.sparks({ x: this.x, y: 0.9, z: this.z }, fromAngle + Math.PI, 8, [1, 0.6, 0.4], 5);
@@ -1472,6 +1475,7 @@ export class Bunker {
   }
 
   takeDamage(amount, game, fromAngle) {
+    if (game.plasma?.absorb(this, amount)) return;
     game.alert(this);
     this.hp -= amount;
     triggerLastStand(this, game);
@@ -1579,6 +1583,7 @@ export class Scv {
   }
 
   takeDamage(amount, game) {
+    if (game.plasma?.absorb(this, amount)) return;
     game.alert(this);
     this.hp -= amount;
     if (this.hp <= 0 && !this.dead) {

@@ -859,7 +859,7 @@ export class UI {
     const next = CORE_STAGES[g.baseLevel];
     $('baseBonus').textContent = upgrading
       ? `Lv ${g.baseLevel} → ${g.baseLevel + 1}${g.paused ? ' · paused' : ''}${next ? ' · ' + next : ''}`
-      : `Lv ${g.baseLevel} · +${bonus}% HP / damage`;
+      : `Lv ${g.baseLevel} · +${bonus}% HP / damage${g.plasma ? ' · ' + g.plasma.summary() : ''}`;
     $('btnBaseUpgrade').title = `Each level: +15% health for all units, +15% damage for all combat units, and a visible addition to the base${next ? ' (next: ' + next + ')' : ''}. Takes ${g.baseUpgradeTime}s to build. Applies to current and future units; lasts for this run.`;
     const aiming = $('btnLaser').getAttribute('aria-pressed') === 'true';
     $('btnLaser').textContent = aiming ? 'Cancel laser aim' : g.laserReady ? 'Fire laser (Shift+R)' : `Laser · ${Math.floor(g.laserCharge / BASE_LASER.chargeTime * 100)}%`;

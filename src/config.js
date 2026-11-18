@@ -141,14 +141,14 @@ export const MENDER_INFO = {
 };
 
 // cooldown was 18 s; 26 s is about 30% fewer shots.
-export const YAMATO = { damage: 1400, splashDamage: 260, radius: 2.6, range: 12, charge: 1.4, cooldown: 26 };
+export const YAMATO = { damage: 1400, splashDamage: 260, radius: 2.6, range: 12, charge: 4, cooldown: 45 };
 export const CRUISER_TIERS = [
-  { rank: 'Dreadnought', hp: 1400, damage: 30, attackSpeed: 0.6, range: 8, upgradeCost: 700 },
-  { rank: 'Flagship', hp: 2100, damage: 42, attackSpeed: 0.5, range: 8.8, upgradeCost: null }
+  { rank: 'Dreadnought', hp: 1100, damage: 20, attackSpeed: 0.7, range: 8, upgradeCost: 700 },
+  { rank: 'Flagship', hp: 1650, damage: 28, attackSpeed: 0.6, range: 8.8, upgradeCost: null }
 ];
 export const CRUISER_INFO = {
   id: 'cruiser', name: 'Titan', faction: 'Compact Capital Fleet', role: 'Heavy Capital Ship',
-  armor: 6, accent: '#ffbd69',
+  armor: 4, accent: '#ffbd69',
   bio: 'A flying fortress with four rapid-fire batteries, heavy armour and a charged Yamato cannon. Automatically targets bosses, hives and heavy enemies. Select it and press Shift+Z to strike the strongest enemy in range; an explicit attack target takes priority. Yamato scales with promotions and base research.',
   quote: '"Bring the full battery to bear."'
 };
@@ -367,6 +367,13 @@ export function applyBaseUpgrade(stats, level) {
   stats.hp = Math.round(stats.hp * factor);
   if (stats.damage != null) stats.damage *= factor;
 }
+/* The plasma shield over the base: one tier every `every` research levels. Each tier is wider and holds
+ * more. It only recharges once nothing under it has been hit for `regenDelay` seconds, at `regen` of its
+ * total per second. Broken, it stays down until that slow recharge reaches `restart` of its total. */
+export const PLASMA_SHIELD = { every: 3, radius: 5, radiusStep: 1.5, maxRadius: 14, pool: 300, poolStep: 150, regenDelay: 8, regen: 0.02, restart: 0.3 };
+export const plasmaTier = level => Math.floor(level / PLASMA_SHIELD.every);
+export const plasmaRadius = tier => Math.min(PLASMA_SHIELD.maxRadius, PLASMA_SHIELD.radius + (tier - 1) * PLASMA_SHIELD.radiusStep);
+export const plasmaPool = tier => PLASMA_SHIELD.pool + (tier - 1) * PLASMA_SHIELD.poolStep;
 export const BASE_LASER = { chargeTime: 90, damage: 600, halfWidth: 0.8, duration: 1.1 };
 export const HIVE_RAID = { duration: 60, evolutionInterval: 30, broodBase: 2, broodPerEvolution: 2, broodCap: 12, hp: 300, hpPerLevel: 45, reward: 100, rewardPerLevel: 25 };
 /*

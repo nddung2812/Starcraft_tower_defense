@@ -176,6 +176,12 @@ balance as permanent treasure stacks and enemy HP grow.
   next canyon and is stored in checkpoints. Pausing freezes both charging and the bonus timer.
   New runs reset research and energy. Combat/bonus-phase Save & quit replays the saved start
   of the round, using that checkpoint's research and charge.
+- Plasma shield (Nov 18, 2026): base research levels 3, 6, 9 and so on each add a shield tier. Tier 1
+  covers 5 tiles from the base and holds 300 damage; each further tier adds 1.5 tiles (14 at most) and
+  150 damage. While it is up, a hit on anything inside drains the shield and the target takes nothing, and
+  a Tunnel Maw cannot take a unit inside. It recharges only after 8 seconds with nothing under it hit,
+  at 2% of its total per second. Broken, it stays down until that recharge reaches 30%, so it returns
+  weak. A new round does not refill it; finishing a research tier does.
 - `tests/browser-base.cjs` checks research, old/new checkpoints, bonus timing and rewards,
   bosses and multiple hives, laser damage/charging/carryover, mouse controls and mobile layout.
 
@@ -398,10 +404,10 @@ Inspired by Blizzard's Battlecruiser guide (https://classic.battle.net/scc/terra
 a durable, slow flying fortress with air/ground batteries and a decisive charged weapon.
 The model and synthesized sounds are built locally; tuning below is for BREACHLINE: 29.
 
-- Unlocks in round 5; costs 900 minerals. Build with J. Flies over terrain, remains vulnerable to anti-air.
-- Dreadnought: 1,400 HP, 6 armour, four 30-damage shots every 0.6s, 8 range, 2.1 movement speed.
-- Flagship promotion costs 700: 2,100 HP, four 42-damage shots every 0.5s, 8.8 range.
-- Yamato: 1.4s charge, 12 range, 26s cooldown from charge start. Deals 1,400 armour-ignoring
+- Unlocks in round 5; costs 900 minerals. Build with Z. Flies over terrain, remains vulnerable to anti-air.
+- Dreadnought: 1,100 HP, 4 armour, four 20-damage shots every 0.7s, 8 range, 2.1 movement speed.
+- Flagship promotion costs 700: 1,650 HP, four 28-damage shots every 0.6s, 8.8 range.
+- Yamato: 4s charge, 12 range, 45s cooldown from charge start. Deals 1,400 armour-ignoring
   damage to the lock and 260 splash to other enemies within 2.6 tiles, including aircraft.
   Damage scales with weapon promotions and base research (1,960 direct damage on a Flagship).
 - Auto-targets bosses, hives and enemies with at least 300 maximum HP. Select a cruiser and

@@ -1,4 +1,4 @@
-import { YAMATO } from './config.js';
+import { YAMATO, CRUISER_TIERS } from './config.js';
 
 const valid = (u, t, g) => g.isEnemy(t) && Math.hypot(t.x - u.x, t.z - u.z) <= YAMATO.range;
 export function yamatoTarget(u, g, manual = false) {
@@ -40,7 +40,7 @@ export function updateBattlecruiser(u, dt, g) {
   g.fx.sparks(impact, u.yaw, 60, [0.48, 0.22, 0.9], 16, 6.28);
   g.fx.smoke(impact, 28, [0.12, 0.08, 0.2]);
   g.fx.ring(impact, YAMATO.radius, 0x9360e8);
-  const multiplier = u.stats.damage / 30;
+  const multiplier = u.stats.damage / CRUISER_TIERS[0].damage;
   for (const enemy of g.combatTargets.slice()) {
     if (enemy.dead || (enemy !== target && Math.hypot(enemy.x - impact.x, enemy.z - impact.z) > YAMATO.radius)) continue;
     const damage = (enemy === target ? YAMATO.damage : YAMATO.splashDamage) * multiplier;

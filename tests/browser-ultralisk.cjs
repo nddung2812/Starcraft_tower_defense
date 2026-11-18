@@ -37,7 +37,7 @@ const assert = require('node:assert/strict');
       g.grid.set(21,20,CELL.OPEN);g.gunners=[];g.walls=[];g.bunkers=[];
       u.takeDamage(20,g,0,true);check(u.hp===2197,'Armour not applied');
       u.hp=2210;const c=new Marine('cruiser',16,20,[]);g.gunners=[c];g.focus=u;
-      check(startYamato(c,g,true),'Yamato failed to lock Behemoth');updateBattlecruiser(c,1.5,g);
+      check(startYamato(c,g,true),'Yamato failed to lock Behemoth');updateBattlecruiser(c,4,g);
       check(u.hp===810&&!u.dead,'First-wave Behemoth should survive standard Yamato');
       check(!u.preyOk(c,g),'Behemoth hunted aircraft');
       // Real wave spawn and one warning, rather than a model-only addition.

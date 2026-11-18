@@ -44,6 +44,7 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 | `src/skirmish.js` | Optional layer. Skirmish: the setup screen, the `Match` director behind `game.match` (waves on a timer, hive guards, the result and its record) and the start-screen button. Tuning is `SKIRMISH` in config; its styles are `src/skirmish.css`. |
 | `src/mines.js` | Optional layer. Medic mines: the `Minefield` behind `game.minefield` (scatter on placement, arming, detonation, salvage recall, checkpoint field). Tuning is `MINES` in config. |
 | `src/groundfire.js` | Optional layer. Air strike flames: the `GroundFire` behind `game.groundFire` (a patch per bomb, burn damage that does not stack, cleared with the map). Tuning is `AIR_STRIKE.fire` in config. |
+| `src/plasma.js` | Optional layer. The plasma shield behind `game.plasma`: a globe over the base from research level 3, wider every third level. Friendly `takeDamage` calls `game.plasma?.absorb()` first. Tuning is `PLASMA_SHIELD` in config; `tests/browser-plasma.cjs` covers it. |
 | `src/maw.js` | Tunnel Maw: `MawAmbush` (timing, warning marks, eruption) and the `TunnelMaw` entity that swallows, holds and releases a unit. Tuning is `MAW` in config. |
 | `src/evolutions.js` | Boss reward abilities: automatic tank siege, walker chain lightning, bunker Last Stand, descriptions and model additions. Tuning lives in config. |
 | `src/grid.js` | Tile grid, A* for player units, the Hammer's all-terrain route search (`driveSearch`), the shared bug route field, line-of-sight helpers. |

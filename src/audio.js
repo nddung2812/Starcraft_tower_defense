@@ -370,10 +370,11 @@ export const sfx = {
   /** Titan main gun. */
   yamatoCharge(at) {
     play('yamatoCharge', at, (o, t) => {
-      tone(o, t, { f: 70, to: 1000, dur: 1.45, gain: 0.2, attack: 0.4, vib: 9, vibRate: 22 });
-      tone(o, t, { type: 'triangle', f: 105, to: 1500, dur: 1.4, gain: 0.09, attack: 0.5 });
-      noise(o, t, { dur: 1.45, type: 'highpass', f: 800, to: 6000, gain: 0.09, attack: 1.2 });
-    }, { level: 1, wet: 0.3, length: 1.5 });
+      // Rises for the whole 4-second charge (YAMATO.charge), so the shot lands on the peak.
+      tone(o, t, { f: 70, to: 1000, dur: 3.95, gain: 0.2, attack: 1.2, vib: 9, vibRate: 22 });
+      tone(o, t, { type: 'triangle', f: 105, to: 1500, dur: 3.9, gain: 0.09, attack: 1.5 });
+      noise(o, t, { dur: 3.95, type: 'highpass', f: 800, to: 6000, gain: 0.09, attack: 3.3 });
+    }, { level: 1, wet: 0.3, length: 4.05 });
   },
   yamatoFire(at) {
     play('yamatoFire', at, (o, t) => {

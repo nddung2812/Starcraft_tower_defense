@@ -1067,6 +1067,7 @@ export class Game {
     this.ambush.update(dt);
     this.minefield?.update(dt);
     this.groundFire?.update(dt);
+    this.plasma?.update(dt);
 
     for (const m of this.gunners) m.update(dt, this);
     for (const w of this.walls) w.update(dt, this);
