@@ -90,15 +90,32 @@ stage.scene.add(focusRing);
 
 /* ---------------- selection decals: one ring under everything selected ---------------- */
 
-const RING_GEO = new THREE.RingGeometry(0.44, 0.52, 36).rotateX(-Math.PI / 2);
-const RING_SIZE = { cruiser: 2.4, core: 2.1, tank: 1.35, goliath: 1.2, bunker: 1.15 };
+const RING_GREEN = 0x19ff3c;
+const RING_RED = 0xff2a2a;
+const RING_WIDTH = 0.035;
+// Each ring clears its model's footprint, or the model would hide it.
+const RING_RADIUS = { cruiser: 2.25, core: 1.5, hive: 1.55, tank: 0.92, goliath: 0.85, bunker: 0.82, falcon: 1, wall: 0.62 };
+const ringRadius = e => (RING_RADIUS[e.kind] || 0.52) * (e.kind === 'zergling' ? e.scale || 1 : 1);
+
+/** One geometry per radius, so a big ring is as thin as a small one. */
+const thinRings = new Map();
+function thinRing(radius) {
+  if (!thinRings.has(radius)) {
+    thinRings.set(radius, new THREE.RingGeometry(radius - RING_WIDTH, radius, 64).rotateX(-Math.PI / 2));
+  }
+  return thinRings.get(radius);
+}
+
+// Not tone mapped or fogged: both would wash the green out.
+const ringMaterial = () => new THREE.MeshBasicMaterial({
+  color: RING_GREEN, transparent: true, depthWrite: false, toneMapped: false, fog: false
+});
+
 const decals = [];
 
 function decal(i) {
   while (decals.length <= i) {
-    const m = new THREE.Mesh(RING_GEO, new THREE.MeshBasicMaterial({
-      color: 0x5ef08a, transparent: true, opacity: 0.9, depthWrite: false
-    }));
+    const m = new THREE.Mesh(thinRing(0.52), ringMaterial());
     m.position.y = 0.03;
     m.visible = false;
     stage.scene.add(m);
@@ -147,15 +164,47 @@ function tileAt(ev) {
 /** Drawn well above its ground tile: aircraft, and a tank up on a mountain. */
 const lifted = e => e.flying || e.altitude > 0.3;
 
-/** Bugs first (they are what you are usually clicking at), then our own things. */
-function entityAt(tile) {
+/** [height, radius] of what can be clicked, in tiles. Anything unlisted is infantry sized. */
+const HIT = {
+  zergling: [0.55, 0.5], scv: [0.45, 0.42], tank: [1, 0.8], goliath: [1.65, 0.6],
+  bunker: [0.8, 0.75], wall: [0.9, 0.55], core: [2.4, 1.3], hive: [2.8, 1.4]
+};
+// A building gives way to a bug or soldier the cursor is squarely on.
+const BUILDING_SCORE = 0.55;
+
+/**
+ * How far the cursor is from the axis of a thing's drawn body: 0 is dead centre, above 1 is a miss.
+ * Measured on screen, because the ground point under a click on a bunker's roof is behind the bunker.
+ */
+function hitScore(e, mouseX, mouseY) {
+  const size = e.kind === 'zergling' ? e.scale || 1 : 1;
+  const [height, radius] = HIT[e.kind] || [1.3, 0.45];
+  const r = canvas.getBoundingClientRect();
+  const camera = stage.camera;
+  proj.set(e.x, height * size, e.z).project(camera);
+  const headX = r.left + (proj.x + 1) / 2 * r.width, headY = r.top + (1 - proj.y) / 2 * r.height;
+  proj.set(e.x, 0, e.z);
+  const tilePixels = r.height / (2 * Math.tan(camera.fov * Math.PI / 360) * camera.position.distanceTo(proj));
+  proj.project(camera);
+  if (proj.z >= 1) return Infinity;
+  const footX = r.left + (proj.x + 1) / 2 * r.width, footY = r.top + (1 - proj.y) / 2 * r.height;
+  const dx = headX - footX, dy = headY - footY;
+  const along = Math.max(0, Math.min(1, ((mouseX - footX) * dx + (mouseY - footY) * dy) / (dx * dx + dy * dy || 1)));
+  return Math.hypot(mouseX - footX - along * dx, mouseY - footY - along * dy) / Math.max(10, radius * size * tilePixels);
+}
+
+/**
+ * What the cursor is on. `ordering` is a right-click: your own healthy units are not targets then,
+ * so a soldier standing in front of a bunker cannot take the click meant for the bunker.
+ */
+function entityAt(tile, ordering = false) {
   // Air silhouettes project away from their ground tile: pick them at flight height.
   const r = canvas.getBoundingClientRect();
   const mouseX = r.left + (ndc.x + 1) * r.width / 2;
   const mouseY = r.top + (1 - ndc.y) * r.height / 2;
   let airPick = null, airDistance = 28;
   for (const e of [...game.zerglings, ...game.gunners]) {
-    if (!lifted(e) || e.dead) continue;
+    if (!lifted(e) || e.dead || (ordering && isGun(e) && !e.downed)) continue;
     const p = screenPos(e);
     const distance = Math.hypot(p.x - mouseX, p.y - mouseY);
     if (p.front && distance < airDistance) { airPick = e; airDistance = distance; }
@@ -163,26 +212,23 @@ function entityAt(tile) {
   if (airPick) return airPick;
   // Aircraft at a map edge can project beyond the ground boundary.
   if (!tile) return null;
-  const wx = tile.world.x, wz = tile.world.z;
-  let best = null, bd = 0.6;
-  for (const z of game.zerglings) {
-    if (z.dead || z.flying) continue;
-    const d = Math.hypot(z.x - wx, z.z - wz) / (z.scale || 1);
-    if (d < bd) { bd = d; best = z; }
-  }
-  if (best) return best;
-  bd = 0.6;
+  let best = null, bestScore = 1;
+  const consider = (e, floor = 0) => {
+    const score = Math.max(floor, hitScore(e, mouseX, mouseY));
+    if (score < bestScore) { best = e; bestScore = score; }
+  };
+  for (const z of game.zerglings) if (!z.dead && !z.flying) consider(z);
   for (const m of game.gunners) {
-    if (m.dead || m.bunker || lifted(m)) continue;
-    const d = Math.hypot(m.x - wx, m.z - wz);
-    if (d < bd) { bd = d; best = m; }
+    if (!m.dead && !m.bunker && !lifted(m) && (!ordering || m.downed)) consider(m);
   }
-  if (game.scv && !game.scv.dead && Math.hypot(game.scv.x - wx, game.scv.z - wz) < bd) best = game.scv;
-  if (best) return best;
+  if (!ordering && game.scv && !game.scv.dead) consider(game.scv);
   if (['wave', 'raid'].includes(game.state)) {
-    const hive = game.hives.find(h => !h.dead && Math.hypot(h.x - wx, h.z - wz) < 1.5);
-    if (hive) return hive;
+    for (const h of game.hives) if (!h.dead) consider(h, BUILDING_SCORE);
   }
+  for (const b of game.bunkers) if (!b.dead) consider(b, BUILDING_SCORE);
+  for (const w of game.walls) if (!w.dead) consider(w, BUILDING_SCORE);
+  consider(game.core, BUILDING_SCORE);
+  if (best) return best;
   const occ = game.grid.occupant(tile.x, tile.y);
   if (occ && !occ.dead) return occ;
   if (tile.x >= game.core.tx && tile.x < game.core.tx + 2 && tile.y >= game.core.ty && tile.y < game.core.ty + 2) return game.core;
@@ -281,18 +327,21 @@ function pruneSelection() {
   }
 }
 
-function syncDecals(raw) {
+function syncDecals() {
   let i = 0;
   for (const e of selection) {
     if (e.bunker) continue;
     const d = decal(i++);
     d.visible = true;
     d.position.set(e.x, 0.03, e.z);
-    d.scale.setScalar(RING_SIZE[e.kind] || 1);
-    d.material.color.setHex(e.kind === 'zergling' ? 0xc06bff : e.downed ? 0xff5a4a : 0x5ef08a);
-    d.rotation.y += raw * 0.8;
+    d.geometry = thinRing(ringRadius(e));
+    d.material.color.setHex(e.kind === 'zergling' ? 0xc06bff : e.downed ? RING_RED : RING_GREEN);
   }
   for (; i < decals.length; i++) decals[i].visible = false;
+  // The green circle replaces a selected unit's team ring, unless that ring is showing a status.
+  for (const u of game.gunners) {
+    if (!u.dead) u.ring.visible = !selection.includes(u) || u.silenceT > 0 || u.blindT > 0;
+  }
   const e = selection[0];
   if (selRange.visible && e) {
     selRange.position.set(e.x, 0.04, e.z);
@@ -459,14 +508,51 @@ function updateTip() {
 
 /* ---------------- orders ---------------- */
 
-function marker(x, z, kind) {
-  game.fx.ring({ x, z }, kind === 'attack' ? 0.75 : 0.55, kind === 'attack' ? 0xff5a4a : 0x5ef08a);
+const ORDER_BLINK = 0.14;        // seconds per on or off beat of the circle under a target
+const ORDER_BLINKS = 3;
+const ORDER_SHRINK = 0.5;        // seconds for the circle on open ground to close
+const orderMarks = [];
+game.orderMarks = orderMarks;
+
+/**
+ * Acknowledge an order with a thin circle: it blinks under the `target` and follows it, or closes
+ * on the spot when the order is for open ground. Green for a move, red for an attack or a refusal.
+ */
+function marker(x, z, kind, target = null) {
+  let mark = orderMarks.find(m => m.live && target && m.target === target) || orderMarks.find(m => !m.live);
+  if (!mark) {
+    mark = { mesh: new THREE.Mesh(thinRing(0.6), ringMaterial()), live: false, target: null, x: 0, z: 0, t: 0 };
+    mark.mesh.visible = false;
+    stage.scene.add(mark.mesh);
+    orderMarks.push(mark);
+  }
+  Object.assign(mark, { live: true, target, x, z, t: 0 });
+  mark.mesh.geometry = thinRing(target ? ringRadius(target) : 0.6);
+  mark.mesh.material.color.setHex(kind === 'attack' ? RING_RED : RING_GREEN);
+  syncOrderMark(mark);
+}
+
+function syncOrderMark(mark) {
+  const { mesh, target } = mark;
+  const life = target ? ORDER_BLINK * (ORDER_BLINKS * 2 - 1) : ORDER_SHRINK;
+  if (mark.t >= life || target?.dead) { mark.live = false; mark.target = null; mesh.visible = false; return; }
+  mesh.position.set(target ? target.x : mark.x, 0.05, target ? target.z : mark.z);
+  mesh.visible = !target || Math.floor(mark.t / ORDER_BLINK) % 2 === 0;
+  mesh.scale.setScalar(target ? 1 : 1.5 - mark.t / life);
+}
+
+function syncOrderMarks(raw) {
+  for (const mark of orderMarks) {
+    if (!mark.live) continue;
+    mark.t += raw;
+    syncOrderMark(mark);
+  }
 }
 
 /** Right-click: do the obvious thing for what's under the cursor. */
 function smartCommand(t) {
   if (!t) return;
-  const e = entityAt(t);
+  const e = entityAt(t, true);
   let units = army();
   const guns = units.filter(isGun);
 
@@ -477,7 +563,7 @@ function smartCommand(t) {
     } else if (['wave', 'brief', 'raid'].includes(game.state)) {
       game.focus = e;
     } else return;
-    marker(e.x, e.z, 'attack');
+    marker(e.x, e.z, 'attack', e);
     return;
   }
   if (!units.length) return;
@@ -494,17 +580,17 @@ function smartCommand(t) {
     voice.say('repair');
     units = units.filter((u) => u !== scv);
   }
-  if (e && e.kind !== 'zergling' && units.length !== army().length) marker(e.x, e.z, 'move');
+  if (e && e.kind !== 'zergling' && units.length !== army().length) marker(e.x, e.z, 'move', e);
   if (!units.length) return;
 
   if (e?.kind === 'bunker' && units.some((u) => u.kind === 'marine')) {
-    game.commandGarrison(units, e);
-    marker(e.x, e.z, 'move');
-    sfx.ui();
+    const entering = game.commandGarrison(units, e);
+    marker(e.x, e.z, entering ? 'move' : 'attack', e);
+    if (entering) sfx.ui(); else sfx.deny();
     return;
   }
   if (game.commandMove(units, t.x, t.y, 'move')) {
-    marker(t.world.x, t.world.z, 'move');
+    marker(t.world.x, t.world.z, 'move', e);
     sfx.ui();
   } else sfx.deny();
 }
@@ -512,10 +598,10 @@ function smartCommand(t) {
 /** Left-click while A is armed: a bug means focus it, ground means attack-move. */
 function attackClick(t) {
   const guns = army().filter(isGun);
-  const e = entityAt(t);
+  const e = entityAt(t, true);
   if (e?.kind === 'zergling' || e?.kind === 'hive') {
     game.commandAttack(guns, e);
-    marker(e.x, e.z, 'attack');
+    marker(e.x, e.z, 'attack', e);
   } else if (game.commandMove(guns, t.x, t.y, 'amove')) {
     marker(t.world.x, t.world.z, 'attack');
   } else sfx.deny();
@@ -775,7 +861,7 @@ canvas.addEventListener('pointerup', (ev) => {
   endDrag();
   if (mode === 'right') {
     if (placing || airAim || laserAim || targeting) cancelModes();
-    else smartCommand(tileAt(ev));
+    else smartCommand(tileAt({ clientX: drag.sx, clientY: drag.sy }));   // where the button went down: the hand drifts before release
   } else if (mode === 'box' || mode === 'left') {
     if (mode === 'box' && drag.moved > 6) boxSelect(ev);
     else {
@@ -1214,7 +1300,7 @@ function frame(now) {
   animationFrame = requestAnimationFrame(frame);
   const idle = !intro.hidden || game.ended;
   if (inputPending) { interactiveUntil = now + 250; inputPending = false; }
-  const interacting = now < interactiveUntil || drag.on || keys.size > 0 || minimap.dragging;
+  const interacting = now < interactiveUntil || drag.on || keys.size > 0 || minimap.dragging || orderMarks.some(m => m.live);
   const resting = idle || (game.paused && !interacting);
   const interval = 1000 / (resting ? 4 : stage.quality === 'high' ? 60 : 30);
   const elapsed = now - last;
@@ -1235,7 +1321,8 @@ function frame(now) {
   }
 
   pruneSelection();
-  syncDecals(raw);
+  syncDecals();
+  syncOrderMarks(raw);
 
   const ordered = army().find((u) => u.order?.type === 'attack')?.order.target;
   const mark = game.focus && !game.focus.dead ? game.focus : ordered && !ordered.dead ? ordered : null;
