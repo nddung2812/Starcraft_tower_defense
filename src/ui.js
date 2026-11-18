@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { installScouting } from './scouting.js';
 import { startYamato, yamatoTarget } from './battlecruiser.js';
-import { BUILD, ZERG_INFO, BREEDS, ECON, UNITS, AIR_STRIKE, OVERDRIVE, BASE_UPGRADE, BASE_LASER, YAMATO, CRUISER_TIERS, applyBaseUpgrade } from './config.js';
+import { BUILD, ZERG_INFO, BREEDS, ECON, UNITS, AIR_STRIKE, OVERDRIVE, BASE_UPGRADE, BASE_LASER, BASE_INCOME, incomeTier, incomeMinerals, YAMATO, CRUISER_TIERS, applyBaseUpgrade } from './config.js';
 import { buildZergling, buildWall, buildCore, buildHatchery, CORE_STAGES } from './models.js';
 import { makeModel, loadedModels } from './assets.js';
 import { EVOLUTIONS, EVOLUTION_RULES } from './config.js';
@@ -335,7 +335,10 @@ export class UI {
     game.on('unlock', (u) => this.toast(`Armory unlocked — ${u.name}`, u.effect, 'unlock'));
     game.on('baseUpgraded', (level) => {
       const stage = CORE_STAGES[level - 1];
-      this.toast(`Base level ${level}`, `${stage ? stage + ' added. ' : ''}All units +${Math.round(BASE_UPGRADE.bonus * 100)}% health and damage.`, 'unlock', 4500);
+      const tier = incomeTier(level);
+      const mining = tier && level % BASE_INCOME.levels === 0
+        ? ` Now mining ${incomeMinerals(tier) / BASE_INCOME.interval} minerals a second and ${tier} free Trooper${tier === 1 ? '' : 's'} every ${BASE_INCOME.troopEvery} seconds.` : '';
+      this.toast(`Base level ${level}`, `${stage ? stage + ' added. ' : ''}All units +${Math.round(BASE_UPGRADE.bonus * 100)}% health and damage.${mining}`, 'unlock', 4500);
       if (this.inspect.entity?.kind === 'core') this.showUnit(this.inspect.kind, this.inspect.tier, this.inspect.entity);
     });
     game.on('unitUnlocked', (b) => {
@@ -862,7 +865,7 @@ export class UI {
     const next = CORE_STAGES[g.baseLevel];
     $('baseBonus').textContent = upgrading
       ? `Lv ${g.baseLevel} → ${g.baseLevel + 1}${g.paused ? ' · paused' : ''}${next ? ' · ' + next : ''}`
-      : `Lv ${g.baseLevel} · +${bonus}% HP / damage${g.plasma ? ' · ' + g.plasma.summary() : ''}`;
+      : `Lv ${g.baseLevel} · +${bonus}% HP / damage${incomeTier(g.baseLevel) ? ` · +${incomeMinerals(incomeTier(g.baseLevel)) / BASE_INCOME.interval} minerals/s · ${incomeTier(g.baseLevel)} Trooper${incomeTier(g.baseLevel) === 1 ? '' : 's'}/${BASE_INCOME.troopEvery}s` : ''}${g.plasma ? ' · ' + g.plasma.summary() : ''}`;
     $('btnBaseUpgrade').title = `Each level: +15% health for all units, +15% damage for all combat units, and a visible addition to the base${next ? ' (next: ' + next + ')' : ''}. Takes ${g.baseUpgradeTime}s to build. Applies to current and future units; lasts for this run.`;
     const aiming = $('btnLaser').getAttribute('aria-pressed') === 'true';
     $('btnLaser').textContent = aiming ? 'Cancel laser aim' : g.laserReady ? 'Fire laser (Shift+R)' : `Laser · ${Math.floor(g.laserCharge / BASE_LASER.chargeTime * 100)}%`;

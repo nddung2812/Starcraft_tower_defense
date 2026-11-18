@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { indexSwarm } from './swarm.js';
-import { CELL, BUILD, ECON, ARMORY, UNITS, AIR_STRIKE, TREASURE, TREASURE_RULES, baseUpgradeCost, baseUpgradeTime, applyBaseUpgrade, HIVE_RAID, BASE_LASER, wavePlan, STREAK, SUPPLY, unlockRound } from './config.js';
+import { CELL, BUILD, ECON, ARMORY, UNITS, AIR_STRIKE, TREASURE, TREASURE_RULES, baseUpgradeCost, baseUpgradeTime, applyBaseUpgrade, HIVE_RAID, BASE_LASER, BASE_INCOME, incomeTier, incomeMinerals, wavePlan, STREAK, SUPPLY, unlockRound } from './config.js';
 import { Grid } from './grid.js';
 import { carveLevel, carveMatch, MAP_VERSION } from './levels.js';
 import { Marine, Zergling, Wall, Bunker, Scv, Core, Hive, Tracer, Shell, AirBomb, SupplyCrate } from './entities.js';
@@ -99,6 +99,8 @@ export class Game {
     this.mapSeed = Number.isInteger(seed) ? seed >>> 0 : (Math.random() * 0x7fffffff) >>> 0;
     this.minerals = ECON.startMinerals;
     this.baseLevel = 0;
+    this.incomeT = 0;
+    this.troopT = 0;
     this.baseUpgradeT = 0;
     this.laserCharge = 0;
     this.kills = 0;
@@ -357,20 +359,62 @@ export class Game {
   placeGunner(kind, tx, ty) {
     const spec = BUILD[kind];
     if (!spec || this.atUnitLimit(kind) || !this.isUnlocked(kind) || !this.canBuildAt(tx, ty) || !this.canAfford(spec.cost)) return false;
+    this.fieldGunner(kind, tx, ty, spec.cost);
+    this.minerals -= spec.cost;
+    this.emit('change');
+    return true;
+  }
+
+  /** Put a unit on the field. `invested` is what salvage and the end of the round pay back. */
+  fieldGunner(kind, tx, ty, invested) {
     const m = new Marine(kind, tx, ty, this.marineUpgrades, this.baseLevel);
     syncEvolutionVisual(m, this);
     m.restYaw = this.threatYaw(m.x, m.z);
     m.yaw = m.restYaw;
-    m.invested = spec.cost;
+    m.invested = invested;
     if (!m.flying) this.grid.set(tx, ty, CELL.TOWER, m);
     this.gunners.push(m);
     this.world.add(m.obj);
     this.minefield?.deployed(m);   // a Medic scatters its mines once, around the tile it is placed on
-    this.minerals -= spec.cost;
     this.fx.ring({ x: m.x, z: m.z }, kind === 'tank' ? 1.9 : 1.6, UNITS[kind].accent);
     sfx.place();
-    this.emit('change');
-    return true;
+    return m;
+  }
+
+  /** From base level 3: minerals every half second and free Troopers on a timer, more with every third level. */
+  updateBaseIncome(dt) {
+    const tier = incomeTier(this.baseLevel);
+    if (!tier || this.core.dead) return;
+    this.incomeT += dt;
+    const pay = Math.floor((this.incomeT + 1e-9) / BASE_INCOME.interval);
+    if (pay > 0) {
+      this.incomeT -= pay * BASE_INCOME.interval;
+      this.minerals += pay * incomeMinerals(tier);
+      this.emit('change');
+    }
+    this.troopT += dt;
+    if (this.troopT + 1e-9 < BASE_INCOME.troopEvery) return;
+    this.troopT = 0;
+    this.sendFreeTroopers(tier);
+  }
+
+  /** Free Troopers form up at the defense line. They cost nothing, so they pay nothing back. */
+  sendFreeTroopers(count) {
+    const standing = this.gunners.filter(u => u.kind === 'marine' && u.invested === 0 && !u.dead).length;
+    count = Math.min(count, BASE_INCOME.maxFree - standing);
+    const anchor = this.deployAnchor() || this.grid.core, ax = Math.floor(anchor.x), ay = Math.floor(anchor.y);
+    let sent = 0;
+    for (let r = 0; r <= 8 && sent < count; r++) {
+      for (let dy = -r; dy <= r && sent < count; dy++) {
+        for (let dx = -r; dx <= r && sent < count; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r || !this.canBuildAt(ax + dx, ay + dy)) continue;
+          this.fieldGunner('marine', ax + dx, ay + dy, 0);
+          sent++;
+        }
+      }
+    }
+    if (sent) this.emit('change');
+    return sent;
   }
 
   placeBunker(tx, ty) {
@@ -765,7 +809,8 @@ export class Game {
     const prevName = this.layout.name;
     this.emit('roundCleared', { level: prev, perfect: !this.roundCoreDamaged && this.core.hp === this.core.maxHp });
     // levels never run out: clear one and the next canyon is waiting
-    const army = this.gunners.filter(u => !u.dead).map(u => ({ kind: u.kind, tier: u.tier, invested: u.invested, defend: u.defend }));
+    // Free Troopers are not part of the army Redeploy buys back.
+    const army = this.gunners.filter(u => !u.dead && u.invested > 0).map(u => ({ kind: u.kind, tier: u.tier, invested: u.invested, defend: u.defend }));
     this.lastArmy = army.length ? army : null;
     const refund = this.recoverHardware();
     this.minerals += refund + bonus;
@@ -1008,6 +1053,7 @@ export class Game {
       this.baseUpgradeT -= dt;
       if (this.baseUpgradeT <= 1e-9) { this.baseUpgradeT = 1e-9; this.completeBaseUpgrade(); }
     }
+    this.updateBaseIncome(dt);
     this.time += dt;
     this.updateWater?.(this.time);
     if (this.airStrikeCd > 0) this.airStrikeCd = Math.max(0, this.airStrikeCd - dt);

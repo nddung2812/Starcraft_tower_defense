@@ -203,6 +203,10 @@ balance as permanent treasure stacks and enemy HP grow.
   next canyon and is stored in checkpoints. Pausing freezes both charging and the bonus timer.
   New runs reset research and energy. Combat/bonus-phase Save & quit replays the saved start
   of the round, using that checkpoint's research and charge.
+- Base income (Nov 18, 2026): base research level 3 mines 1 mineral every 0.5 seconds of play (2 a second) and
+  sends 1 free Trooper to the defense line every 30 seconds. Every third level after that adds 2 minerals a second and
+  a Trooper: level 6 is 4 minerals a second and 2 Troopers, level 9 is 6 and 3, level 12 is 8 and 4. Free Troopers refund nothing,
+  are not rebuilt by Redeploy, leave with the rest of the army when a round is cleared, and stop at 40 standing.
 - Plasma shield (Nov 18, 2026): base research levels 3, 6, 9 and so on each add a shield tier. Tier 1
   covers 5 tiles from the base and holds 300 damage; each further tier adds 1.5 tiles (14 at most) and
   150 damage. While it is up, a hit on anything inside drains the shield and the target takes nothing, and

@@ -378,6 +378,12 @@ export const BUG_SCALE = 1.12;
 export const CORE_HP = 500;
 // Run-wide base research; bonuses are additive per level, then multiply unit stats.
 // Research is paid up front and lands after a short build: firstTime seconds, a little longer each level.
+/* Every `levels` research levels the base earns a tier. Tier 1 mines `minerals` every `interval` seconds and
+ * sends one free Trooper every `troopEvery` seconds. Each further tier adds that many minerals again and a Trooper.
+ * At most `maxFree` free Troopers stand at once. */
+export const BASE_INCOME = { levels: 3, minerals: 1, interval: 0.5, troopEvery: 30, maxFree: 40 };
+export const incomeTier = level => Math.floor(level / BASE_INCOME.levels);
+export const incomeMinerals = tier => BASE_INCOME.minerals * tier;
 export const BASE_UPGRADE = { firstCost: 200, costStep: 150, bonus: 0.15, firstTime: 6, timeStep: 1, maxTime: 12 };
 export const baseUpgradeTime = level => Math.min(BASE_UPGRADE.maxTime, BASE_UPGRADE.firstTime + level * BASE_UPGRADE.timeStep);
 export const baseUpgradeCost = level => BASE_UPGRADE.firstCost + level * BASE_UPGRADE.costStep;
