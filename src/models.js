@@ -1049,6 +1049,11 @@ export function buildScv() {
   return g;
 }
 
+/** Cells in the charge bar on the base cannon's rails, and the colours of everything unlit on it. */
+export const LASER_CELLS = 10;
+export const LASER_CELL_OFF = 0x2a1210;
+export const LASER_CORE_OFF = 0x4a0d08;
+
 export function buildCore(level = 0) {
   const g = new THREE.Group();
   const hull = new THREE.MeshStandardMaterial({ color: 0x9aa3ab, metalness: 0.86, roughness: 0.34 });
@@ -1097,28 +1102,81 @@ export function buildCore(level = 0) {
   dish.add(plate);
   g.add(dish);
 
-  // Roof-mounted laser cannon. The barrel faces +X in turret-local space.
-  g.add(mesh(new THREE.CylinderGeometry(0.35, 0.43, 0.18, 16), dark, 0, 1.2, 0));
+  // Roof-mounted twin-rail laser cannon. The barrel faces +X in turret-local space.
+  const gunmetal = new THREE.MeshStandardMaterial({ color: 0x1b2229, metalness: 0.9, roughness: 0.3 });
+  // Not tone mapped: these have to read as lit in Eco graphics, which has no bloom.
+  const laserCore = new THREE.MeshBasicMaterial({ color: LASER_CORE_OFF, toneMapped: false });
+  g.add(mesh(new THREE.CylinderGeometry(0.4, 0.46, 0.14, 24), dark, 0, 1.17, 0));
+  const race = mesh(new THREE.TorusGeometry(0.4, 0.016, 6, 32), laserCore, 0, 1.25, 0);
+  race.rotation.x = Math.PI / 2;
+  g.add(race);
+
   const laserTurret = new THREE.Group();
-  laserTurret.position.y = 1.52;
+  laserTurret.position.y = 1.5;
   laserTurret.rotation.y = Math.PI;
-  laserTurret.add(mesh(box(0.7, 0.4, 0.64, 0.08), hull, -0.12, 0, 0));
-  for (const z of [-0.31, 0.31]) {
-    laserTurret.add(mesh(box(0.5, 0.12, 0.08), red, -0.12, 0.08, z));
+  laserTurret.add(mesh(new THREE.CylinderGeometry(0.38, 0.42, 0.2, 8), hull, -0.1, -0.13, 0));
+  laserTurret.add(mesh(box(0.74, 0.24, 0.46, 0.06), gunmetal, -0.12, 0.06, 0));
+  for (const side of [-1, 1]) {
+    // Raked armour cheeks with a red stripe, closing in toward the barrel.
+    const cheek = mesh(box(0.66, 0.22, 0.09, 0.03), hull, -0.1, 0.05, side * 0.29);
+    cheek.rotation.y = side * 0.2;
+    laserTurret.add(cheek);
+    const stripe = mesh(box(0.46, 0.04, 0.02, 0.008), red, -0.1, 0.1, side * 0.345);
+    stripe.rotation.y = side * 0.2;
+    laserTurret.add(stripe);
+    // Capacitor drums on the back of the turret; their bands glow with the charge.
+    const drum = mesh(new THREE.CylinderGeometry(0.095, 0.095, 0.3, 12), dark, -0.56, 0.08, side * 0.15);
+    drum.rotation.z = Math.PI / 2;
+    laserTurret.add(drum);
+    for (const x of [-0.64, -0.48]) {
+      const coil = mesh(new THREE.TorusGeometry(0.1, 0.012, 6, 16), laserCore, x, 0.08, side * 0.15);
+      coil.rotation.y = Math.PI / 2;
+      laserTurret.add(coil);
+    }
+    // The two rails, each with a bright plate on top that carries the charge bar.
+    laserTurret.add(mesh(box(1.2, 0.11, 0.09, 0.025), gunmetal, 0.82, 0.06, side * 0.13));
+    laserTurret.add(mesh(box(1.16, 0.02, 0.075, 0.006), hull, 0.82, 0.122, side * 0.13));
+    const fin = mesh(box(0.5, 0.05, 0.05, 0.012), hull, 0.56, 0.04, side * 0.2);
+    fin.rotation.y = side * 0.1;
+    laserTurret.add(fin);
   }
-  laserTurret.add(mesh(box(1.05, 0.2, 0.22), dark, 0.62, 0, 0));
-  for (const x of [0.35, 0.58, 0.81]) {
-    laserTurret.add(mesh(box(0.07, 0.28, 0.3), hull, x, 0, 0));
+  // The energy core that runs between the rails.
+  const coreRod = mesh(new THREE.CylinderGeometry(0.034, 0.034, 1.14, 10), laserCore, 0.83, 0.06, 0);
+  coreRod.rotation.z = Math.PI / 2;
+  laserTurret.add(coreRod);
+  for (const x of [0.36, 0.74, 1.12]) laserTurret.add(mesh(box(0.07, 0.07, 0.4, 0.015), hull, x, -0.03, 0));
+
+  // The charge bar: cells along both rails that light up one by one, breech to muzzle.
+  const laserCells = [];
+  const cellShape = box(0.086, 0.02, 0.058, 0.005, 1);
+  for (let i = 0; i < LASER_CELLS; i++) {
+    const cell = new THREE.MeshBasicMaterial({ color: LASER_CELL_OFF, toneMapped: false });
+    cell.userData.on = new THREE.Color(0xff2a12).lerp(new THREE.Color(0xffc24a), i / (LASER_CELLS - 1));
+    for (const side of [-1, 1]) laserTurret.add(mesh(cellShape, cell, 0.3 + i * 0.106, 0.14, side * 0.13));
+    laserCells.push(cell);
   }
-  const muzzleHousing = mesh(new THREE.CylinderGeometry(0.19, 0.16, 0.22, 12), dark, 1.16, 0, 0);
+
+  // Flared emitter with three prongs around the lens.
+  const muzzleHousing = mesh(new THREE.CylinderGeometry(0.22, 0.15, 0.2, 12), dark, 1.5, 0.06, 0);
   muzzleHousing.rotation.z = -Math.PI / 2;
   laserTurret.add(muzzleHousing);
+  for (let i = 0; i < 3; i++) {
+    const a = Math.PI / 2 + (i / 3) * Math.PI * 2;
+    const prong = mesh(box(0.2, 0.05, 0.05, 0.012), hull, 1.64, 0.06 + Math.sin(a) * 0.19, Math.cos(a) * 0.19);
+    laserTurret.add(prong);
+  }
   const laserLens = new THREE.MeshStandardMaterial({
     color: 0xff3020, emissive: 0xff1608, emissiveIntensity: 0.35, roughness: 0.2
   });
-  const laserMuzzle = mesh(new THREE.CircleGeometry(0.13, 16), laserLens, 1.275, 0, 0);
+  const laserMuzzle = mesh(new THREE.CircleGeometry(0.15, 20), laserLens, 1.605, 0.06, 0);
   laserMuzzle.rotation.y = Math.PI / 2;
   laserTurret.add(laserMuzzle);
+  const laserHalo = mesh(new THREE.TorusGeometry(0.17, 0.018, 6, 24), new THREE.MeshBasicMaterial({
+    color: 0xff5a30, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false
+  }), 1.62, 0.06, 0);
+  laserHalo.rotation.y = Math.PI / 2;
+  laserHalo.castShadow = false;
+  laserTurret.add(laserHalo);
   g.add(laserTurret);
 
   // status pips on the hull
@@ -1127,7 +1185,7 @@ export function buildCore(level = 0) {
     g.add(mesh(box(0.05, 0.07, 0.04, 0.01), pip, 0.62, 0.58, -0.22 + i * 0.1));
   });
 
-  g.userData = { dish, laserTurret, laserMuzzle, hull };
+  g.userData = { dish, laserTurret, laserMuzzle, laserCells, laserCore, laserHalo, hull };
   upgradeCore(g, level);
   return g;
 }

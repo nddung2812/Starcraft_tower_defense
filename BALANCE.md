@@ -167,8 +167,9 @@ balance as permanent treasure stacks and enemy HP grow.
   already advancing recalls it by stopping it where it stands. Defenders carry a gold diamond
   on the ground, a gold chip border and "DEFENDING" in the inspector. The flag is saved in
   checkpoints and travels with Redeploy army, so last round's home guard is still a home guard.
-- Base laser starts at 0%, charges for 90 simulation seconds, and holds one shot at 100%.
-  Click Fire Laser (or L), then click a direction on the battlefield. One red beam extends from
+- Base laser starts at 0%, charges for 90 simulation seconds, and holds one shot at 100%. Ten cells
+  on the cannon's rails light up as it charges. The beam burns for 1.1 seconds; its damage lands once.
+  Click Fire Laser (or Shift+R), then click a direction on the battlefield. One red beam extends from
   the base to the map edge and applies 600 damage once to every enemy along its path, including
   aircraft; normal enemy armor still applies. The beam has a 0.8-tile half-width plus target
   radius. Firing resets charge to zero; canceling aim costs nothing. Charge carries into the

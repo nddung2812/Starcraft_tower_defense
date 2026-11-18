@@ -3,13 +3,14 @@ import { packHeading, swarmStepClear } from './swarm.js';
 import { updateBattlecruiser } from './battlecruiser.js';
 import { cleaveDefenders } from './ultralisk.js';
 import { CELL, UNITS, BREEDS, UNIT_SCALE, BUG_SCALE, OVERDRIVE, applyBaseUpgrade, HIVE_RAID, BASE_LASER, SUPPLY, BUNKER_WEAPONS } from './config.js';
-import { buildWall, buildCore, upgradeCore, buildHatchery, buildCrate } from './models.js';
+import { buildWall, buildCore, upgradeCore, buildHatchery, buildCrate, LASER_CELL_OFF, LASER_CORE_OFF } from './models.js';
 import { makeModel } from './assets.js';
 import { EVOLUTION_RULES, evolutionPower } from './config.js';
 import { packSiege, updateUnitEvolution, updateBunkerEvolution, triggerLastStand, chainLightning } from './evolutions.js';
 
 const TAU = Math.PI * 2;
 const _v = new THREE.Vector3();
+const CANNON_HOT = new THREE.Color(0xff4a20);
 
 function angleLerp(a, b, t) {
   const d = ((b - a + Math.PI) % TAU + TAU) % TAU - Math.PI;
@@ -881,6 +882,25 @@ export class Core {
     return laserMuzzle.getWorldPosition(new THREE.Vector3());
   }
 
+  /** The cannon shows its own charge: cells fill along the rails, then drain while the beam burns. */
+  syncCannon(game) {
+    const { laserCells, laserCore, laserHalo, laserMuzzle } = this.model.userData;
+    const charge = game.laserCharge / BASE_LASER.chargeTime;
+    const firing = this.laserFlash > 0;
+    const shown = Math.max(charge, this.laserFlash / BASE_LASER.duration);
+    const ready = game.laserReady;
+    laserCells.forEach((cell, i) => {
+      const lit = Math.max(0, Math.min(1, shown * laserCells.length - i));
+      const wave = ready ? 0.72 + 0.28 * Math.sin(game.time * 7 - i * 0.8) : 1;   // a full bar runs toward the muzzle
+      cell.color.setHex(LASER_CELL_OFF).lerp(cell.userData.on, lit * wave);
+    });
+    const heat = firing ? 1 : ready ? 0.75 + 0.25 * Math.sin(game.time * 7) : charge * 0.7;
+    laserCore.color.setHex(LASER_CORE_OFF).lerp(CANNON_HOT, heat);
+    laserMuzzle.material.emissiveIntensity = firing ? 6 : 0.35 + 2.65 * charge;
+    laserHalo.material.opacity = firing ? 0.95 : ready ? 0.55 : 0;
+    laserHalo.scale.setScalar(firing ? 1.25 + Math.sin(game.time * 40) * 0.2 : 1);
+  }
+
   update(dt, game) {
     const ud = this.model.userData;
     ud.dish.rotation.y += dt * 0.7;
@@ -926,12 +946,12 @@ export class Core {
       }
     }
     this.laserFlash = Math.max(0, this.laserFlash - dt);
-    ud.laserMuzzle.material.emissiveIntensity = this.laserFlash > 0
-      ? 6 : 0.35 + 2.65 * (game.laserCharge / BASE_LASER.chargeTime);
+    this.syncCannon(game);
     const pct = this.hp / this.maxHp;
     this.light.color.setHex(pct < 0.35 ? 0xff5a4a : 0xffc56a);
     this.bar.set(pct, game.camera, true);
     this.laserBar.set(game.laserCharge / BASE_LASER.chargeTime, game.camera, true);
+    if (game.laserReady) this.laserBar.mat.color.setHex(Math.sin(game.time * 7) > 0 ? 0xffc24a : 0xff3020);
     // Keep the second bar directly below health as the camera rotates and tilts.
     this.laserBar.group.position.set(0, -0.12, 0).applyQuaternion(game.camera.quaternion).add(this.bar.group.position);
     if (building) {

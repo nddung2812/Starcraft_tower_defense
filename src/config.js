@@ -367,7 +367,7 @@ export function applyBaseUpgrade(stats, level) {
   stats.hp = Math.round(stats.hp * factor);
   if (stats.damage != null) stats.damage *= factor;
 }
-export const BASE_LASER = { chargeTime: 90, damage: 600, halfWidth: 0.8, duration: 0.45 };
+export const BASE_LASER = { chargeTime: 90, damage: 600, halfWidth: 0.8, duration: 1.1 };
 export const HIVE_RAID = { duration: 60, evolutionInterval: 30, broodBase: 2, broodPerEvolution: 2, broodCap: 12, hp: 300, hpPerLevel: 45, reward: 100, rewardPerLevel: 25 };
 /*
  * Skirmish: one continuous match on one map. A bigger wave leaves the hives every `waveGap`

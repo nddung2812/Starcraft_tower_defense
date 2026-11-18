@@ -905,7 +905,8 @@ button:focus-visible { outline: 2px solid var(--compact); outline-offset: 3px; }
 .base-research, .base-laser { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
 .base-controls span { font-size: 11px; color: var(--muted); }
 .base-controls .btn { font-size: 11px; letter-spacing: 0; padding: 7px 10px; }
-#btnLaser { color: #ff796f; border-color: #ff443655; }
+#btnLaser { color: #ffd2cc; border-color: #ff443655; background: linear-gradient(90deg, rgba(255, 68, 54, .62) var(--charge, 0%), rgba(8, 16, 24, .88) var(--charge, 0%)); }
+#btnLaser:disabled { opacity: 1; cursor: not-allowed; }
 #btnLaser[aria-pressed="true"] { background: #852a2a; color: white; }
 .raid-hud { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .raid-hud strong { color: var(--gold); font-size: 14px; }

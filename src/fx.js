@@ -122,7 +122,7 @@ export class Fx {
     const length = Math.hypot(to.x - from.x, to.z - from.z);
     const group = new THREE.Group();
     // A bright red core and a wider translucent glow remain visible in Eco mode.
-    for (const [width, color, opacity] of [[0.22, 0xff3020, 1], [0.8, 0xff0015, 0.3]]) {
+    for (const [width, color, opacity] of [[0.22, 0xff3020, 1], [0.8, 0xff0015, 0.3], [0.09, 0xffe6d0, 1]]) {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(length, width, width),
         new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false }));
       mesh.userData.opacity = opacity;
@@ -131,7 +131,7 @@ export class Fx {
     group.position.set((from.x + to.x) / 2, from.y ?? 1.2, (from.z + to.z) / 2);
     group.rotation.y = -Math.atan2(to.z - from.z, to.x - from.x);
     this.scene.add(group);
-    this.beams.push({ group, life: duration, max: duration });
+    this.beams.push({ group, life: duration, max: duration, hold: 0.7 });
   }
 
   lightning(from, to) {
@@ -437,7 +437,15 @@ export class Fx {
     for (let i = this.beams.length - 1; i >= 0; i--) {
       const beam = this.beams[i];
       beam.life -= dt;
-      for (const mesh of beam.group.children) mesh.material.opacity = mesh.userData.opacity * Math.max(0, beam.life / beam.max);
+      const left = Math.max(0, beam.life / beam.max);
+      // A held beam burns at full strength, then narrows and fades over the end of its life.
+      const strength = beam.hold ? Math.min(1, left / (1 - beam.hold)) : left;
+      for (const mesh of beam.group.children) mesh.material.opacity = mesh.userData.opacity * strength;
+      if (beam.hold) {
+        const age = beam.max - beam.life;
+        const width = Math.min(1, age / 0.07) * (0.5 + 0.5 * strength) * (1 + Math.sin(age * 46) * 0.1);
+        beam.group.scale.set(1, Math.max(0.01, width), Math.max(0.01, width));
+      }
       if (beam.life <= 0) { this.clearBeam(beam); this.beams.splice(i, 1); }
     }
     this.pour(dt);

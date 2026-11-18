@@ -864,6 +864,7 @@ export class UI {
     const aiming = $('btnLaser').getAttribute('aria-pressed') === 'true';
     $('btnLaser').textContent = aiming ? 'Cancel laser aim' : g.laserReady ? 'Fire laser (Shift+R)' : `Laser · ${Math.floor(g.laserCharge / BASE_LASER.chargeTime * 100)}%`;
     $('btnLaser').disabled = g.paused || !g.laserReady || !['wave', 'raid'].includes(g.state);
+    $('btnLaser').style.setProperty('--charge', `${g.laserCharge / BASE_LASER.chargeTime * 100}%`);
     $('laserHint').textContent = aiming ? 'Click a direction from your base · Esc cancels' : g.laserReady ? 'Auto-fire armed · tracking enemies · 600 piercing damage' : `${Math.ceil(BASE_LASER.chargeTime - g.laserCharge)}s to auto-fire · tracks enemies`;
     const waiting = g.lastArmy?.length || 0;
     $('btnRedeploy').hidden = !waiting || !$('intro').hidden || !['build', 'brief', 'wave'].includes(g.state);

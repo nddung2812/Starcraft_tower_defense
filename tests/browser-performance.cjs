@@ -27,6 +27,7 @@ const assert = require('node:assert/strict');
       CanvasRenderingContext2D.prototype.drawImage=function(...args){if(this.canvas.id==='minimap')minimaps++;return drawImage.apply(this,args);};
       __pump(240); const idle=renders;renders=portraits=minimaps=0;
       document.getElementById('introForm').requestSubmit(document.getElementById('introBtn'));
+      document.getElementById('btnInspector').click();   // the portrait only draws while the unit panel is open
       const before=g.time;__pump(240);const eco=renders,ecoPortraits=portraits,ecoMinimaps=minimaps,ecoSeconds=g.time-before;
       renders=portraits=minimaps=0;
       document.getElementById('btnFx').click();__pump(240);const high=renders,highPortraits=portraits,highMinimaps=minimaps;
