@@ -265,7 +265,7 @@ const SEED = 12345;
 
     /* ---------- push or hold: a rush loses, a measured push wins ---------- */
     // The bot spends everything on Troopers (an Atlas every fourth from wave 3). When it pushes it
-    // leaves a quarter of the army home (K) and keeps sending the rest, recruits included (A).
+    // leaves a quarter of the army home (D) and keeps sending the rest, recruits included (A).
     // The rush is the opening squad plus everything the starting minerals buy, sent at once and
     // never reinforced (while tuning it lost 16 of 16; reinforced with every later recruit, 15 of 16).
     const play = (plan) => page.evaluate(({ plan, seed }) => {

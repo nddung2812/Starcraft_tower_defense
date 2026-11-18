@@ -122,13 +122,13 @@ function statRow(label, value, frac, color) {
 const COMMANDS = [
   { id: 'attack', label: 'Attack', key: 'A' },
   { id: 'stop', label: 'Stop', key: 'S' },
-  { id: 'defend', label: 'Defend', key: 'K' },
+  { id: 'defend', label: 'Defend', key: 'D' },
   { id: 'air', label: 'Air Strike', key: 'R' },
   { id: 'stim', label: 'Overdrive', key: 'F' },
-  { id: 'promote', label: 'Promote', key: 'U' },
-  { id: 'salvage', label: 'Salvage', key: 'X' },
-  { id: 'army', label: 'All Army', key: 'F2' },
-  { id: 'scv', label: 'Patch Rig', key: 'F1' },
+  { id: 'promote', label: 'Promote', key: 'Shift+F' },
+  { id: 'salvage', label: 'Salvage', key: 'Shift+S' },
+  { id: 'army', label: 'All Army', key: 'Shift+Q' },
+  { id: 'scv', label: 'Patch Rig', key: 'Shift+E' },
   { id: 'wave', label: 'Last Alert', key: '' }
 ];
 
@@ -238,7 +238,7 @@ export class UI {
     $('cmdCard').innerHTML = COMMANDS.map((c) => `
       <button class="cmd" data-cmd="${c.id}" title="${c.label} (${c.key})">
         <span class="cmd__label">${c.label}</span>
-        <span class="cmd__key">${c.key}</span>
+        <span class="cmd__key">${c.key.replace('Shift+', '⇧')}</span>
       </button>`).join('');
     $('cmdCard').addEventListener('click', (e) => {
       const btn = e.target.closest('[data-cmd]');
@@ -340,7 +340,7 @@ export class UI {
     game.on('supplyCollected', ({ crate, recharge }) => this.toast(`Supplies recovered · +${crate.value} minerals`,
       recharge ? 'Air strike recharged.' : 'More drops arrive while the swarm is attacking.', 'ok', 3200));
     game.on('redeployed', ({ placed, waiting }) => this.toast(`Army redeployed · ${placed} unit${placed === 1 ? '' : 's'}`,
-      waiting ? `${waiting} more waiting for minerals or space. Press Z again.` : 'Promotions kept. Move them into position.', 'ok'));
+      waiting ? `${waiting} more waiting for minerals or space. Press Shift+D again.` : 'Promotions kept. Move them into position.', 'ok'));
     game.on('brief', (card) => this.say(`<b>${card.title}.</b> ${card.body}`));
     game.on('hold', (card) => this.say(`<b>${card.kicker}.</b> ${card.body}`));
 
@@ -655,8 +655,8 @@ export class UI {
     set('defend', guards.length > 0, guarding ? 'Defending' : 'Defend');
     const defendButton = document.querySelector('[data-cmd="defend"]');
     defendButton.classList.toggle('cmd--on', guarding);
-    defendButton.title = guarding ? 'Release the selected units so they join the army attack again (K).'
-      : 'Keep the selected units home: they hold their ground and defend when the army attacks (K).';
+    defendButton.title = guarding ? 'Release the selected units so they join the army attack again (D).'
+      : 'Keep the selected units home: they hold their ground and defend when the army attacks (D).';
     set('air', fighting && g.airStrikeReady, fighting && !g.airStrikeReady ? `Air ${Math.ceil(g.airStrikeCd)}s` : 'Air Strike');
     set('stim', g.stimUnlocked && units.some((u) => u.kind === 'marine' && u.stimT <= 0 && u.silenceT <= 0 && u.hp > OVERDRIVE.hpCost));
     const cost = primary && UNITS[primary.kind] && !primary.downed ? primary.upgradeCost : null;
@@ -723,7 +723,7 @@ export class UI {
       : `${name}, the relay fell on wave ${wave} after ${clock(seconds)}. ${destroyed} of ${hives} hive${hives === 1 ? '' : 's'} destroyed, ${killed}. `
         + (best != null ? `Your best win: ${clock(best)}.` : 'Destroy every hive to win.');
     $('shareStatus').textContent = won ? 'Play again on the same canyon to beat your time.'
-      : 'Same canyon on a rematch. Push before the hives outgrow you, and leave defenders at home (K).';
+      : 'Same canyon on a rematch. Push before the hives outgrow you, and leave defenders at home (D).';
     $('banner').hidden = false;
     this.syncMatch();
   }
@@ -767,7 +767,7 @@ export class UI {
     btn.hidden = !u || u.kind !== 'cruiser' || u.dead;
     if (btn.hidden) return;
     btn.textContent = u.yamatoLock ? `Yamato charging · ${u.yamatoCharge.toFixed(1)}s`
-      : u.yamatoCd > 0 ? `Yamato · ${Math.ceil(u.yamatoCd)}s` : 'Fire Yamato (Y)';
+      : u.yamatoCd > 0 ? `Yamato · ${Math.ceil(u.yamatoCd)}s` : 'Fire Yamato (Shift+Z)';
     btn.disabled = g.paused || !!g.pendingEvolution || !['wave', 'raid'].includes(g.state) || u.downed || u.silenceT > 0 || u.yamatoCd > 0 || !!u.yamatoLock || !yamatoTarget(u, g, true);
     btn.title = 'Auto-fires against heavy targets. Y: attack target first, otherwise strongest enemy within 12 tiles. 1.4s charge, 18s cooldown. Damage scales with upgrades.';
   }
@@ -806,13 +806,13 @@ export class UI {
       : `Lv ${g.baseLevel} · +${bonus}% HP / damage`;
     $('btnBaseUpgrade').title = `Each level: +15% health for all units, +15% damage for all combat units, and a visible addition to the base${next ? ' (next: ' + next + ')' : ''}. Takes ${g.baseUpgradeTime}s to build. Applies to current and future units; lasts for this run.`;
     const aiming = $('btnLaser').getAttribute('aria-pressed') === 'true';
-    $('btnLaser').textContent = aiming ? 'Cancel laser aim' : g.laserReady ? 'Fire laser (L)' : `Laser · ${Math.floor(g.laserCharge / BASE_LASER.chargeTime * 100)}%`;
+    $('btnLaser').textContent = aiming ? 'Cancel laser aim' : g.laserReady ? 'Fire laser (Shift+R)' : `Laser · ${Math.floor(g.laserCharge / BASE_LASER.chargeTime * 100)}%`;
     $('btnLaser').disabled = g.paused || !g.laserReady || !['wave', 'raid'].includes(g.state);
     $('laserHint').textContent = aiming ? 'Click a direction from your base · Esc cancels' : g.laserReady ? 'Auto-fire armed · tracking enemies · 600 piercing damage' : `${Math.ceil(BASE_LASER.chargeTime - g.laserCharge)}s to auto-fire · tracks enemies`;
     const waiting = g.lastArmy?.length || 0;
     $('btnRedeploy').hidden = !waiting || !$('intro').hidden || !['build', 'brief', 'wave'].includes(g.state);
     if (waiting) {
-      $('btnRedeploy').textContent = `Redeploy army (Z) · ${waiting} unit${waiting === 1 ? '' : 's'}`;
+      $('btnRedeploy').textContent = `Redeploy army (Shift+D) · ${waiting} unit${waiting === 1 ? '' : 's'}`;
       $('btnRedeploy').title = `Rebuild last round's units and ranks at the new defense line for ${g.lastArmy.reduce((sum, u) => sum + u.invested, 0)} minerals`;
     }
     if (g.state !== 'raid') {

@@ -478,7 +478,7 @@ const PLACE_TIP = {
   wall: 'Walls redirect the swarm, and bugs stop to chew them. Drag to lay a run. Right-click cancels.',
   marine: 'Place a Trooper. Right-click the ground to move him later.',
   goliath: 'Atlas. Twin rocket pods, long reach. Advances with the army; too big for a bunker.',
-  cruiser: 'Titan. Four batteries, heavy armour, and auto Yamato against heavy targets. J builds; select and press Y to fire manually.',
+  cruiser: 'Titan. Four batteries, heavy armour, and auto Yamato against heavy targets. Z builds; select and press Shift+Z to fire manually.',
   falcon: 'Vector. Attacks ground and air. Right-click to fly over any terrain. V to deploy another.',
   tank: 'Hammer. Twin cannons, wide blast. Right-click the ground to drive it.',
   bunker: 'Bunker faces the bugs. Select Troopers and right-click it to garrison.',
@@ -627,7 +627,7 @@ function runCommand(id) {
       if (guards) ui.toast('Defenders holding', `${guards} ${guards === 1 ? 'unit stays' : 'units stay'} home on Defend.`);
     } else {
       sfx.deny();
-      if (guards) ui.toast('Nobody to send', 'Every unit is set to Defend. Select some and press K to release them.');
+      if (guards) ui.toast('Nobody to send', 'Every unit is set to Defend. Select some and press D to release them.');
     }
   }
   else if (id === 'stop') { game.commandStop(army()); sfx.ui(); }
@@ -964,22 +964,31 @@ window.addEventListener('keydown', (ev) => {
   if (ev.ctrlKey || ev.metaKey || ev.altKey || ev.repeat) return;
 
   const k = ev.key.toLowerCase();
+
+  // Everything sits under the left hand on WASD. Shift is the second layer: the less frequent orders.
+  if (ev.shiftKey && /^[a-z]$/.test(k)) {
+    if (k === 'a') setTargeting(targeting ? null : 'attack');
+    else if (k === 's') runCommand('salvage');
+    else if (k === 'd') runCommand('redeploy');
+    else if (k === 'f') runCommand('promote');
+    else if (k === 'r') setLaserAim(!laserAim);
+    else if (k === 'q') runCommand('army');
+    else if (k === 'e') runCommand('scv');
+    else if (k === 'z') runCommand('yamato');
+    return;
+  }
+
   const build = Object.values(BUILD).find((b) => b.key.toLowerCase() === k);
   if (build) { setPlacing(build.id); return; }
 
-  if (k === 'a') { if (ev.shiftKey) setTargeting(targeting ? null : 'attack'); else runCommand('attack'); }
+  if (k === 'a') runCommand('attack');
   else if (k === 's') runCommand('stop');
-  else if (k === 'k') runCommand('defend');
+  else if (k === 'd') runCommand('defend');
   else if (k === 'f') runCommand('stim');
-  else if (k === 'y') runCommand('yamato');
   else if (k === 'r') runCommand('air');
-  else if (k === 'l') setLaserAim(!laserAim);
   else if (k === 'i') setPanel(!panelOpen());
-  else if (k === 'u') runCommand('promote');
-  else if (k === 'x') runCommand('salvage');
-  else if (k === 'z') runCommand('redeploy');
-  else if (k === 'q') stage.spin(-0.35);
-  else if (k === 'e') stage.spin(0.35);
+  else if (k === ',' || k === '<') stage.spin(-0.35);
+  else if (k === '.' || k === '>') stage.spin(0.35);
   else if (k === '-' || k === '_') stage.zoomBy(1.1);
   else if (k === '=' || k === '+') stage.zoomBy(1 / 1.1);
 });
@@ -1067,7 +1076,7 @@ function updateGuide() {
   document.getElementById('guideTitle').textContent = !hasSquad ? 'Build your first line.'
     : fighting ? 'Your squad fires automatically.' : 'Ready? Launch the swarm.';
   document.getElementById('guideText').textContent = !hasSquad
-    ? 'Press M, then click open ground near your base to place a soldier.'
+    ? 'Press Q, then click open ground near your base to place a soldier.'
     : fighting ? 'Drag to pan · middle-drag to rotate · Shift-drag to select your squad. Right-click to move.'
     : 'Add walls with W. Press Space to pause or resume.';
 }

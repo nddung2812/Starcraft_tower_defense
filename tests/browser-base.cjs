@@ -235,7 +235,7 @@ const assert = require('node:assert/strict');
     await page.mouse.click(hiveClick.x, hiveClick.y, { button: 'right' });
     assert.equal(await page.evaluate(() => game.gunners.at(-1).order?.target === game.hives[0]), true);
     // Fire from the actual UI at a ground point. The single beam also damages hives.
-    await page.keyboard.press('l');
+    await page.keyboard.press('Shift+R');
     await page.mouse.click(hiveClick.x, hiveClick.y);
     assert.equal(await page.evaluate(() => game.laserCharge === 0 && game.hives[0].dead && game.fx.beams.length === 1), true);
     await page.evaluate(() => { game.stage.render(); });

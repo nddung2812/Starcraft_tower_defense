@@ -161,7 +161,7 @@ balance as permanent treasure stacks and enemy HP grow.
   troops and Atlas mechs (1.5 tiles/second). Units fight enemies en route, then resume and
   retarget surviving bases. Friendly buildings and Patch Rigs are never attack targets.
   Stop and move orders override the advance; Shift+A retains selected-unit attack-move.
-- Defend (K) is a per-unit toggle on the command card. A defending unit is skipped by Attack (A):
+- Defend (D) is a per-unit toggle on the command card. A defending unit is skipped by Attack (A):
   it holds its ground, stays in its bunker and keeps shooting whatever comes into range. Direct
   orders (move, attack a target, Shift+A) still work on it. Setting Defend on a unit that is
   already advancing recalls it by stopping it where it stands. Defenders carry a gold diamond
@@ -337,7 +337,7 @@ Supply drops: first at 14 s into a wave, then every 26 s, near the base. Worth
 30 + 6 × (round − 1) minerals, with a 20% chance to also recharge a cooling air strike. A crate
 lasts 18 s and is collected by a click or by a ground unit or Patch Rig within 0.9 tiles.
 
-Redeploy (Z) rebuilds last round's units and promotions at the normal prices, which the
+Redeploy (Shift+D) rebuilds last round's units and promotions at the normal prices, which the
 round-end refund already paid back; it is a convenience and does not change the economy.
 
 These numbers are a first pass: the unit contracts are tested, but late-round balance with the
@@ -404,7 +404,7 @@ The model and synthesized sounds are built locally; tuning below is for BREACHLI
   damage to the lock and 260 splash to other enemies within 2.6 tiles, including aircraft.
   Damage scales with weapon promotions and base research (1,960 direct damage on a Flagship).
 - Auto-targets bosses, hives and enemies with at least 300 maximum HP. Select a cruiser and
-  press Y, or use its inspector button, for a manual shot. Explicit attack orders take priority;
+  press Shift+Z, or use its inspector button, for a manual shot. Explicit attack orders take priority;
   otherwise the strongest enemy in range is chosen. The cannon never damages allies.
 - Normal batteries pause during charging. A dead or out-of-range lock, or silence, cancels the
   shot with a short retry delay. Pause freezes charge/cooldown. Checkpoints preserve cooldown;

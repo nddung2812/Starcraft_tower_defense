@@ -238,7 +238,7 @@ spawning, routing, stats or score.
 - **Nothing may assume west hives or an east base.** Use `layout.sides`/`layout.front`,
   `game.deployAnchor()` and `game.threatYaw(x, z)`; the last faces a bunker or idle unit up the
   swarm's route (`grid.upstreamYaw`) once there is more than one front.
-- **Defend (K).** `unit.defend` is a per-unit flag toggled by `game.commandDefend(units)`.
+- **Defend (D).** `unit.defend` is a per-unit flag toggled by `game.commandDefend(units)`.
   `commandAdvanceArmy()` skips defenders, so they stay home (and in their bunkers) when Attack is
   pressed; direct orders still move them. It is an optional checkpoint field on units and on
   `lastArmy`, so Redeploy restores it. Marked by `guardMark` (gold diamond), a gold chip border
@@ -249,7 +249,7 @@ spawning, routing, stats or score.
 ## Specialists, streaks, supply drops, redeploy and daily challenge (Nov 11, 2026)
 
 - **Three specialists, one per round.** `BUILD[id].unlock` is the first round a unit can be built:
-  Torch (C, round 2), Spectre (D, round 3), Medic (H, round 4). `game.isUnlocked(id)` gates
+  Torch (C, round 2), Spectre (X, round 3), Medic (E, round 4). `game.isUnlocked(id)` gates
   `placeGunner`; locked cards are hidden, so round 1 still shows six cards. `unitUnlocked` fires
   when the round arrives. All three are `Marine` instances driven by spec flags:
   `flame` (cone damage to every ground target, no projectile), `pierce` + `prefersBig` (tracer adds
@@ -267,7 +267,7 @@ spawning, routing, stats or score.
   opens it (their buttons exist nowhere else) and it closes again with that selection. While it is
   closed a boss fight keeps a slim health bar at the top right.
 - **No base strip.** The row under the toolbar was removed as too noisy. Upgrade Base and Fire
-  Laser are in the inspector (`#baseActions`) when the Ridge Relay is selected; L still aims the
+  Laser are in the inspector (`#baseActions`) when the Ridge Relay is selected; Shift+R still aims the
   laser and a toast announces when it is charged. The raid readout and Locate Hive button are gone
   (the two-second raid notice remains). Redeploy is a single button at the top of the battlefield.
 - **Kill streaks.** Kills within `STREAK.window` (2.5 s) of each other build `game.streak`; tiers at
@@ -277,7 +277,7 @@ spawning, routing, stats or score.
   seconds, never within 2.2 tiles of a unit. Clicking it, or a ground unit or the Patch Rig
   within 0.9 tiles, calls `game.collectCrate()`. It pays minerals (20% chance to also recharge the
   air strike) and expires after 18 s. Crates are cleared by `loadLevel()` and are not saved.
-- **Redeploy army (Z).** `completeWave()` records `game.lastArmy` (kind, tier, invested) before the
+- **Redeploy army (Shift+D).** `completeWave()` records `game.lastArmy` (kind, tier, invested) before the
   refund. `game.redeployArmy()` rebuilds it around `deployAnchor()` at normal prices, dearest
   first, leaving anything unaffordable waiting. Walls and bunkers are not rebuilt. `lastArmy` is an
   optional checkpoint field; older saves load without it.
@@ -478,11 +478,13 @@ the balance suite checks the starting squad can clear both opening approaches.
 Left-drag pan · Shift-drag box-select · click / Shift-click / double-click or Ctrl-click (all of a type on screen) ·
 right-click = smart order (move, attack, garrison, repair, revive; never rotates the camera) · middle-drag = rotate/tilt · ⌥ + left-drag = rotate/tilt · wheel = zoom · arrows =
 scroll (no automatic edge scrolling) · Ctrl+1–9 set group, Shift+1–9 add, 1–9 select, double-tap to jump · A whole-army advance · Shift+A selected attack-move · S stop ·
-K defend (selected units stay home when the army attacks) · I unit panel · touch: tap a unit, then tap ground/enemy/bunker to order it; pinch to zoom, twist to rotate ·
-F stim · R air strike · U promote · X salvage · F1 SCV · F2 all army · Space launch wave / jump to
-last alert · Esc cancel · Z redeploy last round's army · click a supply drop to collect it.
-Build hotkeys: W wall, M marine, B bunker, G goliath, T tank, V Falcon Gunship, and once unlocked
-C Torch, D Spectre, H Medic.
+D defend (selected units stay home when the army attacks) · I unit panel · , and . rotate · touch: tap a unit, then tap ground/enemy/bunker to order it; pinch to zoom, twist to rotate ·
+F stim · R air strike · Shift+F promote · Shift+S salvage · Shift+E SCV (or F1) · Shift+Q all army (or F2) ·
+Shift+R laser · Shift+Z Titan cannon · Shift+D redeploy last round's army · Space pause · Esc cancel ·
+click a supply drop to collect it.
+Build hotkeys: Q Trooper, W wall, B bunker, G Atlas, T Hammer, V Vector, and once unlocked C Torch,
+X Spectre, E Medic, Z Titan. Every shortcut stays within reach of a left hand on WASD (the owner's
+request, Nov 18, 2026); `tests/browser-hotkeys.cjs` holds this.
 
 ## Testing
 

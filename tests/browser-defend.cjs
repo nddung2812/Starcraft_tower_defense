@@ -22,7 +22,7 @@ const assert = require('node:assert/strict');
     });
     const defend = page.locator('[data-cmd="defend"]');
     assert.equal(await defend.isDisabled(), true, 'Defend needs a selection');
-    assert.match(await defend.textContent(), /Defend\s*K/);
+    assert.match(await defend.textContent(), /Defend\s*D/);
 
     // One click on the card puts the selected unit on Defend and marks it.
     await page.evaluate(() => game.emit('selectOnly', game.gunners[0]));
@@ -64,11 +64,11 @@ const assert = require('node:assert/strict');
 
     // K recalls a unit that is already advancing, and toggles back off.
     await page.evaluate(() => game.emit('selectOnly', game.gunners[1]));
-    await page.keyboard.press('k');
+    await page.keyboard.press('d');
     assert.deepEqual(await page.evaluate(() => [game.gunners[1].defend, game.gunners[1].order]), [true, null]);
-    await page.keyboard.press('k');
+    await page.keyboard.press('d');
     assert.equal(await page.evaluate(() => game.gunners[1].defend), false);
-    assert.match(await defend.textContent(), /^\s*Defend\s*K/);
+    assert.match(await defend.textContent(), /^\s*Defend\s*D/);
 
     // With everyone on Defend, Attack sends nobody.
     assert.equal(await page.evaluate(() => { const g = game; g.commandStop(g.gunners); g.commandDefend(g.gunners, true); return g.commandAdvanceArmy(); }), 0);

@@ -607,7 +607,9 @@ html, body {
 .dock .card__cost { justify-self: end; font-size: 10px; }
 .dock .card__key { top: 2px; right: 3px; font-size: 7px; }
 .dock .cmdcard { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(4, minmax(0, 1fr)); grid-column: 2; grid-row: 1; gap: 3px; min-height: 0; }
-.dock .cmd { height: auto; padding: 2px 3px; font-size: 7px; }
+.dock .cmd { height: auto; padding: 2px 17px 2px 4px; justify-content: flex-start; font-size: 7px; }
+.dock .cmd__label { min-width: 0; overflow: hidden; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.dock .cmd__key { top: 50%; right: 4px; transform: translateY(-50%); }
 .dock .status { position: absolute; bottom: calc(100% + 6px); left: 0; right: 0; padding: 6px 9px; font-size: 10px; line-height: 1.4; max-height: 42px; overflow: hidden; background: rgba(6,14,23,.9); border: 1px solid var(--line); pointer-events: none; }
 .dock .status:empty { display: none; }
 .dock .toasts:empty { display: none; }
@@ -617,7 +619,8 @@ html, body {
 .challenge-hud { bottom: 192px; }
 .btn--inspector { display: none; }
 @media (max-width: 1100px) and (min-width: 761px) {
-  .dock { grid-template-columns: minmax(0, 1fr) 110px; gap: 5px; }
+  .dock { grid-template-columns: minmax(0, 1fr) 262px; gap: 5px; }
+  .dock .cmd { letter-spacing: 0; }
   .dock .card__name { display: none; }
   .dock .card__cost { grid-column: 1 / -1; justify-self: center; }
   .dock .card__icon { width: 44px; }
@@ -644,8 +647,10 @@ html, body {
   .dock .card__icon { width: 32px; height: 24px; }
   .dock .card__name { display: none; }
   .dock .card__cost { grid-column: 1 / -1; justify-self: center; font-size: 9px; }
-  .dock .cmd { padding: 1px; font-size: 6px; letter-spacing: 0; }
-  .dock .cmd__key, .dock .card__key { font-size: 6px; top: 1px; right: 2px; }
+  .dock .cmd { padding: 1px; justify-content: center; font-size: 6px; letter-spacing: 0; }
+  .dock .cmd__label { text-align: center; }
+  .dock .cmd__key { display: none; }   /* phones have no keyboard, and the names need the room */
+  .dock .card__key { font-size: 6px; top: 1px; right: 2px; }
   .dock .status { font-size: 9px; max-height: 40px; }
   .minimap { width: 90px !important; height: 90px !important; }
   .challenge-hud { bottom: 152px; font-size: 9px; }
@@ -858,7 +863,7 @@ button:focus-visible { outline: 2px solid var(--compact); outline-offset: 3px; }
   .dock { left: 120px; width: min(800px, calc(100% - 132px)); height: 96px; padding: 6px; gap: 6px; }
 }
 @media (min-width: 1101px) {
-  .dock { grid-template-columns: minmax(0, 1fr) 224px; }
+  .dock { grid-template-columns: minmax(0, 1fr) 280px; }
   .dock .buildbar { grid-template-columns: repeat(6, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); gap: 5px; }
   .dock .card { grid-template-rows: minmax(0, 1fr) 15px; padding: 3px; }
   .dock .card__icon { max-height: 56px; }
@@ -886,7 +891,7 @@ button:focus-visible { outline: 2px solid var(--compact); outline-offset: 3px; }
   .portrait { height: 210px; }
   .stat__k { font-size: 11px; }
   .minimap { width: 120px !important; height: 120px !important; }
-  .dock { left: 144px; width: min(900px, calc(100% - 156px)); height: 120px; grid-template-columns: minmax(0, 1fr) 250px; }
+  .dock { left: 144px; width: min(900px, calc(100% - 156px)); height: 120px; grid-template-columns: minmax(0, 1fr) 330px; }
   .dock .card__icon { max-height: 72px; }
   .dock .card__cost { font-size: 14px; }
   .dock .cmd { font-size: 11px; }

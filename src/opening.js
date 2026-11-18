@@ -133,7 +133,7 @@ export function installOpening({ game, stage, ui, canvas, intro, isTouch = () =>
     const fighting = game.state === 'brief' || game.state === 'wave';
     if (!squad) return { step: 1, title: 'Build your first line.',
       text: touch ? 'Tap the Trooper card, then tap open ground near your base.'
-        : 'Press M, then click open ground near your base to place a Trooper.' };
+        : 'Press Q, then click open ground near your base to place a Trooper.' };
     if (!fighting) return { step: 1, title: 'Ready? Launch the swarm.',
       text: touch ? 'Add Barriers from the build cards. Tap Launch when your line is set.'
         : 'Add Barriers with W. Press Space when your line is set.' };
