@@ -84,6 +84,7 @@ const assert = require('node:assert/strict');
     await page.keyboard.press('Escape');
     await page.evaluate(() => game.emit('selectOnly',game.gunners[0]));
     assert.match(await page.locator('#stats').textContent(), /42 ×4/);
+    await page.locator('#btnInspector').click();
     assert.equal(await page.locator('#btnYamato').isVisible(), true);
     await page.evaluate(async () => {
       const { Zergling } = await import('/src/entities.js');

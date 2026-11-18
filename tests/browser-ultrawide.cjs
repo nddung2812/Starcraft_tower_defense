@@ -13,7 +13,7 @@ const assert = require('node:assert/strict');
    await page.locator('#btnPlan').click();
    const info=await page.evaluate(()=>{
     const s=game.stage,rect=document.getElementById('game').getBoundingClientRect();
-    const bounds=['.hud','.stage','.panel','.dock','.minimap','#btnPause'].map(sel=>{const r=document.querySelector(sel).getBoundingClientRect();return {sel,x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height};});
+    const bounds=['.hud','.stage','.dock','.minimap','#btnPause'].map(sel=>{const r=document.querySelector(sel).getBoundingClientRect();return {sel,x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height};});
     const hit=s.pick({x:0,y:0});
     return {overflow:document.documentElement.scrollWidth>innerWidth,bounds,aspect:s.camera.aspect,expected:rect.width/rect.height,dist:s.dist,hitError:Math.hypot(hit.x-s.focus.x,hit.z-s.focus.z)};
    });

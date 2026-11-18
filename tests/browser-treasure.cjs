@@ -87,16 +87,19 @@ const assert = require('node:assert/strict');
     });
     console.log('Automatic boss rewards:', result);
     assert.equal(await page.locator('#btnTreasure').count(), 0);
+    await page.locator('#btnInspector').click();
     await page.locator('#treasureSummary').click();
     assert.match(await page.locator('#treasureNote').textContent(), /Gold.*Permanent this run/);
     assert.match(await page.locator('#treasureNote').textContent(), /Silver.*Active through Round 8/);
+    await page.locator('#btnInspector').click();
     for (const [width,height] of [[1440,1000],[390,844]]) {
       await page.setViewportSize({width,height}); await page.waitForTimeout(200);
       if (width < 761) {
         const more = page.getByRole('button', { name: 'Camera and settings' });
         if (await more.getAttribute('aria-expanded') !== 'true') await more.click();
-        await page.getByRole('button', { name: 'Unit info', exact: true }).click();
       }
+      await page.getByRole('button', { name: 'Unit info', exact: true }).click();
+      await page.waitForTimeout(100);
       const layout = await page.evaluate(() => {
         const rail = document.getElementById('battleReadouts').getBoundingClientRect();
         const canvas = document.getElementById('game').getBoundingClientRect();
@@ -110,9 +113,9 @@ const assert = require('node:assert/strict');
       if (width < 761) {
         const more = page.getByRole('button', { name: 'Camera and settings' });
         if (await more.getAttribute('aria-expanded') !== 'true') await more.click();
-        await page.getByRole('button', { name: 'Unit info', exact: true }).click();
-        assert.equal(await page.locator('#battleReadouts').isVisible(), false);
       }
+      await page.getByRole('button', { name: 'Unit info', exact: true }).click();
+      assert.equal(await page.locator('#treasure').isVisible(), false);
     }
     await page.evaluate(()=>{ game.reset(); if(game.treasureLoot.length || game.armory.length || game.marineUpgrades.length) throw Error('Reset kept upgrades'); });
     assert.equal(await page.locator('#treasure').isVisible(),false);

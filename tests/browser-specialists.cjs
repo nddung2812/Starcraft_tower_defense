@@ -215,6 +215,7 @@ const assert = require('node:assert/strict');
     await page.keyboard.press('h');
     assert.equal(await page.locator('.card--on').getAttribute('data-build'), 'mender');
     await page.keyboard.press('Escape');
+    await page.keyboard.press('i');
     for (const [tab, name] of [['scorcher', 'Torch'], ['deadeye', 'Spectre'], ['mender', 'Medic']]) {
       await page.locator(`.tab[data-unit="${tab}"]`).click();
       assert.equal(await page.locator('#pName').textContent(), name);

@@ -244,10 +244,9 @@ html, body {
 .toasts { pointer-events: none; }
 
 .toast {
-  min-width: 230px;
-  padding: 7px 10px;
+  padding: 4px 9px;
   display: grid;
-  background: rgba(8, 16, 24, .94);
+  background: rgba(8, 16, 24, .78);
   border: 1px solid var(--line);
   border-left: 3px solid var(--compact);
   animation: slide .25s ease;
@@ -789,7 +788,7 @@ html, body {
 .pause-plan-bar { position: absolute; z-index: 4; top: 12px; left: 12px; padding: 10px 14px; border: 1px solid #5ad7ff66; border-radius: 10px; background: #101e2ef5; color: var(--compact); font: inherit; font-size: 11px; cursor: pointer; }
 .pause-plan-bar[hidden] { display: none; }
 .stage.is-planning .field-guide { top: 58px; }
-.achievement-notice { position: absolute; z-index: 7; top: 16px; left: 16px; max-width: min(410px, calc(100% - 32px)); padding: 14px 18px; border: 1px solid #f0b23c88; border-radius: 12px; background: #152332f5; color: #ffdc90; font-size: 12px; line-height: 1.5; pointer-events: none; box-shadow: 0 8px 28px #0007; }
+.achievement-notice { position: absolute; z-index: 7; top: 16px; left: 16px; max-width: min(410px, calc(100% - 32px)); padding: 6px 12px; border: 1px solid #f0b23c88; border-radius: 10px; background: #152332c7; color: #ffdc90; font-size: 11px; line-height: 1.4; pointer-events: none; box-shadow: 0 8px 28px #0007; }
 .career-dialog { width: min(680px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); margin: auto; padding: 26px; border: 1px solid #5ad7ff44; border-radius: 20px; background: linear-gradient(145deg, #172b3e, #0b131e); color: #eaf5ff; font-family: inherit; overflow-y: auto; }
 .career-dialog::backdrop { background: #03060ade; backdrop-filter: blur(5px); }
 .career-heading { display: flex; align-items: start; justify-content: space-between; gap: 14px; }
@@ -905,10 +904,10 @@ button:focus-visible { outline: 2px solid var(--compact); outline-offset: 3px; }
 #btnLaser[aria-pressed="true"] { background: #852a2a; color: white; }
 .raid-hud { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .raid-hud strong { color: var(--gold); font-size: 14px; }
-.raid-notice { position: absolute; top: 18%; left: 50%; transform: translateX(-50%); z-index: 20; width: min(90%, 540px); padding: 20px; text-align: center; pointer-events: none; border: 1px solid var(--gold); border-radius: 12px; background: rgba(10, 18, 28, .94); box-shadow: 0 8px 32px #0008; }
+.raid-notice { position: absolute; top: 50px; left: 50%; transform: translateX(-50%); z-index: 3; width: max-content; max-width: calc(100% - 24px); padding: 5px 14px; text-align: center; pointer-events: none; border: 1px solid #f0b23c66; border-radius: 10px; background: rgba(6, 14, 23, .74); }
 .raid-notice[hidden] { display: none; }
-.raid-notice strong { display: block; color: var(--gold); font-size: clamp(20px, 3vw, 30px); }
-.raid-notice span { display: block; margin-top: 8px; color: var(--muted); font-size: 12px; }
+.raid-notice strong { display: block; color: var(--gold); font-size: 14px; letter-spacing: .06em; }
+.raid-notice span { display: block; margin-top: 1px; color: #c9d6e2; font-size: 10px; }
 @media (max-width: 760px) {
   .app { grid-template-areas: "hud" "base" "stage"; }
   .base-controls { gap: 6px; padding: 7px 9px; }
@@ -994,13 +993,11 @@ button:focus-visible { outline: 2px solid var(--compact); outline-offset: 3px; }
 .streak { margin-left: 6px; font-size: 11px; font-weight: 700; color: #ff9a4a; font-variant-numeric: tabular-nums; }
 .streak[hidden] { display: none; }
 
-.callout { position: absolute; z-index: 3; left: 50%; top: 16%; transform: translateX(-50%); width: min(560px, calc(100% - 32px)); display: grid; gap: 6px; text-align: center; pointer-events: none; }
+.callout { position: absolute; z-index: 3; left: 50%; top: 50px; transform: translateX(-50%); width: max-content; max-width: calc(100% - 24px); display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 1px 10px; padding: 5px 14px; border-radius: 10px; background: rgba(6, 14, 23, .74); text-align: center; pointer-events: none; }
 .callout[hidden] { display: none; }
-.callout strong { font-size: clamp(22px, 4.2vw, 42px); line-height: 1.05; letter-spacing: .12em; color: var(--gold); text-shadow: 0 0 26px rgba(240, 178, 60, .55), 0 3px 0 #000a; animation: callout-pop .3s ease-out; }
-.callout span { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: #eaf5ff; text-shadow: 0 2px 5px #000; }
-.callout--unit strong { color: var(--compact); text-shadow: 0 0 26px rgba(90, 215, 255, .55), 0 3px 0 #000a; }
-.callout--supply strong { color: var(--ok); text-shadow: 0 0 26px rgba(94, 240, 138, .5), 0 3px 0 #000a; }
-@keyframes callout-pop { from { opacity: 0; transform: scale(1.5); } }
+.callout strong { font-size: 14px; letter-spacing: .06em; color: var(--compact); animation: callout-pop .2s ease-out; }
+.callout span { font-size: 10px; letter-spacing: .04em; color: #c9d6e2; }
+@keyframes callout-pop { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .callout strong { animation: none; } }
 
 .base-redeploy { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
@@ -1036,3 +1033,23 @@ button:focus-visible { outline: 2px solid var(--compact); outline-offset: 3px; }
 .scout-boss { padding: 12px; border: 1px solid var(--gold); color: var(--gold); }
 .scout-dialog form { position: sticky; bottom: -24px; padding: 12px 0; background: #0c1825; }
 @media (max-width: 480px) { .scout-dialog { padding: 16px; } .scout-dialog h2 { font-size: 18px; } }
+
+/* The unit panel stays closed until asked for (I or the info button), so the battlefield gets the full window. */
+.btn--inspector[aria-expanded="true"] { color: var(--compact); border-color: var(--compact); }
+@media (min-width: 761px) {
+  .app { --panel-width: 300px; grid-template-columns: minmax(0, 1fr); grid-template-areas: "hud" "stage"; }
+  .app.is-inspecting { grid-template-columns: minmax(0, 1fr) var(--panel-width); grid-template-areas: "hud hud" "stage panel"; }
+  .btn--inspector { display: inline-block; }
+  .app:not(.is-inspecting) .panel { display: none; }
+  /* A boss fight keeps its health bar on screen while the panel is closed. */
+  .app:not(.is-inspecting) .panel:has(#assaultHud:not([hidden])) { display: block; position: relative; z-index: 3; grid-area: stage; align-self: start; justify-self: end; width: min(260px, 40%); margin: 10px; padding: 7px 10px; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: rgba(6, 14, 23, .74); clip-path: none; pointer-events: none; }
+  .app:not(.is-inspecting) .panel > :not(#battleReadouts),
+  .app:not(.is-inspecting) .panel #treasure,
+  .app:not(.is-inspecting) .panel #evolutionLoadout,
+  .app:not(.is-inspecting) .panel #bossStatus,
+  .app:not(.is-inspecting) .panel .assault-hud__timers { display: none; }
+  .app:not(.is-inspecting) .panel #battleReadouts { padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+  .app:not(.is-inspecting) .panel #btnLocateBoss { pointer-events: auto; }
+}
+@media (min-width: 761px) and (max-width: 1040px) { .app { --panel-width: 230px; } }
+@media (min-width: 1800px) and (min-height: 900px) { .app { --panel-width: 340px; } }

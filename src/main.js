@@ -249,6 +249,16 @@ function setSelection(list) {
 
 function select(e) { setSelection(e ? [e] : []); }
 
+/* The unit panel stays closed so the battlefield has the whole window. I or the info button opens it. */
+let panelAuto = false;          // opened by a selection that needs it, so it closes with that selection
+const panelOpen = () => document.querySelector('.app').classList.contains('is-inspecting');
+function setPanel(open, auto = false) {
+  panelAuto = open && auto;
+  document.querySelector('.app').classList.toggle('is-inspecting', open);
+  document.getElementById('btnInspector').setAttribute('aria-expanded', String(open));
+  ui.portrait.resize();
+}
+
 function inspect(e) {
   ui.inspect.entity = e;
   selRange.visible = selection.length === 1 && isGun(e) && !e.bunker && !e.downed;
@@ -256,11 +266,10 @@ function inspect(e) {
     selRange.scale.setScalar(e.attackRange);
     selRange.material.color.setHex(UNITS[e.kind].accent);
   }
-  // On narrow screens the inspector is closed by default; the base's controls live there.
-  if (e?.kind === 'core') {
-    document.querySelector('.app').classList.add('is-inspecting');
-    document.getElementById('btnInspector').setAttribute('aria-expanded', 'true');
-  }
+  // Base research, the laser and Leave Bunker have no other button, so these selections open the panel.
+  const needsPanel = e?.kind === 'core' || !!e?.bunker;
+  if (needsPanel && !panelOpen()) setPanel(true, true);
+  else if (!needsPanel && panelAuto) setPanel(false);
   if (!e) { ui.showUnit(ui.inspect.kind, ui.inspect.tier, null); return; }
   const tab = e.kind === 'zergling' || isGun(e) ? e.kind : ui.inspect.kind;
   ui.showUnit(tab, isGun(e) ? e.tier : 0, e);
@@ -350,11 +359,8 @@ function centerOn(list) {
 function setLaserAim(on) {
   if (on && (!game.laserReady || game.paused || !['wave', 'raid'].includes(game.state))) { sfx.deny(); return; }
   if (on) cancelModes();
-  // Aiming needs the battlefield: on narrow screens the inspector would cover it.
-  if (on) {
-    document.querySelector('.app').classList.remove('is-inspecting');
-    document.getElementById('btnInspector').setAttribute('aria-expanded', 'false');
-  }
+  // Aiming needs the battlefield.
+  if (on) setPanel(false);
   laserAim = !!on;
   if (!laserAim) cursor.visible = false;
   document.getElementById('btnLaser').setAttribute('aria-pressed', String(laserAim));
@@ -365,7 +371,7 @@ function setLaserAim(on) {
 function setPlacing(id) {
   if (id && !game.isUnlocked(id)) {
     sfx.deny();
-    ui.toast(`${BUILD[id].name} is locked`, `Clear Round ${BUILD[id].unlock - 1} to unlock it.`, 'warn', 2600);
+    ui.toast(`${BUILD[id].name} is locked`, `Clear Round ${BUILD[id].unlock - 1} to unlock it.`);
     return;
   }
   placing = placing === id ? null : id;
@@ -882,6 +888,7 @@ window.addEventListener('keydown', (ev) => {
   else if (k === 'y') runCommand('yamato');
   else if (k === 'r') runCommand('air');
   else if (k === 'l') setLaserAim(!laserAim);
+  else if (k === 'i') setPanel(!panelOpen());
   else if (k === 'u') runCommand('promote');
   else if (k === 'x') runCommand('salvage');
   else if (k === 'z') runCommand('redeploy');
@@ -1136,10 +1143,7 @@ game.on('change', () => {
 /* ---------------- audio + speed toggles ---------------- */
 
 const btnInspector = document.getElementById('btnInspector');
-btnInspector.addEventListener('click', () => {
-  const open = document.querySelector('.app').classList.toggle('is-inspecting');
-  btnInspector.setAttribute('aria-expanded', String(open));
-});
+btnInspector.addEventListener('click', () => setPanel(!panelOpen()));
 
 const btnMore = document.getElementById('btnMore');
 function closeTools() {

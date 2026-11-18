@@ -255,9 +255,16 @@ spawning, routing, stats or score.
   the target's armour back; targets the highest max HP), `heals` (targets the most injured ally via
   `seek()`/`acquireFriend()`, never attacks, cannot revive). Stats are in `BALANCE.md`.
 - **Messages are toasts.** There is deliberately no `#status` line (a test asserts it stays gone).
-  `ui.toast()` shows a short card above the dock (three at most); `ui.callout()` is the one large
-  centre-screen line for streaks, unlocks, supply drops and round starts. `ui.say()`/`ui.tip()` only
-  record `ui.line`; nothing renders them.
+  `ui.toast()` shows one short card above the dock (3 s, warnings 4 s; the newest replaces the last,
+  but routine news never cuts off a warning). `ui.callout()` is a slim 2-second strip at the top of
+  the battlefield for wave starts, unlocks and threats. An event gets one message, not both, and
+  kill streaks show only in the HUD. The owner asked for a clear view (Nov 18, 2026);
+  `tests/browser-quiet-hud.cjs` holds this. `ui.say()`/`ui.tip()` only record `ui.line`; nothing
+  renders them.
+- **The unit panel is closed by default (Nov 18, 2026).** I or the info button opens it beside the
+  battlefield. `setPanel()` in `main.js` owns this; selecting the Ridge Relay or a garrisoned unit
+  opens it (their buttons exist nowhere else) and it closes again with that selection. While it is
+  closed a boss fight keeps a slim health bar at the top right.
 - **No base strip.** The row under the toolbar was removed as too noisy. Upgrade Base and Fire
   Laser are in the inspector (`#baseActions`) when the Ridge Relay is selected; L still aims the
   laser and a toast announces when it is charged. The raid readout and Locate Hive button are gone
@@ -470,7 +477,7 @@ the balance suite checks the starting squad can clear both opening approaches.
 Left-drag pan · Shift-drag box-select · click / Shift-click / double-click or Ctrl-click (all of a type on screen) ·
 right-click = smart order (move, attack, garrison, repair, revive; never rotates the camera) · middle-drag = rotate/tilt · ⌥ + left-drag = rotate/tilt · wheel = zoom · arrows =
 scroll (no automatic edge scrolling) · Ctrl+1–9 set group, Shift+1–9 add, 1–9 select, double-tap to jump · A whole-army advance · Shift+A selected attack-move · S stop ·
-K defend (selected units stay home when the army attacks) · touch: tap a unit, then tap ground/enemy/bunker to order it; pinch to zoom, twist to rotate ·
+K defend (selected units stay home when the army attacks) · I unit panel · touch: tap a unit, then tap ground/enemy/bunker to order it; pinch to zoom, twist to rotate ·
 F stim · R air strike · U promote · X salvage · F1 SCV · F2 all army · Space launch wave / jump to
 last alert · Esc cancel · Z redeploy last round's army · click a supply drop to collect it.
 Build hotkeys: W wall, M marine, B bunker, G goliath, T tank, V Falcon Gunship, and once unlocked

@@ -305,13 +305,14 @@ export class UI {
       'Active for the rest of this run. Current and future units inherit this evolution.', 'unlock'));
     game.on('change', () => this.sync());
     game.on('raid', () => {
+      $('callout').hidden = true;   // both use the same strip
       clearTimeout(this.raidNoticeTimer);
       $('raidNotice').hidden = false;
       this.raidNoticeTimer = setTimeout(() => { $('raidNotice').hidden = true; }, 2000);
     });
     // Skirmish (`game.match`, see skirmish.js): the objective readout, wave and hive callouts, the result.
     game.on('matchStart', ({ hives, waveGap }) => {
-      this.toast('Skirmish', `Destroy ${hives === 1 ? 'the hive' : hives === 2 ? 'both hives' : `all ${hives} hives`} to win. A bigger wave every ${waveGap} seconds: hold, build up, then push (A).`, 'radio', 9000);
+      this.toast('Skirmish', `Destroy ${hives === 1 ? 'the hive' : hives === 2 ? 'both hives' : `all ${hives} hives`} to win. Bigger wave every ${waveGap}s.`, 'radio');
       this.syncMatch();
     });
     game.on('wave', ({ wave, hostiles, bonus, boss }) => this.callout(`Wave ${wave}`,
@@ -327,31 +328,20 @@ export class UI {
     game.on('unitUnlocked', (b) => {
       this.newCards.add(b.id);
       this.callout('New unit unlocked', `${b.name} · press ${b.key} · ${b.cost} minerals`, 'unit');
-      this.toast(`${b.name} unlocked (${b.key})`, b.desc, 'unlock', 9000);
     });
-    game.on('streak', (t) => this.callout(`${t.name} ×${t.streak}`, `Kill streak · +${t.bonus} minerals`));
     game.on('ultralisk', () => {
       this.callout('BEHEMOTH INBOUND', 'Heavy armour · sweeping tusks · deploy aircraft or Spectres', 'unit');
-      this.toast('Behemoth at the breach', 'Spread ground troops. Walls take bonus damage; Yamato and Spectres pierce its armour.', 'warn', 6000);
     });
     game.on('maw', () => {
       this.callout('TUNNEL MAW', 'The ground is shaking · move that unit out of the ring', 'unit');
-      this.toast('Tunnel Maw underfoot', 'It swallows a ground unit standing in the ring. Move to dodge, or kill it before it dives to free the unit. Aircraft and bunker troops are safe.', 'warn', 9000);
     });
-    game.on('mawTook', (unit) => this.toast('Unit lost to a Tunnel Maw', `Your ${unit.spec.info.name} was dragged under. Kill the Maw while it is up to free a swallowed unit.`, 'warn', 6000));
-    game.on('supply', () => {
-      this.callout('Supply drop', 'Click the crate or walk a unit onto it', 'supply');
-      this.toast('Supply drop near your base', 'Gold marker on the minimap. It leaves in 18 seconds.', 'supply');
-    });
+    game.on('mawTook', (unit) => this.toast('Unit lost to a Tunnel Maw', `Kill the Maw before it dives to free your ${unit.spec.info.name}.`, 'warn'));
+    game.on('supply', () => this.toast('Supply drop near your base', 'Click the crate or walk a unit onto it.', 'supply'));
     game.on('supplyCollected', ({ crate, recharge }) => this.toast(`Supplies recovered · +${crate.value} minerals`,
       recharge ? 'Air strike recharged.' : 'More drops arrive while the swarm is attacking.', 'ok', 3200));
     game.on('redeployed', ({ placed, waiting }) => this.toast(`Army redeployed · ${placed} unit${placed === 1 ? '' : 's'}`,
       waiting ? `${waiting} more waiting for minerals or space. Press Z again.` : 'Promotions kept. Move them into position.', 'ok'));
-    game.on('brief', (card) => {
-      this.say(`<b>${card.title}.</b> ${card.body}`);
-      // A unit unlocked this round already owns the centre of the screen.
-      if (game.level > 1 && !Object.values(BUILD).some(b => b.unlock === game.level)) this.callout(`Round ${game.level}`, card.title, 'unit');
-    });
+    game.on('brief', (card) => this.say(`<b>${card.title}.</b> ${card.body}`));
     game.on('hold', (card) => this.say(`<b>${card.kicker}.</b> ${card.body}`));
 
     this.showUnit('marine', 0, null);
@@ -412,8 +402,8 @@ export class UI {
     $('buildBar').style.setProperty('--cols', $('buildBar').dataset.cols);
   }
 
-  /** Big centre-screen moment: streaks, new units, supply drops. One at a time. */
-  callout(title, note, kind = 'streak') {
+  /** A slim strip at the top of the battlefield for what needs attention now. One at a time. */
+  callout(title, note, kind = 'unit') {
     const el = $('callout');
     $('calloutTitle').textContent = title;
     $('calloutNote').textContent = note;
@@ -422,7 +412,7 @@ export class UI {
     void el.offsetWidth;   // restart the pop animation
     el.hidden = false;
     clearTimeout(this.calloutTimer);
-    this.calloutTimer = setTimeout(() => { el.hidden = true; }, 2600);
+    this.calloutTimer = setTimeout(() => { el.hidden = true; }, 2000);
   }
 
   showUnit(kind, tier, entity) {
@@ -746,18 +736,19 @@ export class UI {
 
   tip(html) { this.say(html); }
 
-  /** A short-lived card above the build dock. Kept to three so the battlefield stays clear. */
-  toast(title, note = '', kind = '', ms = 4500) {
+  /** One short message above the build dock. The newest replaces the last, but routine news never cuts off a warning. */
+  toast(title, note = '', kind = '', ms = 3000) {
     this.say(`<b>${title}.</b> ${note}`);
     const box = $('toasts');
+    if (kind !== 'warn' && box.lastElementChild?.classList.contains('toast--warn')) return;
+    box.replaceChildren();
     const el = document.createElement('div');
     el.className = `toast${kind ? ` toast--${kind}` : ''}`;
     const head = document.createElement('b'); head.textContent = title;
     const body = document.createElement('span'); body.textContent = note;
     el.append(head, body);
     box.append(el);
-    while (box.children.length > 3) box.firstElementChild.remove();
-    setTimeout(() => el.remove(), ms);
+    setTimeout(() => el.remove(), Math.min(ms, kind === 'warn' ? 4000 : 3000));
   }
 
   syncStreak() {
