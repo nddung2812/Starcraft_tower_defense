@@ -53,6 +53,7 @@ export class Game {
     this.groundFire = null;  // the groundfire layer installs the air strike's flames here; without it bombs only explode
     this.bossMagic = null;   // the bossmagic layer installs the Firestorm and Earthquake here; without it bosses keep their other spells
     this.impacts = null;     // the impacts layer installs the enemy hit effects here; without it hits show plain sparks
+    this.skyfleet = null;    // the skymother layer installs the swarm's carrier here; without it she stays out of the wave
     this.reset();
   }
 
@@ -1047,11 +1048,9 @@ export class Game {
         const lane = (s.lane || 0) % mouths.length;
         if (this.hives[lane]?.dead) continue;
         const sp = mouths[lane];
-        const z = new Zergling(
-          sp.x + 0.5 + (Math.random() - 0.5) * 0.28,
-          sp.y + 0.85 + (Math.random() - 0.5) * 0.28,
-          s.breed, s.hpScale, s.speedScale
-        );
+        if (s.breed === 'skymother' && !this.skyfleet?.room()) continue;
+        const px = sp.x + 0.5 + (Math.random() - 0.5) * 0.28, pz = sp.y + 0.85 + (Math.random() - 0.5) * 0.28;
+        const z = s.breed === 'skymother' ? this.skyfleet.hatch(px, pz, s) : new Zergling(px, pz, s.breed, s.hpScale, s.speedScale);
         if (s.breed === 'ultralisk' && !this.ultraliskWarned) {
           this.ultraliskWarned = true;
           this.emit('ultralisk');

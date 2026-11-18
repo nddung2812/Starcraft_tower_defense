@@ -106,6 +106,8 @@ the stronger base infantry and cheaper promotions.
 | Wraith | 5 | 100 | 1 | 10 / 1.15 s | 5.0 | 3.1 | 4 |
 | Leaper | 6 | 55 | 0 | 7 / 0.65 s | 0.9 | 2.7 | 2 |
 | Corroder | 8 | 276 | 1 | 18 / 1.70 s | 6.0 | 1.05 | 5 |
+| Skymother | 11 | 850 | 5 | none, launches 8 Talons | 7.5 | 1.1 | 25 |
+| Talon | with her | 30 | 0 | 5 / 1.30 s | 2.8 | 5.4 | 0 |
 
 Brutes remain armored blockers. Leapers trade some melee DPS for their wall-jumping
 mobility. Corroders now actually appear in round eight; the previous count formula
@@ -475,6 +477,34 @@ has four animated legs, overlapping chitin plates, dorsal spikes and paired scyt
 
 `tests/browser-ultralisk.cjs` validates spawn progression, cleave boundaries, structure
 bonus, armour, aircraft/garrison protection, wall occlusion, Yamato survival and canyon traversal.
+
+## Skymother and Talons (Nov 18, 2026)
+
+The swarm's answer to the Titan: a slow armoured flyer that fights only through its brood.
+
+- **Arrival.** From round 11, 9 seconds into the wave. One per wave, two from round 21, three from round 31.
+  Never on a boss round (every fifth), and at most three alive at once. HP grows with the round like any bug
+  (1,700 at round 11).
+- **Talons.** She carries 8 and launches one every 0.3 s at anything within 7.5 tiles, a Titan first. They hit
+  ground and air. Each shot does 5, 10 to a Titan, and 2 to buildings. With nothing in reach they fly home.
+- **Regrowth.** One lost Talon grows back every 6 seconds. Talons score nothing and pay nothing, because she can
+  always make more. They all fall when she dies. She pays 200 minerals and counts as one kill.
+- **Tuning is `SKYMOTHER` and `BREEDS.skymother` / `BREEDS.talon` in `src/config.js`.**
+
+One Skymother at round 11, six simulated fights per row, with the army ordered to attack her:
+
+| Army | Wins | Army health left |
+| --- | ---: | ---: |
+| 1 Titan | 6 of 6 | 85% |
+| 1 Titan, Yamato unavailable | 6 of 6 | 41% |
+| 2 Titans | 6 of 6 | 96% |
+| 6 Atlas (960 minerals) | 6 of 6 | 52% |
+| 6 Spectres (900) | 0 of 6, she is left on 5% | 0% |
+| 4 Vectors (960) | 0 of 6, she is left on 57% | 0% |
+| 15 Troopers (900) | 0 of 6 in two minutes, she is left on 39% | 79% |
+
+These are isolated duels with unpromoted units and no research, not full rounds.
+`tests/browser-skymother.cjs` covers waves, launch, targets, recall, regrowth, scoring, death, the cap and a missing layer.
 
 ## Twin-cannon bunker — 15 November 2026
 

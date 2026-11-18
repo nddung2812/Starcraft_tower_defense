@@ -8,6 +8,8 @@ import { EVOLUTIONS, EVOLUTION_RULES } from './config.js';
 import { evolutionDescription } from './evolutions.js';
 
 const $ = (id) => document.getElementById(id);
+/* Enemies shown in the unit panel as themselves rather than as a Ripper. */
+const OWN_PORTRAIT = new Set(['ultralisk', 'maw', 'skymother', 'talon']);
 const clock = (seconds) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 
 /* A tiny second renderer that spins the real 3D model in the inspector. */
@@ -62,14 +64,14 @@ class Portrait {
       this.camera.position.set(1.7, 1.05, 3.15);
       this.camera.lookAt(0.05, 0.32, 0);
     } else {
-      this.current = kind === 'ultralisk' || kind === 'maw' ? model(kind) : loadedModels().includes('zergling') ? model('zergling') : buildZergling();
+      this.current = OWN_PORTRAIT.has(kind) ? model(kind) : loadedModels().includes('zergling') ? model('zergling') : buildZergling();
       this.camera.position.set(0, 0.62, 1.7);
       this.camera.lookAt(0, 0.22, 0);
     }
     this.current.traverse((o) => { o.castShadow = false; o.receiveShadow = false; });
     this.pivot.add(this.current);
     if (kind === 'cruiser') this.frame(this.current, { close: 0.4, rise: 0.42 });   // look down on the deck
-    else if (this.current.userData.fromFile || kind === 'ultralisk' || kind === 'maw') this.frame(this.current);
+    else if (this.current.userData.fromFile || OWN_PORTRAIT.has(kind)) this.frame(this.current);
   }
 
   /** Fit the camera to a model file, whatever its proportions. */
@@ -432,7 +434,7 @@ export class UI {
     this.inspect = { kind, tier, entity };
     document.querySelectorAll('.tab').forEach((b) => b.classList.toggle('tab--active', b.dataset.unit === kind));
     document.querySelector('.panel').dataset.faction = kind;
-    this.portrait.show(entity?.breedId === 'ultralisk' || entity?.breedId === 'maw' ? entity.breedId : entity?.kind === 'core' || entity?.kind === 'hive' ? entity.kind : kind, entity?.kind === 'core' ? this.game.baseLevel : tier);
+    this.portrait.show(OWN_PORTRAIT.has(entity?.breedId) ? entity.breedId : entity?.kind === 'core' || entity?.kind === 'hive' ? entity.kind : kind, entity?.kind === 'core' ? this.game.baseLevel : tier);
     this.renderStats();
   }
 
@@ -546,7 +548,7 @@ export class UI {
       $('pName').textContent = b.name;
       $('pRole').textContent = b.role;
       $('pFaction').textContent = ZERG_INFO.faction;
-      $('pBio').textContent = b.id === 'maw' ? 'Burrowing ambusher. The ground shakes under an exposed ground unit, then it erupts and swallows the nearest one still standing there. Move out of the ring to dodge. Kill it before it dives and the unit is spat back out; aircraft and bunker troops are out of its reach.' : b.id === 'ultralisk' ? 'Armoured siege beast. Sweeping tusks hit exposed ground defenders in a frontal arc and deal 60% bonus damage to walls and bunkers. Cannot hit aircraft. Counter with Yamato and armour-piercing Spectres; keep infantry spread out.' : ZERG_INFO.bio;
+      $('pBio').textContent = b.bio ? b.bio : b.id === 'maw' ? 'Burrowing ambusher. The ground shakes under an exposed ground unit, then it erupts and swallows the nearest one still standing there. Move out of the ring to dodge. Kill it before it dives and the unit is spat back out; aircraft and bunker troops are out of its reach.' : b.id === 'ultralisk' ? 'Armoured siege beast. Sweeping tusks hit exposed ground defenders in a frontal arc and deal 60% bonus damage to walls and bunkers. Cannot hit aircraft. Counter with Yamato and armour-piercing Spectres; keep infantry spread out.' : ZERG_INFO.bio;
       $('pQuote').textContent = ZERG_INFO.quote;
       const hp = entity ? entity.maxHp : b.hp;
       $('stats').innerHTML =

@@ -18,7 +18,8 @@ assert.deepEqual([1,6,7,15,16,100].map(n => mapDimensions(n).routeCount), [2,2,3
 
 let previousHp = 0, previousCount = 0;
 for (let level = 1; level <= 100; level++) {
-  const wave = wavePlan(level);
+  // The Skymother sits out boss rounds, where the boss takes her place, so the steady climb is measured without her.
+  const wave = wavePlan(level).filter((e) => e.breed !== 'skymother');
   const health = wave.reduce((sum, e) => sum + BREEDS[e.breed].hp * e.hpScale, 0);
   assert.ok(health > previousHp, `Enemy health budget did not increase at round ${level}`);
   assert.ok(wave.length >= previousCount, `Enemy count dropped at round ${level}`);

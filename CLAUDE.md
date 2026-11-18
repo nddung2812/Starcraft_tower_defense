@@ -49,6 +49,7 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 | `src/impacts.js` | Optional layer. What an enemy hit looks like on contact, behind `game.impacts`: claw slashes, spine shards, acid splash and pools. Fixed effect pools, presentation only. |
 | `src/plasma.js` | Optional layer. The plasma shield behind `game.plasma`: a globe over the base from research level 3, wider every third level. Friendly `takeDamage` calls `game.plasma?.absorb()` first. Tuning is `PLASMA_SHIELD` in config; `tests/browser-plasma.cjs` covers it. |
 | `src/maw.js` | Tunnel Maw: `MawAmbush` (timing, warning marks, eruption) and the `TunnelMaw` entity that swallows, holds and releases a unit. Tuning is `MAW` in config. |
+| `src/skymother.js` | Optional layer. The Skymother and her Talons behind `game.skyfleet`, models included (`registerModel()` in `assets.js`). Without the layer she is left out of the wave. Tuning is `SKYMOTHER` in config; `tests/browser-skymother.cjs` covers it. |
 | `src/evolutions.js` | Boss reward abilities: automatic tank siege, walker chain lightning, bunker Last Stand, descriptions and model additions. Tuning lives in config. |
 | `src/grid.js` | Tile grid, A* for player units, the Hammer's all-terrain route search (`driveSearch`), the shared bug route field, line-of-sight helpers. |
 | `src/levels.js` | Generates the seeded map: 2–4 approaches from 1–4 sides (`attackFronts(level)`) converging on the base, with boulders, rock depth and spires. Early level names come from `LEVELS`. `carveMatch()` builds Skirmish maps from a hive count and size instead of a round. |
@@ -136,6 +137,15 @@ hive personalities are not.
   `e465309`) and still fail the same way; their causes have not been investigated:
   `browser-base` ("paused"), `browser-scouting` (8 !== 7), `browser-maw` ("A Maw kept a cleared
   round open") and `browser-balance` ("Starting squad cannot protect opening seed 0").
+
+## Skymother (Nov 18, 2026)
+
+- A slow armoured flyer from round 11 that launches 8 Talons and hunts Titans first. Rules and numbers are in `BALANCE.md`.
+- **Talons are `Zergling` subclasses in `game.zerglings`** (`isTalon`), so every weapon can hit them, but their
+  `takeDamage` never calls `onKill`: she regrows them forever, so a kill would be free score and minerals.
+- A Talon that docks marks itself `dead` with `escaped` set, like a Maw that dives. All of them fall when she dies, so
+  they can never hold a round open.
+- `wavePlan()` lists her, and the spawn loop in `game.js` skips her when `game.skyfleet` is missing or `room()` is false.
 
 ## Medic mines (Nov 17, 2026)
 

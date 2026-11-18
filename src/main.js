@@ -206,7 +206,7 @@ function entityAt(tile, ordering = false) {
   for (const e of [...game.zerglings, ...game.gunners]) {
     if (!lifted(e) || e.dead || (ordering && isGun(e) && !e.downed)) continue;
     const p = screenPos(e);
-    const distance = Math.hypot(p.x - mouseX, p.y - mouseY);
+    const distance = Math.hypot(p.x - mouseX, p.y - mouseY) - (e.pickRadius || 0);
     if (p.front && distance < airDistance) { airPick = e; airDistance = distance; }
   }
   if (airPick) return airPick;
@@ -1404,6 +1404,7 @@ layer('groundfire', async () => (await import('./groundfire.js')).installGroundF
 layer('bossmagic', async () => (await import('./bossmagic.js')).installBossMagic(game));
 layer('impacts', async () => (await import('./impacts.js')).installImpacts(game));
 layer('plasma', async () => (await import('./plasma.js')).installPlasma(game, ui));
+layer('skymother', async () => (await import('./skymother.js')).installSkymother(game, ui));
 layer('music', async () => (await import('./music.js')).installMusic(game));
 layer('comms', async () => (await import('./comms.js')).installComms({ game, stage, voice, sfx }));
 layer('skirmish', async () => (await import('./skirmish.js')).installSkirmish({

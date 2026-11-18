@@ -249,7 +249,21 @@ export const MAW = {
   firstRound: 9, pairRound: 18, first: 16, interval: 24, intervalStep: 0.6, minInterval: 12,
   telegraph: 2.4, radius: 1.25, hold: 7, empty: 3.5, digest: 0.06, rise: 0.45, dive: 0.7
 };
+/*
+ * Skymother: the swarm's answer to the Titan, from round `firstRound` but never alongside a boss.
+ * She has no gun. She carries `brood` Talons, launches one every `launchGap` seconds, and grows a
+ * lost one back every `regrow` seconds. Talons do `structureShare` of their damage to buildings
+ * and `titanBonus` extra to a Titan, so they can bite through its plate without shredding infantry.
+ */
+export const SKYMOTHER = {
+  firstRound: 11, roundsPerExtra: 10, maxPerWave: 3, maxAlive: 3, arrive: 9, spacing: 8,
+  brood: 8, launchGap: 0.3, regrow: 6, altitude: 3.6, structureShare: 0.4, titanBonus: 5
+};
 export const BREEDS = {
+  skymother: { id: 'skymother', name: 'Skymother', role: 'Armoured Brood Carrier', flying: true, targetsAir: true, hp: 850, armor: 5, damage: 0, attackSpeed: 1, range: 7.5, speed: 1.1, scale: 1.75, bounty: 25, ranged: true,
+    bio: 'A slow living carrier in heavy plate. She has no weapon of her own: she launches up to eight Talons at anything in reach, hunts Titans first, and grows back the ones you shoot down. Kill her and the whole brood falls with her. Rifles barely scratch the armour, so use Yamato, armour-piercing Spectres and Atlas mechs.' },
+  talon: { id: 'talon', name: 'Talon', role: 'Skymother Brood', flying: true, targetsAir: true, hp: 30, armor: 0, damage: 5, attackSpeed: 1.3, range: 2.8, speed: 5.4, scale: 0.62, bounty: 0, ranged: true, projectile: 'spine',
+    bio: 'A fast dart of chitin launched from a Skymother. It strikes ground and air alike. She grows more for as long as she lives, so shooting them earns nothing: go for the mother.' },
   maw: { id: 'maw', name: 'Tunnel Maw', role: 'Burrowing Ambusher', hp: 240, armor: 2, damage: 0, attackSpeed: 1, range: 1.25, speed: 0, scale: 1.0, bounty: 6, melee: true, aggro: 0 },
   ultralisk: { id: 'ultralisk', name: 'Behemoth', role: 'Armoured Siege Beast', hp: 1300, armor: 7, damage: 48, attackSpeed: 1.15, range: 1.65, speed: 1.6, scale: 1.5, bounty: 18, melee: true, aggro: 3.8 },
   zergling: { id: 'zergling', name: 'Ripper', role: 'Melee Swarm', hp: 37, armor: 0, damage: 6, attackSpeed: 0.55, range: 0.95, speed: 2.4, scale: 1, bounty: 1, melee: true, aggro: 2.6 },
@@ -470,6 +484,7 @@ export function wavePlan(n) {
   if (n >= 6) add(Math.min(14, 2 + Math.floor((n - 6) / 1.5)), 1.4, 0.85, 'hopper');    // wall vaulters
   if (n >= 8) add(Math.min(10, 1 + Math.floor((n - 8) / 2.5)), 2.4, 1.7, 'tanker');         // acid siege
   if (n >= ULTRALISK.firstRound) add(Math.min(4, 1 + Math.floor((n - ULTRALISK.firstRound) / 4)), 6, 4, 'ultralisk');
+  if (n >= SKYMOTHER.firstRound && n % 5) add(Math.min(SKYMOTHER.maxPerWave, 1 + Math.floor((n - SKYMOTHER.firstRound) / SKYMOTHER.roundsPerExtra)), SKYMOTHER.arrive, SKYMOTHER.spacing, 'skymother');
   out.sort((a, b) => a.at - b.at);
   return out;
 }

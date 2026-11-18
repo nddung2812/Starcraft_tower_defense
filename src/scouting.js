@@ -3,6 +3,7 @@ import { BUILD, BREEDS, MAW, wavePlan, milestonePlan, unlockRound } from './conf
 // Advice follows actual weapon roles; scouting never changes wave generation or combat stats.
 const COUNTERS = {
   ultralisk: { unit: 'cruiser', threat: 'Behemoth siege beast', why: 'Heavy armour shrugs off rifles; sweeping tusks shred clustered ground units and barricades. Titans attack safely from the air. Use Yamato and armour-piercing Spectres; spread your frontline.' },
+  skymother: { unit: 'cruiser', threat: 'Flying carrier', why: 'Launches eight Talons at ground and air, and hunts Titans first. Her armour shrugs off rifles. Open with Yamato, add armour-piercing Spectres and Atlas mechs, and kill her rather than the Talons: they fall when she does.' },
   zergling: { unit: 'scorcher', fallback: 'marine', threat: 'Swarm', why: 'Flames hit every ground enemy in a short cone. Keep the pack in front.', early: 'Overlap Trooper firing ranges at the shared approach. Bunkers protect the firing line.' },
   warrior: { unit: 'deadeye', threat: 'Armour', why: 'Spectre rounds ignore armour and prioritise large targets. Keep a frontline ahead of them.' },
   hopper: { unit: 'scorcher', threat: 'Wall vaulters', why: 'Leapers jump a single wall. Keep short-range flames behind your barricades to catch them.' },

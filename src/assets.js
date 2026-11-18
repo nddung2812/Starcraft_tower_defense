@@ -52,6 +52,12 @@ const RIM = {
   warden: [0xc06bff, 0.3], breacher: [0xff7a4a, 0.3], queen: [0xff5a8a, 0.34], eater: [0xff8a3a, 0.36]
 };
 
+/** An optional layer adds its own creature here, with its team-colour rim light. */
+export function registerModel(kind, build, rim) {
+  PROCEDURAL[kind] = build;
+  if (rim) RIM[kind] = rim;
+}
+
 const loaded = {};
 /* Clip names to look for, best match first. */
 const clipRe = {
