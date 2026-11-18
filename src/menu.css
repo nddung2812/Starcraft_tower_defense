@@ -91,6 +91,8 @@
 .menu-shell .intro__eyebrow {
   display: block; font: 700 clamp(58px, 8.4vw, 118px)/.86 var(--menu-display); letter-spacing: .015em;
   color: transparent; white-space: nowrap;
+  /* The gradient only paints inside this box, and the tight line height is shorter than the letters. */
+  padding-block: .16em; margin-block: -.16em;
   background: linear-gradient(100deg, #0000 42%, #ffffffd0 50%, #0000 58%) -160% 0 / 250% 100% no-repeat,
     linear-gradient(180deg, #f6fbff 8%, #b9cbd9 46%, #5d7486 54%, #a8bccb 92%);
   -webkit-background-clip: text; background-clip: text;

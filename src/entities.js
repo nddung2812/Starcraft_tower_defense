@@ -11,6 +11,8 @@ import { packSiege, updateUnitEvolution, updateBunkerEvolution, triggerLastStand
 const TAU = Math.PI * 2;
 const _v = new THREE.Vector3();
 const CANNON_HOT = new THREE.Color(0xff4a20);
+/* A Medic following the army: how loosely it trails, where it stands behind a soldier, and how far back a straggler has to be before the Medic leaves it. */
+const FOLLOW = { slack: 3.2, near: 1.2, far: 2.8, straggler: 6 };
 
 /* The glow in a Medic's hands. Every hand shares one texture and material; only the sprite's size changes. */
 let handGlow = null;
@@ -320,6 +322,7 @@ export class Marine {
 
   /** Re-route toward an attack target that is out of range. */
   chase(game) {
+    if (this.spec.heals) { this.followArmy(game); return; }
     const t = this.order.target;
     if (this.flying) { this.orderMove(Math.floor(t.x), Math.floor(t.z), game); return; }
     const off = this.spec.offroad, cx = Math.floor(this.x), cz = Math.floor(this.z), reach = this.attackRange * 0.9;
@@ -330,11 +333,54 @@ export class Marine {
     this.followRoute(path, game);
   }
 
+  /**
+   * A Medic sent to attack never walks to the objective itself. It stays at the back of the main body
+   * of soldiers on the same order, and waits where it is if there is nobody to follow.
+   */
+  followArmy(game) {
+    const o = this.order;
+    if (o.type === 'amove') o.dest ||= { x: this.goalTx + 0.5, z: this.goalTy + 0.5 };
+    const goal = o.target || o.dest;
+    const army = game.gunners.filter(u => !u.spec.heals && !u.dead && !u.downed && !u.bunker && u.order?.type === o.type);
+    const ground = army.filter(u => !u.flying), escorts = ground.length ? ground : army;
+    if (!escorts.length) {
+      if (o.type === 'amove') this.order = null;   // the soldiers have arrived, so this order is over
+      this.halt(game);
+      return;
+    }
+    const left = u => Math.hypot(goal.x - u.x, goal.z - u.z);
+    const ranked = escorts.slice().sort((a, b) => left(b) - left(a));
+    const middle = ranked[Math.floor(ranked.length / 2)];
+    const anchor = ranked.find(u => u.distTo(middle) <= FOLLOW.straggler) || middle;   // a straggler is not the army
+
+    // "Behind" is measured against the way the soldier is walking, because canyons bend.
+    const next = anchor.driving ? anchor.waypoints?.[Math.min(anchor.wp + 2, anchor.waypoints.length - 1)] : null;
+    let fx = (next ? next.x : goal.x) - anchor.x, fz = (next ? next.y : goal.z) - anchor.z;
+    const length = Math.hypot(fx, fz) || 1;
+    fx /= length; fz /= length;
+    const ahead = (this.x - anchor.x) * fx + (this.z - anchor.z) * fz;
+    if (ahead <= 0.3 && this.distTo(anchor) <= FOLLOW.slack) return;
+
+    const ax = Math.floor(anchor.x), ay = Math.floor(anchor.z);
+    let spot = null, best = -Infinity;
+    for (let y = ay - 3; y <= ay + 3; y++) {
+      for (let x = ax - 3; x <= ax + 3; x++) {
+        const dx = x + 0.5 - anchor.x, dz = y + 0.5 - anchor.z, away = Math.hypot(dx, dz), along = dx * fx + dz * fz;
+        if (along >= 0 || away < FOLLOW.near || away > FOLLOW.far) continue;
+        if (!game.grid.inside(x, y) || game.grid.get(x, y) !== CELL.OPEN || !this.canCross(game, ax, ay, x, y)) continue;
+        if (game.gunners.some(m => m !== this && m.spec.heals && m.goalTx === x && m.goalTy === y)) continue;
+        const score = -along - Math.abs(dx * fz - dz * fx) * 0.3;
+        if (score > best) { best = score; spot = { x, y }; }
+      }
+    }
+    if (spot) this.orderMove(spot.x, spot.y, game);
+  }
+
   finishMove(game) {
     this.driving = false;
     this.waypoints = null;
     const o = this.order;
-    if (o?.type === 'amove') this.order = null;
+    if (o?.type === 'amove' && !this.spec.heals) this.order = null;
     if (this.flying) { this.tx = Math.floor(this.x); this.ty = Math.floor(this.z); return; }
     if (o?.type === 'garrison') {
       this.order = null;
@@ -428,13 +474,17 @@ export class Marine {
         this.chaseT = 0;
       }
       if (!o.target) { this.stop(game); o = null; }
-      else {
+      else if (!this.spec.heals) {
         const nearby = this.seek(game);
         if (!nearby && this.distTo(o.target) > this.attackRange * 0.9) {
           this.chaseT -= dt;
           if (this.chaseT <= 0) { this.chaseT = 0.6; this.chase(game); }
         }
       }
+    }
+    if (this.spec.heals && (o?.type === 'advance' || o?.type === 'amove')) {
+      this.chaseT -= dt;
+      if (this.chaseT <= 0) { this.chaseT = 0.6; this.followArmy(game); o = this.order; }
     }
     if (o?.type === 'attack' && !this.bunker && this.spec.mobile) {
       // close in until comfortably inside range, then hold; only give chase again once it is truly out of reach
