@@ -94,7 +94,7 @@ const RING_GREEN = 0x19ff3c;
 const RING_RED = 0xff2a2a;
 const RING_WIDTH = 0.035;
 // Each ring clears its model's footprint, or the model would hide it.
-const RING_RADIUS = { cruiser: 2.25, core: 1.5, hive: 1.55, tank: 0.92, goliath: 0.85, bunker: 0.82, falcon: 1, wall: 0.62 };
+const RING_RADIUS = { cruiser: 2.25, core: 1.5, hive: 1.55, tank: 0.83, goliath: 0.85, bunker: 0.82, falcon: 0.9, wall: 0.62 };
 const ringRadius = e => (RING_RADIUS[e.kind] || 0.52) * (e.kind === 'zergling' ? e.scale || 1 : 1);
 
 /** One geometry per radius, so a big ring is as thin as a small one. */
@@ -166,7 +166,7 @@ const lifted = e => e.flying || e.altitude > 0.3;
 
 /** [height, radius] of what can be clicked, in tiles. Anything unlisted is infantry sized. */
 const HIT = {
-  zergling: [0.55, 0.5], scv: [0.45, 0.42], tank: [1, 0.8], goliath: [1.65, 0.6],
+  zergling: [0.55, 0.5], scv: [0.45, 0.42], tank: [0.9, 0.72], goliath: [1.65, 0.6],
   bunker: [0.8, 0.75], wall: [0.9, 0.55], core: [2.4, 1.3], hive: [2.8, 1.4]
 };
 // A building gives way to a bug or soldier the cursor is squarely on.

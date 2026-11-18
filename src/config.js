@@ -174,13 +174,13 @@ export const UNITS = {
     rocket: true   // volleys fly as smoke-trailed rockets; damage and targeting are unchanged
   },
   falcon: {
-    id: 'falcon', shots: 2, tiers: FALCON_TIERS, info: FALCON_INFO, visualScale: 0.8,
+    id: 'falcon', shots: 2, tiers: FALCON_TIERS, info: FALCON_INFO, visualScale: 0.72,
     flying: true, targetsAir: true, shell: false, splash: 0, canBunker: false, canStim: false, armory: false, turret: true,
     mobile: true, speed: 4.4, accent: 0x71e7e0
   },
   tank: {
     targetsAir: false,
-    id: 'tank', shots: 2, tiers: TANK_TIERS, info: TANK_INFO, siegeMode: SIEGE_MODE,
+    id: 'tank', shots: 2, tiers: TANK_TIERS, info: TANK_INFO, visualScale: 0.9, siegeMode: SIEGE_MODE,
     shell: true, splash: 1.65, canBunker: false, canStim: false, armory: false, turret: true,
     mobile: true, speed: 1.25, accent: 0xd21f28,
     // All-terrain tracks: the share of road speed kept on mountain rock and wading a lake, and the

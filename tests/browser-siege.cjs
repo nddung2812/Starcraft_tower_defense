@@ -42,16 +42,19 @@ const assert = require('node:assert/strict');
       const bug = (d) => { const a = T.yaw, b = new Zergling(T.x + Math.cos(a) * d, T.z + Math.sin(a) * d, 'zergling', 1, 0.001); b.hp = b.maxHp = 1e6; b.speed = 0; b.damage = 0; return b; };
       const shells = () => g.shells.length; let fired = 0; const spawn = g.spawnShell.bind(g); const hits = [];
       g.spawnShell = (m, x, z, damage, splash) => { fired++; hits.push(damage); return spawn(m, x, z, damage, splash); };
+      const sizes = await import('/src/config.js');
+      out.sizes = [sizes.UNITS.tank.visualScale, sizes.UNITS.falcon.visualScale];
       T.siegeAmount = 0; const near = bug(4); T.cooldown = 0;
       for (let i = 0; i < 24; i++) { hold(); g.zerglings.length = 0; g.zerglings.push(near); g.update(0.05); }
       out.deploying = { amount: T.siegeAmount > 0 && T.siegeAmount < 1, fired, ready: T.siegeReady, range: T.attackRange };
       run(1);
-      out.deployed = { ready: T.siegeReady, range: T.attackRange, damage: T.attackDamage, barrel: +T.model.userData.weapon.scale.x.toFixed(2), legs: !!T.siegeRig?.visible };
+      out.deployed = { ready: T.siegeReady, range: T.attackRange, damage: T.attackDamage, barrel: +T.model.userData.weapon.scale.x.toFixed(2), legs: !!T.siegeRig?.visible, lifted: T.model.position.y > 0.1 };
 
       // ---- deployed it hits a far target for 50% more ----
       const far = bug(10.5); T.cooldown = 0; T.target = null;
       for (let i = 0; i < 40 && !fired; i++) { hold(); g.zerglings.length = 0; g.zerglings.push(far); g.update(0.05); }
       out.farShot = { fired: fired > 0, damage: hits[0] };
+      out.deployed.heavy = g.shells.some(s => s.heavy) || out.heavySeen === true;
       g.zerglings.length = 0;
 
       // ---- it ignores move orders, never chases, and stays home on Attack ----
@@ -66,8 +69,9 @@ const assert = require('node:assert/strict');
       return out;
     });
     assert.equal(r.sieged, true); assert.equal(r.parked, true);
+    assert.deepEqual(r.sizes, [0.9, 0.72], 'Hammer and Vector are 10% smaller');
     assert.deepEqual(r.deploying, { amount: true, fired: 0, ready: false, range: 7 }, 'No fire and no bonus while deploying');
-    assert.deepEqual(r.deployed, { ready: true, range: 11.5, damage: 57, barrel: 1.55, legs: true });
+    assert.deepEqual(r.deployed, { ready: true, range: 11.5, damage: 57, barrel: 1.7, legs: true, lifted: true, heavy: true });
     assert.deepEqual(r.farShot, { fired: true, damage: 57 }, 'A target beyond normal range takes +50%');
     assert.equal(r.moveRefused, 0); assert.equal(r.attackAccepted, true); assert.equal(r.held, true, 'It never leaves its spot');
     assert.equal(r.advance, null, 'Army Attack leaves it in place');
@@ -90,10 +94,10 @@ const assert = require('node:assert/strict');
       o.ordered = g.commandMove([T], open[0], open[1], 'move') > 0;
       run(0.6); o.packing = Math.hypot(T.x - spot[0], T.z - spot[1]) < 0.01 && T.siegeAmount > 0;
       run(2.5); o.moved = Math.hypot(T.x - spot[0], T.z - spot[1]) > 0.5; o.amount = T.siegeAmount;
-      o.barrel = +T.model.userData.weapon.scale.x.toFixed(2); o.legs = T.siegeRig.visible;
+      o.barrel = +T.model.userData.weapon.scale.x.toFixed(2); o.legs = T.siegeRig.visible; o.ground = T.model.position.y;
       return o;
     });
-    assert.deepEqual(out, { sieged: false, range: 7, damage: 38, ordered: true, packing: true, moved: true, amount: 0, barrel: 1, legs: false });
+    assert.deepEqual(out, { sieged: false, range: 7, damage: 38, ordered: true, packing: true, moved: true, amount: 0, barrel: 1, legs: false, ground: 0 });
     assert.deepEqual(errors, []);
     console.log('PASS: D key, parks then deploys, no fire while deploying, +4.5 range, +50% damage, locked in place, inspector, packs up and drives');
   } finally { await browser.close(); }

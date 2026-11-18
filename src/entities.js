@@ -3,7 +3,7 @@ import { packHeading, swarmStepClear } from './swarm.js';
 import { updateBattlecruiser } from './battlecruiser.js';
 import { cleaveDefenders } from './ultralisk.js';
 import { CELL, UNITS, BREEDS, UNIT_SCALE, BUG_SCALE, OVERDRIVE, applyBaseUpgrade, HIVE_RAID, BASE_LASER, SUPPLY, BUNKER_WEAPONS } from './config.js';
-import { buildWall, buildCore, upgradeCore, buildHatchery, buildCrate, buildSiegeRig, LASER_CELL_OFF, LASER_CORE_OFF } from './models.js';
+import { buildWall, buildCore, upgradeCore, buildHatchery, buildCrate, buildSiegeRig, SIEGE_LIFT, LASER_CELL_OFF, LASER_CORE_OFF } from './models.js';
 import { makeModel } from './assets.js';
 import { EVOLUTION_RULES, evolutionPower } from './config.js';
 import { packSiege, updateUnitEvolution, updateBunkerEvolution, triggerLastStand, chainLightning } from './evolutions.js';
@@ -11,6 +11,7 @@ import { packSiege, updateUnitEvolution, updateBunkerEvolution, triggerLastStand
 const TAU = Math.PI * 2;
 const _v = new THREE.Vector3();
 const CANNON_HOT = new THREE.Color(0xff4a20);
+const SIEGE_PLANT = 0.4;   // how far through deploying a Hammer's feet reach the ground
 /* A Medic following the army: how loosely it trails, where it stands behind a soldier, and how far back a straggler has to be before the Medic leaves it. */
 const FOLLOW = { slack: 3.2, near: 1.2, far: 2.8, straggler: 6 };
 
@@ -164,12 +165,12 @@ export class Marine {
       new THREE.MeshBasicMaterial({ color: 0xffd36a, transparent: true, opacity: 0.9, depthWrite: false })
     );
     this.guardMark.position.y = 0.025;
-    this.guardMark.scale.setScalar({ cruiser: 2.4, tank: 1.35, goliath: 1.2 }[kind] || 1);
+    this.guardMark.scale.setScalar({ cruiser: 2.4, tank: 1.22, goliath: 1.2 }[kind] || 1);
     this.guardMark.visible = false;
     this.obj.add(this.guardMark);
 
     const barY = (kind === 'cruiser' ? 1.4 : kind === 'goliath' ? 1.62 : kind === 'tank' ? 0.98 : 1.28) * this.visualScale;
-    this.bar = new HealthBar(this.obj, kind === 'tank' ? 0.78 : 0.62, 0.08, barY);
+    this.bar = new HealthBar(this.obj, kind === 'tank' ? 0.7 : 0.62, 0.08, barY);
     this.applyStats(armory);
     this.hp = this.stats.hp;
   }
@@ -628,18 +629,56 @@ export class Marine {
     game.sfx.heal();
   }
 
-  /** Hammer: drop the legs and run the cannon out while on Defend; reverse it all when released. */
+  /** Hammer: unfold the siege rig while on Defend, in stages, and fold it away again when released. */
   syncSiegeMode(dt, game) {
     const mode = this.spec.siegeMode, was = this.siegeAmount, ud = this.model.userData;
     const deploying = this.defend && !this.driving;
-    this.siegeAmount = Math.max(0, Math.min(1, was + (deploying ? dt / mode.deploy : -dt / mode.pack)));
-    if (was < 1 && this.siegeAmount >= 1) { game.fx.ring(this, 1.3, 0xf0b23c); game.sfx.place(); }
-    const k = this.siegeAmount * this.siegeAmount * (3 - 2 * this.siegeAmount);
-    ud.weapon.scale.x = 1 + k * 0.55;      // the barrels run out
-    ud.weapon.rotation.z = k * 0.16;       // and lift for the long shot
-    ud.torso.position.y -= k * 0.04;
-    if (!this.siegeRig && k > 0) { this.siegeRig = buildSiegeRig(); this.model.add(this.siegeRig); }
-    if (this.siegeRig) { this.siegeRig.visible = k > 0; this.siegeRig.userData.spread(k); }
+    const k = this.siegeAmount = Math.max(0, Math.min(1, was + (deploying ? dt / mode.deploy : -dt / mode.pack)));
+    this.siegeKick = Math.max(0, (this.siegeKick || 0) - dt * 3.5);
+    if (!this.siegeRig && k > 0) { this.siegeRig = buildSiegeRig(ud); this.model.add(this.siegeRig); }
+    if (!this.siegeRig) return;
+    this.siegeRig.visible = k > 0;
+    const { lift, gun } = this.siegeRig.userData.pose(k, game.time, this.siegeKick);
+    this.model.position.y = lift * SIEGE_LIFT * this.visualScale;   // up off its tracks
+    ud.weapon.scale.x = 1 + gun * 0.7;                              // the barrels run out
+    ud.weapon.rotation.z = gun * 0.2;                               // and lift for the long shot
+    ud.weapon.position.x -= this.siegeKick * 0.2;
+    if (ud.body) ud.body.rotation.z = this.siegeKick * 0.045;       // the whole hull rocks back when it fires
+    if (was < SIEGE_PLANT && k >= SIEGE_PLANT) this.siegePlant(game);
+    if (was < 1 && k >= 1) this.siegeLock(game);
+  }
+
+  /** The feet hit the ground. */
+  siegePlant(game) {
+    for (const foot of this.siegeRig.userData.feet) {
+      foot.getWorldPosition(_v);
+      game.fx.smoke({ x: _v.x, y: 0.15, z: _v.z }, 5, [0.42, 0.37, 0.3]);
+      game.fx.sparks({ x: _v.x, y: 0.1, z: _v.z }, 0, 7, [1, 0.72, 0.32], 4, 6.28);
+    }
+    game.stage.kick(1.6);
+    game.sfx.cannonHit();
+  }
+
+  /** Fully deployed: a shockwave runs out to the edge of its new range. */
+  siegeLock(game) {
+    game.fx.ring(this, this.attackRange, 0xffa81f);
+    game.fx.ring(this, 2.2, 0xffd27a);
+    game.fx.sparks({ x: this.x, y: 0.7, z: this.z }, 0, 26, [1, 0.74, 0.3], 7, 6.28);
+    this.siegeKick = 1;
+    game.stage.kick(2.5);
+    game.sfx.cannon();
+  }
+
+  /** One siege round leaving the gun: a white-hot streak to the target and a blast at the tank. */
+  siegeShot(muzzle, game) {
+    const to = { x: this.target.x, y: (this.target.altitude || 0) + 0.45, z: this.target.z };
+    game.fx.link(muzzle, to, 0xff9a2e, 0.2, 0.09);
+    game.fx.link(muzzle, to, 0xfff0d0, 0.12, 0.035);
+    game.fx.sparks(muzzle, this.yaw, 16, [1, 0.8, 0.42], 13, 0.55);
+    game.fx.smoke(muzzle, 6, [0.5, 0.46, 0.42]);
+    game.fx.ring(this, 1.9, 0xffb060);
+    this.siegeKick = 1;
+    game.stage.kick(1.8);
   }
 
   /** While a Medic is healing, each hand holds a soft green glow that swells with every heal. */
@@ -729,6 +768,7 @@ export class Marine {
       if (this.spec.shell) {
         const splash = this.spec.splash + (this.siegeDeployed ? EVOLUTION_RULES.siegeSplash : 0);
         game.spawnShell(muzzle, this.target.x, this.target.z, this.attackDamage, splash);
+        if (this.siegeReady) { game.shells.at(-1).heavy = true; this.siegeShot(muzzle, game); }
         if (this.siegeDeployed) game.fx.ring(this, 1.1, 0xf0b23c);
       }
       else {
@@ -1819,15 +1859,16 @@ export class Shell {
   }
 
   boom(game) {
-    // The impact is the whole show, so it scales with the blast and leaves a mark.
-    const at = { x: this.tx, y: 0.35, z: this.tz };
-    game.fx.explosion(at, 1.15 * this.radius / 1.65);
+    // The impact is the whole show, so it scales with the blast and leaves a mark. A siege round is far bigger.
+    const at = { x: this.tx, y: 0.35, z: this.tz }, big = this.heavy ? 1.7 : 1;
+    game.fx.explosion(at, 1.15 * big * this.radius / 1.65);
     game.fx.ring(at, this.radius, 0xffb060);
-    game.fx.decal(this.tx, this.tz, this.radius * 0.55, 0x1a130d, 0.5);
-    game.fx.chunks(at, 5, 0x5a4a3a);
-    game.fx.smoke({ x: this.tx, y: 0.6, z: this.tz }, 5, [0.3, 0.28, 0.26]);
+    if (this.heavy) game.fx.ring(at, this.radius * 1.9, 0xffd27a);
+    game.fx.decal(this.tx, this.tz, this.radius * 0.55 * big, 0x1a130d, 0.5);
+    game.fx.chunks(at, this.heavy ? 12 : 5, 0x5a4a3a);
+    game.fx.smoke({ x: this.tx, y: 0.6, z: this.tz }, this.heavy ? 12 : 5, [0.3, 0.28, 0.26]);
     game.sfx.cannonHit();
-    game.stage.kick(2.2);
+    game.stage.kick(this.heavy ? 3.2 : 2.2);
     for (const bug of game.combatTargets) {
       if (bug.dead || bug.flying) continue;
       const d = Math.hypot(bug.x - this.tx, bug.z - this.tz);

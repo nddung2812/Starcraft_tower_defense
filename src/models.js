@@ -412,20 +412,89 @@ export function buildTank() {
   return root;
 }
 
-/** The four stabiliser legs a Hammer drops in siege mode. `spread(k)` moves them from stowed (0) to planted (1). */
-export function buildSiegeRig() {
-  const rig = new THREE.Group(), legs = [];
+/** How far siege mode jacks a Hammer's hull off the ground, in model units. */
+export const SIEGE_LIFT = 0.14;
+
+const stage = (k, from, to) => { const t = Math.max(0, Math.min(1, (k - from) / (to - from))); return t * t * (3 - 2 * t); };
+
+/**
+ * Everything a Hammer unfolds in siege mode: four hydraulic legs that jack it off its tracks, capacitor
+ * pods on the turret, coils and muzzle brakes on the guns, and a lock ring on the ground.
+ * `pose(k, time, kick)` plays it in order: legs (k 0 to 0.4), lift (0.3 to 0.65), guns (0.6 to 1).
+ */
+export function buildSiegeRig(ud) {
+  const rig = new THREE.Group(), legs = [], feet = [];
+  const glow = new THREE.MeshBasicMaterial({ color: 0x2a1606, toneMapped: false });
+  const hot = new THREE.Color(0xffa81f), cold = new THREE.Color(0x2a1606);
+
   for (const x of [-1, 1]) for (const z of [-1, 1]) {
     const leg = new THREE.Group();
-    leg.rotation.y = Math.atan2(-z * 0.4, x * 0.42);
-    leg.add(mesh(box(0.34, 0.06, 0.09, 0.015), MAT.steelDark, 0.1, 0, 0));
-    leg.add(mesh(box(0.14, 0.05, 0.11, 0.012), MAT.gunmetal, 0.2, -0.05, 0));
-    leg.add(mesh(new THREE.CylinderGeometry(0.11, 0.13, 0.04, 10), MAT.steel, 0.28, -0.1, 0));
+    leg.rotation.y = Math.atan2(-z * 0.42, x * 0.46);
+    const thigh = mesh(box(0.46, 0.1, 0.14, 0.02), MAT.steelDark, 0.2, -0.05, 0);
+    thigh.rotation.z = -0.32;
+    const ram = mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.36, 8).rotateZ(Math.PI / 2), MAT.steel, 0.2, 0.03, 0);
+    ram.rotation.z = -0.32;
+    const stripe = mesh(box(0.2, 0.012, 0.15, 0.003), glow, 0.2, 0.002, 0);
+    stripe.rotation.z = -0.32;
+    const foot = mesh(new THREE.CylinderGeometry(0.15, 0.19, 0.05, 8), MAT.gunmetal, 0.41, -0.175, 0);
+    foot.add(mesh(new THREE.CylinderGeometry(0.07, 0.1, 0.05, 8), MAT.steel, 0, 0.045, 0));
+    leg.add(thigh, ram, stripe, foot);
     rig.add(leg);
-    legs.push({ leg, x: x * 0.42, z: z * 0.4 });
+    legs.push({ leg, x: x * 0.46, z: z * 0.42 });
+    feet.push(foot);
   }
-  rig.userData.spread = (k) => {
-    for (const { leg, x, z } of legs) leg.position.set(x * (0.72 + k * 0.42), 0.13 + k * 0.03, z * (0.72 + k * 0.42));
+
+  // The lock ring lies flat on the ground under the lifted hull.
+  const lockMat = new THREE.MeshBasicMaterial({
+    color: 0xffa81f, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending, toneMapped: false
+  });
+  const lock = new THREE.Group();
+  lock.add(new THREE.Mesh(new THREE.RingGeometry(1.2, 1.25, 56).rotateX(-Math.PI / 2), lockMat));
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    const tick = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.05).rotateX(-Math.PI / 2), lockMat);
+    tick.position.set(Math.cos(a) * 1.07, 0, Math.sin(a) * 1.07);
+    tick.rotation.y = -a;
+    lock.add(tick);
+  }
+  rig.add(lock);
+
+  // Capacitor pods rise out of the turret.
+  const pods = new THREE.Group();
+  for (const s of [-1, 1]) {
+    pods.add(mesh(new THREE.CylinderGeometry(0.075, 0.09, 0.2, 10), MAT.gunmetal, -0.16, 0.07, s * 0.27));
+    pods.add(mesh(new THREE.CylinderGeometry(0.058, 0.058, 0.07, 10), glow, -0.16, 0.2, s * 0.27));
+    pods.add(mesh(new THREE.CylinderGeometry(0.075, 0.06, 0.03, 10), MAT.steel, -0.16, 0.25, s * 0.27));
+  }
+  ud.torso.add(pods);
+
+  // Coils along each gun, and a heavy muzzle brake at the end.
+  const guns = new THREE.Group();
+  for (const s of [-1, 1]) {
+    for (const x of [0.3, 0.42, 0.54]) {
+      const coil = mesh(new THREE.TorusGeometry(0.052, 0.014, 6, 14), glow, x, 0, s * 0.09);
+      coil.rotation.y = Math.PI / 2;
+      guns.add(coil);
+    }
+    guns.add(mesh(box(0.08, 0.12, 0.13, 0.015), MAT.gunmetal, 0.645, 0, s * 0.09));
+    guns.add(mesh(box(0.02, 0.135, 0.145, 0.004), glow, 0.61, 0, s * 0.09));
+  }
+  ud.weapon.add(guns);
+
+  rig.userData.feet = feet;
+  rig.userData.pose = (k, time, kick = 0) => {
+    const out = stage(k, 0, 0.4), lift = stage(k, 0.3, 0.65), gun = stage(k, 0.6, 1);
+    for (const { leg, x, z } of legs) leg.position.set(x * (0.62 + out * 0.5), 0.2 - lift * SIEGE_LIFT, z * (0.62 + out * 0.5));
+    lock.position.y = 0.02 - lift * SIEGE_LIFT;
+    lock.rotation.y = time * 0.35;
+    lock.scale.setScalar(0.6 + out * 0.4);
+    lockMat.opacity = gun * (0.5 + Math.sin(time * 3) * 0.12) + kick * 0.4;
+    pods.position.y = -0.2 + lift * 0.2;
+    pods.visible = lift > 0;
+    guns.visible = gun > 0;
+    glow.color.copy(cold).lerp(hot, Math.min(1, gun * (0.78 + Math.sin(time * 5) * 0.22) + kick));
+    return { lift, gun };
   };
   return rig;
 }
