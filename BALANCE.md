@@ -343,6 +343,13 @@ round-end refund already paid back; it is a convenience and does not change the 
 These numbers are a first pass: the unit contracts are tested, but late-round balance with the
 new units has not been playtested.
 
+## Air strike ground fire (Nov 18, 2026)
+
+Each of the strike's 3 bombs leaves a patch of flame 1.75 tiles in radius that burns for 5 seconds.
+A ground enemy or hive standing in the flames takes 10 damage a second, ignoring armor. Overlapping
+patches do not stack, so the rate stays 10 a second. Aircraft and our own units are not burned.
+Burn kills count as normal kills, and the flames are cleared with the map at the end of a round.
+
 ## Scouting and counterplay
 
 The toolbar's **Scout** button pauses a running battle and opens the current round's

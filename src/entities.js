@@ -1635,6 +1635,7 @@ export class AirBomb {
       const fall = 1 - (d / this.radius) * 0.45;
       bug.takeDamage(Math.max(1, Math.round(this.damage * fall)), game, Math.atan2(bug.z - this.tz, bug.x - this.tx));
     }
+    game.groundFire?.ignite(this.tx, this.tz);
   }
 }
 

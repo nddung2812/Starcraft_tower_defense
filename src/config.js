@@ -415,7 +415,8 @@ export const AIR_STRIKE = {
   damage: 95,
   radius: 2.75,
   bombs: 3,
-  key: 'R'
+  key: 'R',
+  fire: { seconds: 5, dps: 10, radius: 1.75 }   // the flames each bomb leaves; overlapping patches do not stack
 };
 
 /* One canyon per level. Waypoints are world-space tile centers. Radius is how far the dirt lane reaches — everything past it is locked mountain. */

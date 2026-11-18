@@ -50,6 +50,7 @@ export class Game {
     this.assault = new MilestoneAssault(this);
     this.ambush = new MawAmbush(this);
     this.minefield = null;   // the mines layer installs the Medic's minefield here; without it no mines are laid
+    this.groundFire = null;  // the groundfire layer installs the air strike's flames here; without it bombs only explode
     this.reset();
   }
 
@@ -157,6 +158,7 @@ export class Game {
     this.fx.clear();
     this.clearCrates();
     this.minefield?.clear();
+    this.groundFire?.clear();
     this.streak = 0;
 
     const layout = this.matchMap ? carveMatch(this.mapSeed, this.matchMap) : carveLevel(this.level, this.mapSeed, this.mapVersion);
@@ -1064,6 +1066,7 @@ export class Game {
     if (this.streak && this.time - this.lastKillT > STREAK.window) this.streak = 0;
     this.ambush.update(dt);
     this.minefield?.update(dt);
+    this.groundFire?.update(dt);
 
     for (const m of this.gunners) m.update(dt, this);
     for (const w of this.walls) w.update(dt, this);

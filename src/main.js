@@ -1387,6 +1387,7 @@ layer('touch', async () => (await import('./touch.js')).installTouch(canvas, sta
 layer('atmosphere', async () => (await import('./atmosphere.js')).installAtmosphere(game, stage));
 layer('story', async () => (await import('./story.js')).installStory(game, ui));
 layer('mines', async () => (await import('./mines.js')).installMines(game));
+layer('groundfire', async () => (await import('./groundfire.js')).installGroundFire(game));
 layer('skirmish', async () => (await import('./skirmish.js')).installSkirmish({
   game, getPlayer: () => player || 'Commander',
   // The setup screen's Start button: a fresh map, with the name typed on the start screen.
