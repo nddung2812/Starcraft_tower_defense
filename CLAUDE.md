@@ -141,7 +141,7 @@ hive personalities are not.
 
 ## Skymother (Nov 18, 2026)
 
-- A slow armoured flyer from round 11 that launches 8 Talons and hunts Titans first. Rules and numbers are in `BALANCE.md`.
+- A slow armoured flyer from round 11 with a bursting bile cannon (`BileBolt`, in `game.acids`). She launches 10 Talons, grows a lost one back every 10 seconds and hunts Titans first. Rules and numbers are in `BALANCE.md`.
 - **Talons are `Zergling` subclasses in `game.zerglings`** (`isTalon`), so every weapon can hit them, but their
   `takeDamage` never calls `onKill`: she regrows them forever, so a kill would be free score and minerals.
 - A Talon that docks marks itself `dead` with `escaped` set, like a Maw that dives. All of them fall when she dies, so

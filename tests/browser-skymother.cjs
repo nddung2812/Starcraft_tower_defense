@@ -42,9 +42,10 @@ const URL = process.env.TEST_URL || 'http://127.0.0.1:8765/';
       check(m.flying && m.maxHp === BREEDS.skymother.hp * 2 && m.armor === BREEDS.skymother.armor, 'Skymother stats');
       check(m.speed < BREEDS.skyhunter.speed / 2, 'Skymother should be slow');
       const trooper = unit('marine', c.x, c.z); trooper.maxHp = trooper.hp = 1e6; trooper.update = () => {};
+      m.fire = () => {};   // the cannon has its own check below
       run(4);
       out.launched = talons().length;
-      check(talons().length === SKYMOTHER.brood && m.docked === 0, 'Eight Talons launch');
+      check(SKYMOTHER.brood === 10 && talons().length === 10 && m.docked === 0, 'Ten Talons launch');
       const hurtGround = trooper.hp < 1e6;
       check(hurtGround, 'Talons hit ground units');
 
@@ -60,11 +61,14 @@ const URL = process.env.TEST_URL || 'http://127.0.0.1:8765/';
       for (const t of talons()) t.takeDamage(99999, g, 0);
       check(g.kills === kills && g.minerals === minerals, 'Talons must not score or pay');
       check(talons().length === 0, 'Talons were not shot down');
-      titan.dead = true; trooper.dead = true; g.gunners = [];
-      run(SKYMOTHER.regrow + 0.2, () => m.docked > 0);
+      titan.dead = true; trooper.dead = true; g.gunners = []; m.pick = () => null;   // nothing in reach while she regrows
+      check(SKYMOTHER.regrow === 10, 'One Talon every 10 seconds');
+      run(SKYMOTHER.regrow - 0.3, () => m.docked > 0);
+      check(m.docked === 0, 'A Talon grew back early');
+      run(0.6, () => m.docked > 0);
       check(m.docked === 1, 'A lost Talon grows back');
       run(SKYMOTHER.regrow * SKYMOTHER.brood + 1);
-      check(m.docked === SKYMOTHER.brood, 'The brood never grows past eight');
+      check(m.docked === SKYMOTHER.brood, 'The brood never grows past ten');
 
       // Nothing in reach: they fly home
       c = arena(); m = spawn(c.x + 5, c.z); const bait = unit('marine', c.x, c.z); bait.maxHp = bait.hp = 1e6; bait.update = () => {};
@@ -86,6 +90,19 @@ const URL = process.env.TEST_URL || 'http://127.0.0.1:8765/';
       out.hits = hits;
       check(hits.core === BREEDS.talon.damage * SKYMOTHER.structureShare && hits.wall === hits.core, 'Buildings take a share');
       check(hits.marine === BREEDS.talon.damage && hits.cruiser === BREEDS.talon.damage + SKYMOTHER.titanBonus, 'Titan bonus');
+
+      // The bile cannon: full damage on the target, a share beside it, nothing further out or in the other layer
+      c = arena(); m = spawn(c.x + 5, c.z); m.docked = 0; m.growT = 1e9;
+      const took = {}, dummyUnit = (name, kind, x, z) => { const u = unit(kind, x, z); u.update = () => {}; u.takeDamage = (n) => { took[name] = (took[name] || 0) + n; }; return u; };
+      const aim = dummyUnit('aim', 'marine', c.x, c.z), beside = dummyUnit('beside', 'marine', c.x + 1, c.z);
+      dummyUnit('far', 'marine', c.x + SKYMOTHER.boltRadius + 1, c.z); dummyUnit('air', 'falcon', c.x, c.z + 1);
+      m.prey = aim; m.yaw = Math.atan2(aim.z - m.z, aim.x - m.x); m.boltT = 0; m.fire(0.05, g);
+      check(g.acids.length === 1 && m.boltT === SKYMOTHER.boltGap, 'The cannon fires on its timer');
+      for (let i = 0; i < 200 && g.acids.some((a) => !a.dead); i++) g.acids.forEach((a) => a.update(0.05, g));
+      check(took.aim === BREEDS.skymother.damage, 'A bolt hits its target in full');
+      check(took.beside === BREEDS.skymother.damage * SKYMOTHER.boltSplash, 'A bolt splashes what stands beside it');
+      check(!took.far && !took.air, 'The splash stays in its radius and on the ground');
+      out.bolt = took;
 
       // Her death: one kill, her bounty, and the whole brood falls
       c = arena(); m = spawn(c.x + 5, c.z); const b2 = unit('marine', c.x, c.z); b2.maxHp = b2.hp = 1e6; b2.update = () => {};
@@ -131,6 +148,6 @@ const URL = process.env.TEST_URL || 'http://127.0.0.1:8765/';
     });
     assert.equal(missing.fleet, null); assert.ok(missing.breeds.includes('zergling')); assert.ok(!missing.breeds.includes('skymother'));
     assert.deepEqual(bareErrors, []);
-    console.log('PASS: Skymother waves, launch, targets, recall, regrowth, scoring, death, cap and missing layer', result);
+    console.log('PASS: Skymother waves, launch, cannon, targets, recall, regrowth, scoring, death, cap and missing layer', result);
   } finally { await browser.close(); }
 })().catch((e) => { console.error(e); process.exitCode = 1; });

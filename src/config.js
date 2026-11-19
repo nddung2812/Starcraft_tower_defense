@@ -251,20 +251,22 @@ export const MAW = {
 };
 /*
  * Skymother: the swarm's answer to the Titan, from round `firstRound` but never alongside a boss.
- * She has no gun. She carries `brood` Talons, launches one every `launchGap` seconds, and grows a
- * lost one back every `regrow` seconds. Talons do `structureShare` of their damage to buildings
- * and `titanBonus` extra to a Titan, so they can bite through its plate without shredding infantry.
+ * Her bile cannon fires every `boltGap` seconds and bursts for `boltSplash` of its damage within `boltRadius`.
+ * She carries `brood` Talons, launches one every `launchGap` seconds, and grows a lost one back every
+ * `regrow` seconds. Talons and bolts do `structureShare` of their damage to buildings
+ * and Talons do `titanBonus` extra to a Titan, so they can bite through its plate without shredding infantry.
  * A Survival match sends a wave every 40 seconds, so there she joins at `matchFirstWave`, `matchAlive` at a time.
  */
 export const SKYMOTHER = {
   firstRound: 11, roundsPerExtra: 10, maxPerWave: 3, maxAlive: 3, arrive: 9, spacing: 8,
-  brood: 8, launchGap: 0.3, regrow: 6, altitude: 3.6, structureShare: 0.4, titanBonus: 5,
+  brood: 10, launchGap: 0.3, regrow: 10, altitude: 3.6, structureShare: 0.4, titanBonus: 6,
+  boltGap: 2.6, boltSpeed: 9, boltSplash: 0.5, boltRadius: 1.5,
   matchFirstWave: 16, matchAlive: 1
 };
 export const BREEDS = {
-  skymother: { id: 'skymother', name: 'Skymother', role: 'Armoured Brood Carrier', flying: true, targetsAir: true, hp: 850, armor: 5, damage: 0, attackSpeed: 1, range: 7.5, speed: 1.1, scale: 1.75, bounty: 25, ranged: true,
-    bio: 'A slow living carrier in heavy plate. She has no weapon of her own: she launches up to eight Talons at anything in reach, hunts Titans first, and grows back the ones you shoot down. Kill her and the whole brood falls with her. Rifles barely scratch the armour, so use Yamato, armour-piercing Spectres and Atlas mechs.' },
-  talon: { id: 'talon', name: 'Talon', role: 'Skymother Brood', flying: true, targetsAir: true, hp: 30, armor: 0, damage: 5, attackSpeed: 1.3, range: 2.8, speed: 5.4, scale: 0.62, bounty: 0, ranged: true, projectile: 'spine',
+  skymother: { id: 'skymother', name: 'Skymother', role: 'Armoured Brood Carrier', flying: true, targetsAir: true, hp: 1400, armor: 5, damage: 32, attackSpeed: 2.6, range: 7.5, speed: 1.1, scale: 1.75, bounty: 40, ranged: true,
+    bio: 'A slow living carrier in heavy plate. Her bile cannon bursts across tight formations while she launches up to ten Talons at anything in reach, hunts Titans first, and grows a lost Talon back every 10 seconds. Kill her and the whole brood falls with her. Rifles barely scratch the armour, so use Yamato, armour-piercing Spectres and Atlas mechs.' },
+  talon: { id: 'talon', name: 'Talon', role: 'Skymother Brood', flying: true, targetsAir: true, hp: 40, armor: 0, damage: 6, attackSpeed: 1.3, range: 2.8, speed: 5.4, scale: 0.62, bounty: 0, ranged: true, projectile: 'spine',
     bio: 'A fast dart of chitin launched from a Skymother. It strikes ground and air alike. She grows more for as long as she lives, so shooting them earns nothing: go for the mother.' },
   maw: { id: 'maw', name: 'Tunnel Maw', role: 'Burrowing Ambusher', hp: 240, armor: 2, damage: 0, attackSpeed: 1, range: 1.25, speed: 0, scale: 1.0, bounty: 6, melee: true, aggro: 0 },
   ultralisk: { id: 'ultralisk', name: 'Behemoth', role: 'Armoured Siege Beast', hp: 1300, armor: 7, damage: 48, attackSpeed: 1.15, range: 1.65, speed: 1.6, scale: 1.5, bounty: 18, melee: true, aggro: 3.8 },
