@@ -235,7 +235,7 @@ const SEED = 12345;
     assert.equal(custom.wave1, custom.planned[0], 'wave 1 is scaled like every other wave');
     assert.match(custom.hud, /^SURVIVAL · HIVES 4\/4 · WAVE 1 · /);
     assert.deepEqual(custom.stored, { hives: 4, size: 88, mood: 'fierce', minerals: 800, quick: false }, 'the setup is remembered');
-    assert.deepEqual(custom.wave2, [2, [3345, 3345, 3345, 3345], 'wave'], 'the second wave leaves after 32 seconds and Fierce hives upgrade by 225');
+    assert.deepEqual(custom.wave2, [2, [3346, 3346, 3346, 3346], 'wave'], 'the second wave leaves after 32 seconds and Fierce hives upgrade by 113 every 15 s');
     assert.equal(custom.won[0], 'victory');
     assert.match(custom.won[1], /^Commander, you destroyed all 4 hives in 0:3\d, on wave 2, .* First win on this setup\.$/);
     assert.deepEqual(custom.records, ['2h-standard-56-480', '4h-fierce-88-800'], 'each setup keeps its own record');

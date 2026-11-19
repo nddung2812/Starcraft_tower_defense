@@ -4,7 +4,7 @@ import { startYamato, yamatoTarget } from './battlecruiser.js';
 import { BUILD, ZERG_INFO, BREEDS, ECON, UNITS, AIR_STRIKE, OVERDRIVE, BASE_UPGRADE, BASE_LASER, BASE_INCOME, incomeTier, incomeMinerals, YAMATO, CRUISER_TIERS, applyBaseUpgrade } from './config.js';
 import { buildZergling, buildWall, buildCore, buildHatchery, CORE_STAGES } from './models.js';
 import { makeModel, loadedModels } from './assets.js';
-import { EVOLUTIONS, EVOLUTION_RULES } from './config.js';
+import { EVOLUTIONS, EVOLUTION_RULES, HIVE_RAID } from './config.js';
 import { evolutionDescription } from './evolutions.js';
 
 const $ = (id) => document.getElementById(id);
@@ -488,7 +488,7 @@ export class UI {
     if (entity?.kind === 'core' || entity?.kind === 'hive') {
       const hive = entity.kind === 'hive';
       $('pName').textContent = hive ? 'Rift Hive' : `Ridge Relay · Upgrade ${g.baseLevel}`;
-      $('pRole').textContent = hive ? (g.match ? `Destroy it to win · ${entity.reward} minerals` : `Evolution ${entity.evolution} · hatches in ${Math.ceil(30 - entity.evolutionT)}s · ${entity.reward} minerals`) : 'Army research / piercing laser';
+      $('pRole').textContent = hive ? (g.match ? `Destroy it to win · ${entity.reward} minerals` : `Level ${entity.upgrades + 1} · grows in ${Math.ceil(HIVE_RAID.evolutionInterval - entity.evolutionT)}s · ${entity.reward} minerals`) : 'Army research / piercing laser';
       $('pFaction').textContent = hive ? 'The Rift Brood' : 'Breachline Compact';
       $('pBio').textContent = hive && g.match ? 'The swarm comes from here. Destroy every hive to win the match. Attack (A) sends the whole army.' : hive ? 'This brood egg evolves every 30 combat seconds, hatching a larger swarm each time. Destroy it to stop reinforcements and earn minerals. Attack (A) sends the whole army. Destroy every enemy base to finish the round. Surviving bases keep evolving until you destroy them.' : `Upgrade the base to raise its own health and boost every current and future unit. ${g.laserGuns > 1 ? 'The cannon has two lasers. Each charges for 90 seconds on its own rail, and they fire one at a time at different targets.' : `The cannon tracks enemies and automatically fires a piercing laser every 90 seconds when a target is available. A second laser comes online at base level ${BASE_LASER.twinLevel}.`} Upgrades and energy carry across rounds.`;
       $('pQuote').textContent = '';

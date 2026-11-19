@@ -1033,7 +1033,8 @@ export class Hive {
     game.thorns?.upgraded(this);
     game.fx.ring(this, 2.5, 0xe8b840);
     let brood = '';
-    if (!game.match) {           // in a match the director sends the waves instead
+    // In a match the director sends the waves instead; in the stand every other upgrade hatches.
+    if (!game.match && this.upgrades % HIVE_RAID.broodEvery === 0) {
       this.evolution++;
       const count = Math.min(HIVE_RAID.broodCap, HIVE_RAID.broodBase + this.evolution * HIVE_RAID.broodPerEvolution);
       for (let i = 0; i < count; i++) {
@@ -1046,7 +1047,7 @@ export class Hive {
       }
       brood = ` · +${count}`;
     }
-    game.fx.label({ x: this.x, y: 2.8, z: this.z }, `EVOLVED${brood} · +${this.upgradeHp} HP`, 'cash');
+    game.fx.label({ x: this.x, y: 2.8, z: this.z }, `HIVE LV ${this.upgrades + 1}${brood} · +${this.upgradeHp} HP`, 'cash');
     game.emit('change');
   }
 

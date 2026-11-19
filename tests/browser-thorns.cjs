@@ -1,8 +1,8 @@
 /*
  * Hive upgrades and thorns. Serve the repo on port 8765, then
  *   node tests/browser-thorns.cjs [absolute path to playwright-core]
- * Checks the free upgrade every 30 s (health added, never refilled), the growing model, the thorns
- * waking at 60 s, the warning and dodge, who can be hit, Survival mode's pace, and a missing layer.
+ * Checks the free upgrade every 15 s (health added, never refilled), the growing model, the thorns
+ * waking at 15 s, the warning and dodge, who can be hit, Survival mode's pace, and a missing layer.
  */
 const { chromium } = require(process.argv[2] || 'playwright-core');
 const assert = require('node:assert/strict');
@@ -27,22 +27,22 @@ const open = async (browser, block) => {
       const g = game; g.reset(12345); g.state = 'wave';
       const h = g.hives[0], start = h.maxHp, step = h.upgradeHp;
       h.takeDamage(100, g);
-      h.update(29.9, g);
+      h.update(14.9, g);
       const early = [h.upgrades, h.hp, h.maxHp];
       const parts = h.obj.userData.egg.children.length;
       h.update(0.1, g);
       const once = [h.upgrades, h.hp, h.maxHp];
       const grew = h.obj.userData.egg.children.length > parts;
       const size = [];
-      for (let i = 0; i < 11; i++) { size.push(+h.obj.scale.x.toFixed(3)); h.update(30, g); }
+      for (let i = 0; i < 21; i++) { size.push(+h.obj.scale.x.toFixed(3)); h.update(15, g); }
       return { start, step, early, once, grew, size, missing: h.maxHp - h.hp };
     });
-    assert.equal(upgrades.step, 60, 'a round-one hive gains 20% of its starting health');
+    assert.equal(upgrades.step, 30, 'a round-one hive gains 10% of its starting health');
     assert.deepEqual(upgrades.early, [0, 200, 300]);
-    assert.deepEqual(upgrades.once, [1, 260, 360], 'health is added on top: the damage stays');
+    assert.deepEqual(upgrades.once, [1, 230, 330], 'health is added on top: the damage stays');
     assert.equal(upgrades.missing, 100, 'upgrades never refill the bar');
     assert.ok(upgrades.grew, 'each upgrade adds to the model');
-    assert.ok(upgrades.size.every((s, i) => !i || s >= upgrades.size[i - 1]) && upgrades.size.at(-1) === 1.5, `the hive swells to a cap (${upgrades.size})`);
+    assert.ok(upgrades.size.every((s, i) => !i || s >= upgrades.size[i - 1]) && upgrades.size.at(-1) === 1.6, `the hive swells to a cap (${upgrades.size})`);
 
     const thorns = await page.evaluate(() => {
       const g = game; g.reset(12345); g.state = 'wave';
@@ -56,9 +56,9 @@ const open = async (browser, block) => {
       const run = (s) => { for (let i = 0; i < s / 0.05; i++) { t.update(0.05); } };
       const live = () => t.slots.filter(s => s.live).length;
       put(u, h.x + 4, h.z);
-      h.battleT = 59; h.thornT = 0; run(0.9);
+      h.battleT = 14; h.thornT = 0; run(0.9);
       const asleep = live() === 0 && u.hp === 5000;
-      h.battleT = 60; h.upgrades = 2; run(0.05);
+      h.battleT = 15; h.upgrades = 4; run(0.05);
       const marked = live() === 1 && u.hp === 5000 && t.slots.find(s => s.live).mark.visible;
       run(1.0);
       const hit = 5000 - u.hp;
@@ -83,25 +83,25 @@ const open = async (browser, block) => {
       const paces = ['calm', 'standard', 'fierce'].map(mood => rulesFor(normalizeSetup({ mood })).hiveHpPerUpgrade);
       g.match = new Match(g, 'T', normalizeSetup(null));
       const h = g.hives[0], bugs = g.zerglings.length;
-      h.update(30, g);
+      h.update(15, g);
       const after = [h.hp, h.maxHp, g.zerglings.length - bugs];
       g.match.launchWave();
       const wave = h.maxHp;
       g.match = null;
       return { paces, after, wave };
     });
-    assert.deepEqual(match, { paces: [102, 150, 225], after: [2750, 2750, 0], wave: 2750 });
+    assert.deepEqual(match, { paces: [51, 75, 113], after: [2675, 2675, 0], wave: 2675 });
     assert.deepEqual(errors, []);
     await page.close();
 
     const missing = await open(browser, true);
     const bare = await missing.page.evaluate(() => {
       const g = game; g.reset(12345); g.state = 'wave';
-      const h = g.hives[0], max = h.maxHp; h.update(90, g); g.update(0.05);
+      const h = g.hives[0], max = h.maxHp; h.update(45, g); g.update(0.05);
       return { layer: g.thorns, gained: h.maxHp - max };
     });
-    assert.deepEqual(bare, { layer: null, gained: 180 });
+    assert.deepEqual(bare, { layer: null, gained: 90 });
     assert.deepEqual(missing.errors, []);
-    console.log('PASS: free upgrades add health without refilling, the hive grows, thorns wake at 60 s, warn, can be dodged, spare aircraft and bunker crews, Survival pace, missing layer');
+    console.log('PASS: free upgrades add health without refilling, the hive grows, thorns wake at 15 s, warn, can be dodged, spare aircraft and bunker crews, Survival pace, missing layer');
   } finally { await browser.close(); }
 })().catch(e => { console.error(e); process.exitCode = 1; });

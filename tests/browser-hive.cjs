@@ -12,7 +12,7 @@ const assert = require('node:assert/strict');
       const g = game; g.reset(12345); g.state = 'build';
       const h = g.hives[0];
       h.update(35, g); const peaceful = h.evolution === 0;
-      g.state = 'wave'; h.update(29.9, g); const before = h.evolution === 0;
+      g.state = 'wave'; h.update(15, g); h.update(14.9, g); const before = h.evolution === 0 && h.upgrades === 1;   // upgrades every 15 s, hatches every other
       h.update(.1, g); const first = g.zerglings.length;
       h.update(30, g); const second = g.zerglings.length - first;
       const timer = h.evolutionT; g.paused = true; g.update(31);
