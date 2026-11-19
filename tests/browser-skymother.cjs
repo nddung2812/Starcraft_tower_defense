@@ -62,7 +62,7 @@ const URL = process.env.TEST_URL || 'http://127.0.0.1:8765/';
       check(g.kills === kills && g.minerals === minerals, 'Talons must not score or pay');
       check(talons().length === 0, 'Talons were not shot down');
       titan.dead = true; trooper.dead = true; g.gunners = []; m.pick = () => null;   // nothing in reach while she regrows
-      check(SKYMOTHER.regrow === 10, 'One Talon every 10 seconds');
+      check(SKYMOTHER.regrow === 7, 'One Talon every 7 seconds');
       run(SKYMOTHER.regrow - 0.3, () => m.docked > 0);
       check(m.docked === 0, 'A Talon grew back early');
       run(0.6, () => m.docked > 0);

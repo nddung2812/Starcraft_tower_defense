@@ -106,7 +106,7 @@ the stronger base infantry and cheaper promotions.
 | Wraith | 5 | 100 | 1 | 10 / 1.15 s | 5.0 | 3.1 | 4 |
 | Leaper | 6 | 55 | 0 | 7 / 0.65 s | 0.9 | 2.7 | 2 |
 | Corroder | 8 | 276 | 1 | 18 / 1.70 s | 6.0 | 1.05 | 5 |
-| Skymother | 11 | 1400 | 5 | 32 / 2.60 s burst, launches 10 Talons | 7.5 | 1.1 | 40 |
+| Skymother | 11 | 2000 | 6 | 40 / 2.20 s burst, launches 10 Talons | 7.5 | 1.1 | 40 |
 | Talon | with her | 40 | 0 | 6 / 1.30 s | 2.8 | 5.4 | 0 |
 
 Brutes remain armored blockers. Leapers trade some melee DPS for their wall-jumping
@@ -524,15 +524,18 @@ The swarm's answer to the Titan: a slow armoured flyer with a bursting cannon an
 
 - **Arrival.** From round 11, 9 seconds into the wave. One per wave, two from round 21, three from round 31.
   Never on a boss round (every fifth), and at most three alive at once. HP grows with the round like any bug
-  (2,800 at round 11). In Survival mode, where a wave comes every 40 seconds, she joins from wave 16, one at a time.
-- **Bile cannon.** Every 2.6 s she fires a bolt at her target for 32 damage. It bursts for 16 on everything else
+  (4,000 at round 11). In Survival mode, where a wave comes every 40 seconds, she joins from wave 16, one at a time.
+- **Bile cannon.** Every 2.2 s she fires a bolt at her target for 40 damage. It bursts for 20 on everything else
   within 1.5 tiles, on the target's own layer (ground or air). Buildings take 40% of either figure.
 - **Talons.** She carries 10 and launches one every 0.3 s at anything within 7.5 tiles, a Titan first. They hit
-  ground and air. Each shot does 6, 12 to a Titan, and 2.4 to buildings. With nothing in reach they fly home.
-- **Regrowth.** One lost Talon grows back every 10 seconds, shown by a brood sac swelling on her back. Talons score
+  ground and air. Each has 55 HP; each shot does 8, 14 to a Titan, and 3.2 to buildings. With nothing in reach they fly home.
+- **Regrowth.** One lost Talon grows back every 7 seconds, shown by a brood sac swelling on her back. Talons score
   nothing and pay nothing, because she can always make more. They all fall when she dies. She pays 320 minerals and
   counts as one kill.
 - **Tuning is `SKYMOTHER` and `BREEDS.skymother` / `BREEDS.talon` in `src/config.js`.**
+
+Strengthened on Nov 19, 2026 (HP 1400 → 2000, armour 5 → 6, cannon 32 → 40 every 2.6 → 2.2 s, Talons 40 → 55 HP and 6 → 8 damage,
+regrowth 10 → 7 s) and drawn 10% smaller (scale 1.75 → 1.575). The duels below were run before that change.
 
 One Skymother at round 11, six simulated fights per row, with the army ordered to attack her:
 
