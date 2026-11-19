@@ -496,7 +496,7 @@ One free soldier named after the commander. Levels and gear are saved in the bro
 - **Melee.** Anything on the ground within 1.5 tiles takes the blade for 2× gun damage. Right-clicking a ground bug charges it.
 - **XP.** A kill pays 0.04 per point of the bug's health, or 40% of that when the hero is over 9 tiles away. A boss adds 60 × its round.
 - **Passive skills** fire by themselves in a fight. Each reset counts from the moment its effect ends.
-  - **Frag Grenade** (15 s): 100 + 10 per hero level to every ground enemy within 1.8 tiles of the thickest group in 6 tiles.
+  - **Blade Blast** (15 s): the blade hurls a crescent of energy at the thickest ground group within 9.5 tiles (a Spotter Spectre's range). It bursts on arrival for 100 + 10 per hero level to every ground enemy within 2.4 tiles.
   - **Plasma Shield** (30 s): when an ally within 5 tiles is below 80% health, every allied unit in that radius takes no damage for 7 seconds.
   - **War Robot** (60 s): with 3 enemies within 7 tiles, a boss near, or the hero under half health, the hero flies as a winged robot for 30 seconds. It is 50% bigger with twin guns, 1.5× speed, attack speed and damage, and +1.5 range. It fires on the move, cannot use the blade, and a lethal hit only ends the form, leaving the hero on 25% health.
 - **Death.** The hero returns after 15 seconds and loses nothing. It cannot be salvaged and costs nothing to redeploy.

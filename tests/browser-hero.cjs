@@ -42,7 +42,7 @@ const start = async page => {
       const clearBugs = () => { for (const z of g.zerglings) g.world.remove(z.obj); g.zerglings = []; };
       const fight = () => { g.state = 'wave'; g.paused = false; g.crateT = 1e9; g.queue = [{ at: 1e9, breed: 'zergling', hpScale: 1, speedScale: 1 }]; };
       const out = {};
-      corps.cd = { grenade: 1e9, shield: 1e9, robot: 1e9 };   // the skills get their own section below
+      corps.cd = { blast: 1e9, shield: 1e9, robot: 1e9 };   // the skills get their own section below
 
       // ---- level 1 is a Trooper with extra health and armour ----
       const u = hero(), base = MARINE_TIERS[0];
@@ -172,20 +172,31 @@ const start = async page => {
       check(g.bombs.length === bombs + LOOT.legendaries.skyfall.bombs, 'Skyfall Sigil calls a strike');
       clearBugs(); wearOnly();
 
-      // ---- passive skills: grenade, plasma shield, War Robot ----
+      // ---- passive skills: blade blast, plasma shield, War Robot ----
       const skills = HERO.skills, tick = (seconds, step = () => corps.tickSkills(0.05)) => { for (let i = 0; i < Math.round(seconds * 20); i++) step(); };
       fight(); clearBugs(); u.hp = u.maxHp; u.silenceT = 0;
-      check(skills.grenade.cooldown === 15 && skills.shield.cooldown === 30 && skills.robot.cooldown === 60, 'Skills reset in 15, 30 and 60 seconds');
-      corps.cd = { grenade: 0, shield: 1e9, robot: 1e9 };
-      const blastA = bug(u.x + 3, u.z), blastB = bug(u.x + 3.4, u.z), blastFar = bug(u.x + 3, u.z + 4);
+      check(skills.blast.cooldown === 15 && skills.shield.cooldown === 30 && skills.robot.cooldown === 60, 'Skills reset in 15, 30 and 60 seconds');
+      corps.cd = { blast: 0, shield: 1e9, robot: 1e9 };
+      const { DEADEYE_TIERS } = await import('/src/config.js');
+      check(skills.blast.range === DEADEYE_TIERS[0].range, 'The blast reaches as far as a Spectre');
+      const tooFar = bug(u.x + skills.blast.range + 1, u.z);
       corps.tickSkills(0.05);
-      check(corps.grenades.length === 1 && corps.cd.grenade === 15, 'The grenade goes off by itself and starts its timer');
-      tick(skills.grenade.flight + 0.2);
+      check(corps.blasts.length === 0 && corps.cd.blast === 0, 'Nothing past Spectre range sets it off');
+      g.world.remove(tooFar.obj); g.zerglings = g.zerglings.filter(b => b !== tooFar);
+      const blastA = bug(u.x + 8, u.z), blastB = bug(u.x + 8.8, u.z), blastFar = bug(u.x + 8, u.z + 5);
+      corps.tickSkills(0.05);
+      check(corps.blasts.length === 1 && corps.cd.blast === 15, 'The blade blast goes off by itself and starts its timer');
+      check(blastA.hp === blastA.maxHp, 'The blast has to travel before it hits');
+      tick(8 / skills.blast.speed + 0.2);
+      check(corps.blasts.length === 0, 'The blast bursts where it lands');
       const blast = 100 + 10 * p.level;
-      check(blastA.maxHp - blastA.hp === blast && blastB.maxHp - blastB.hp === blast, `A grenade deals 100 + 10 per level (${blast})`);
-      check(blastFar.hp === blastFar.maxHp, 'Bugs outside the blast are untouched');
+      check(blastA.maxHp - blastA.hp === blast && blastB.maxHp - blastB.hp === blast, `A blast deals 100 + 10 per level in its radius (${blast})`);
+      check(blastFar.hp === blastFar.maxHp, 'Bugs outside the radius are untouched');
+      check(corps.shocks.length === 1, 'The impact opens a shockwave');
+      tick(skills.blast.shock + 0.1);
+      check(corps.shocks.length === 0, 'The shockwave clears itself away');
 
-      clearBugs(); corps.cd = { grenade: 1e9, shield: 0, robot: 1e9 };
+      clearBugs(); corps.cd = { blast: 1e9, shield: 0, robot: 1e9 };
       const buddy = g.gunners.find(m => !m.isHero && !m.flying), guardFoe = bug(u.x + 2, u.z);
       buddy.x = u.x + 1; buddy.z = u.z + 1; buddy.hp = buddy.maxHp * 0.5;
       corps.tickSkills(0.05);
@@ -198,7 +209,7 @@ const start = async page => {
       check(!corps.shielded(buddy) && corps.cd.shield > 29, 'It drops after 7 seconds and starts its 30 second reset');
       buddy.hp = buddy.maxHp;
 
-      clearBugs(); corps.cd = { grenade: 1e9, shield: 1e9, robot: 0 };
+      clearBugs(); corps.cd = { blast: 1e9, shield: 1e9, robot: 0 };
       const groundDamage = u.stats.damage, groundSpeed = u.stats.moveSpeed, groundCooldown = u.stats.attackSpeed, tileX = u.tx, tileY = u.ty;
       const r1 = bug(u.x + 3, u.z), r2 = bug(u.x + 3, u.z + 1), r3 = bug(u.x + 3, u.z - 1);
       corps.tickSkills(0.05);
@@ -219,7 +230,7 @@ const start = async page => {
       g.tracers.forEach(t => { t.dead = true; });
       check(u.robotT === 0 && !u.flying && u.isPlaced(g) && g.grid.occupant(u.tx, u.ty) === u, 'After 30 seconds the hero lands on open ground');
       check(corps.cd.robot === skills.robot.cooldown && Math.abs(u.stats.damage - groundDamage) < 1e-6, 'Stats return to normal and the 60 second reset starts');
-      clearBugs(); u.hp = u.maxHp; corps.cd = { grenade: 1e9, shield: 1e9, robot: 1e9 };
+      clearBugs(); u.hp = u.maxHp; corps.cd = { blast: 1e9, shield: 1e9, robot: 1e9 };
 
       // ---- the hero is not army hardware ----
       g.state = 'build';

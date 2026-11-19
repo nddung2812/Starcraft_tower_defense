@@ -3,6 +3,7 @@
 // only through `game.hero?.…`, so a missing file costs the hero and nothing else. Tuning is `HERO` and
 // `LOOT` in config; the rules and the save are in heroitems.js and the gear screen in heropanel.js.
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CELL, HERO, LOOT, UNITS } from './config.js';
 import { Marine, AirBomb } from './entities.js';
 import { registerModel } from './assets.js';
@@ -40,6 +41,11 @@ const shapes = {
   pad: new THREE.SphereGeometry(0.1, 12, 8).scale(1.1, 0.72, 1), padRim: new THREE.TorusGeometry(0.095, 0.011, 6, 18).rotateX(Math.PI / 2),
   fin: box(0.11, 0.05, 0.016, -0.01, 0.075), crest: new THREE.OctahedronGeometry(0.042, 0).scale(0.5, 1.2, 1),
   orb: new THREE.IcosahedronGeometry(0.09, 0),
+  shockRing: new THREE.RingGeometry(0.88, 1, 56).rotateX(-Math.PI / 2),
+  shockDisc: new THREE.CircleGeometry(1, 44).rotateX(-Math.PI / 2),
+  shockDome: new THREE.SphereGeometry(1, 24, 10, 0, Math.PI * 2, 0, Math.PI / 2),
+  shockPillar: new THREE.CylinderGeometry(0.34, 0.62, 3.4, 18, 1, true).translate(0, 1.7, 0),
+  crescent: new THREE.ShapeGeometry(new THREE.Shape().absarc(0, 0, 1, -1.2, 1.2, false).absarc(-0.5, 0, 1.27, 0.824, -0.824, true), 18).rotateX(-Math.PI / 2),
   drone: new THREE.OctahedronGeometry(0.12, 0),
   slash: new THREE.RingGeometry(0.55, 1.4, 24, 1, -1.15, 2.3).rotateX(-Math.PI / 2),
   aura: new THREE.RingGeometry(0.7, 0.75, 40).rotateX(-Math.PI / 2),
@@ -64,92 +70,296 @@ const SWING = 0.42;   // seconds the energy blade stays lit for one strike
 const PLATE_Y = 1.42;
 const CRIMSON = new THREE.MeshStandardMaterial({ color: 0xa8101c, metalness: 0.5, roughness: 0.4, emissive: 0x2a0306 });
 
-/* The War Robot, drawn 50% taller than the hero: facing +X, feet at y = 0, one set of shapes for every build. */
 let robotKit = null;
-/** A box that narrows or flares from bottom to top, so the armour has a shape. */
-const taper = (geometry, top, bottom = 1) => {
-  const at = geometry.attributes.position;
-  geometry.computeBoundingBox();
-  const { min, max } = geometry.boundingBox;
-  for (let i = 0; i < at.count; i++) {
-    const k = bottom + (top - bottom) * (at.getY(i) - min.y) / (max.y - min.y);
-    at.setX(i, at.getX(i) * k);
-    at.setZ(i, at.getZ(i) * k);
-  }
-  geometry.computeVertexNormals();
-  return geometry;
+/*
+ * The War Robot: an original armoured mech, 50% taller than the hero, facing +X with its feet at y = 0.
+ * Every moving section is baked into one armour mesh and one light mesh, painted with vertex colours, so the
+ * whole machine costs a few draw calls. The shapes are built once and shared: never dispose or recolour them.
+ */
+const PAINT = { white: 0xe8ecf1, shade: 0xaab4c2, blue: 0x1c3f9f, red: 0xc41e2a, gold: 0xf0b83a, dark: 0x23282f, steel: 0x8b96a4 };
+const CYAN = 0x4ff0ff, EYE = 0x7dffb2;
+const ROBOT_ARMOUR = new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0.22, roughness: 0.42 });
+const ROBOT_GLOW = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false });
+const BEAM_BOLT = new THREE.MeshBasicMaterial({ color: 0xa8f6ff, transparent: true, opacity: 0.95, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
+
+/** Armour cut from a side-on outline ([x, y] points) with a chamfered edge, `depth` wide across Z. */
+const plate = (points, depth, chamfer = 0.009) => {
+  const inner = Math.max(0.002, depth - chamfer * 2);
+  return new THREE.ExtrudeGeometry(new THREE.Shape(points.map(([x, y]) => new THREE.Vector2(x, y))), {
+    depth: inner, steps: 1, bevelEnabled: true, bevelThickness: chamfer, bevelSize: chamfer, bevelOffset: -chamfer, bevelSegments: 1
+  }).translate(0, 0, -inner / 2);
 };
-/** A wing feather that comes to a point. */
-const blade = length => {
-  const geometry = box(0.2, 0.026, length, 0, 0, length / 2), at = geometry.attributes.position;
-  for (let i = 0; i < at.count; i++) at.setX(i, at.getX(i) * (1 - 0.8 * at.getZ(i) / length));
-  geometry.computeVertexNormals();
-  return geometry;
-};
-const robotShapes = () => robotKit ||= {
-  thigh: taper(box(0.2, 0.3, 0.2), 1.1, 0.72), knee: taper(box(0.2, 0.1, 0.2), 0.8, 1.05), shin: taper(box(0.25, 0.34, 0.25), 0.72, 1.05), foot: taper(box(0.36, 0.08, 0.24), 0.7, 1),
-  pelvis: taper(box(0.28, 0.17, 0.4), 1, 0.65), torso: taper(box(0.4, 0.42, 0.62), 1.08, 0.62), chest: taper(box(0.07, 0.26, 0.38), 1.1, 0.55), core: new THREE.OctahedronGeometry(0.075, 0),
-  neck: box(0.1, 0.06, 0.1), head: taper(box(0.24, 0.18, 0.21), 0.68, 1), visor: box(0.03, 0.045, 0.17), crest: taper(box(0.26, 0.1, 0.035), 0.3, 1),
-  shoulder: taper(box(0.3, 0.2, 0.27), 0.68, 1), upper: taper(box(0.15, 0.24, 0.15), 1, 0.78), gun: box(0.5, 0.15, 0.15),
-  barrel: new THREE.CylinderGeometry(0.032, 0.032, 0.32, 10).rotateZ(Math.PI / 2), brake: box(0.08, 0.09, 0.09), strip: box(0.34, 0.02, 0.16),
-  flame: new THREE.ConeGeometry(0.08, 0.44, 10).rotateX(Math.PI),
-  feather: [0.86, 0.68, 0.5].map(blade), tip: [0.86, 0.68, 0.5].map(l => box(0.05, 0.03, 0.09, 0, 0, l - 0.03))
-};
-function buildRobot() {
-  const k = robotShapes(), root = new THREE.Group(), arms = [], tips = [], wings = [], flames = [];
-  const add = (parent, shape, material, x = 0, y = 0, z = 0) => {
-    const mesh = new THREE.Mesh(shape, material);
-    mesh.position.set(x, y, z);
-    parent.add(mesh);
-    return mesh;
+/** The same, cut from a front-on outline ([z, y] points) and `depth` thick along X. */
+const facing = (points, depth, chamfer) => plate(points, depth, chamfer).rotateY(-Math.PI / 2);
+const rod = (radius, length, sides = 10) => new THREE.CylinderGeometry(radius, radius, length, sides).rotateZ(Math.PI / 2);
+
+/** Collects painted parts for one moving section, then merges them. */
+function robotSheet() {
+  const lists = { armour: [], light: [] }, m = new THREE.Matrix4(), e = new THREE.Euler(), c = new THREE.Color();
+  const put = list => (geometry, hex, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) => {
+    const g = geometry.index ? geometry.toNonIndexed() : geometry.clone();
+    g.deleteAttribute('uv');
+    g.applyMatrix4(m.makeRotationFromEuler(e.set(rx, ry, rz)).setPosition(x, y, z));
+    g.computeVertexNormals();                          // unshared vertices: crisp, hard-edged panels
+    c.setHex(hex);
+    g.setAttribute('color', new THREE.Float32BufferAttribute(Array.from({ length: g.attributes.position.count }, () => [c.r, c.g, c.b]).flat(), 3));
+    lists[list].push(g);
   };
-  add(root, k.pelvis, GUNMETAL, 0, 0.66);
-  add(root, k.torso, GUNMETAL, 0, 0.93);
-  add(root, k.chest, GILT, 0.19, 0.96);
-  add(root, k.core, glow(0x3fe8ff), 0.235, 0.96);
-  add(root, k.neck, STEEL, 0, 1.15);
-  add(root, k.head, GILT, 0.01, 1.26);
-  add(root, k.visor, glow(0x3fe8ff), 0.125, 1.27);
-  add(root, k.crest, CRIMSON, 0, 1.37);
-  for (const side of [-1, 1]) {
-    add(root, k.thigh, GUNMETAL, 0, 0.5, side * 0.14);
-    add(root, k.knee, CRIMSON, 0.03, 0.35, side * 0.14);
-    add(root, k.shin, GILT, 0, 0.18, side * 0.14);
-    add(root, k.foot, GUNMETAL, 0.05, 0.035, side * 0.14);
-    add(root, k.shoulder, GILT, 0, 1.08, side * 0.39);
+  return { a: put('armour'), l: put('light'), bake: () => ({ armour: mergeGeometries(lists.armour), light: lists.light.length ? mergeGeometries(lists.light) : null }) };
+}
 
-    // An arm that ends in a cannon.
-    const arm = new THREE.Group();
-    arm.position.set(0, 1.0, side * 0.39);
-    add(arm, k.upper, CRIMSON, 0, -0.08);
-    add(arm, k.gun, GUNMETAL, 0.2, -0.26);
-    add(arm, k.strip, glow(0x3fe8ff), 0.2, -0.18);
-    add(arm, k.barrel, STEEL, 0.6, -0.26);
-    add(arm, k.brake, GILT, 0.77, -0.26);
-    const tip = new THREE.Object3D();
-    tip.position.set(0.84, -0.26, 0);
-    arm.add(tip);
-    arms.push(arm); tips.push(tip);
-    root.add(arm);
-
-    // Three swept feathers a side, tipped in crimson.
-    const wing = new THREE.Group();
-    wing.position.set(-0.22, 1.1, side * 0.2);
-    wing.scale.z = side;
-    k.feather.forEach((shape, i) => {
-      const feather = new THREE.Group();
-      feather.rotation.y = -0.3 - i * 0.42;
-      add(feather, shape, i === 1 ? GUNMETAL : GILT);
-      add(feather, k.tip[i], CRIMSON);
-      wing.add(feather);
-    });
-    wings.push({ wing, side });
-    root.add(wing);
-
-    flames.push(add(root, k.flame, soft(0x4fd8ff, 0.7), -0.24, 0.62, side * 0.12));
+function robotBody() {
+  const { a, l, bake } = robotSheet(), { white, shade, blue, red, gold, dark, steel } = PAINT;
+  // Hips and waist armour.
+  a(box(0.2, 0.13, 0.27), dark, 0, 0.665);
+  a(facing([[-0.05, 0.57], [0.05, 0.57], [0.085, 0.7], [-0.085, 0.7]], 0.09), red, 0.085);
+  a(plate([[-0.11, 0.73], [0.09, 0.73], [0.11, 0.57], [-0.09, 0.52]], 0.035), blue, 0, 0, 0.2);
+  a(plate([[-0.11, 0.73], [0.09, 0.73], [0.11, 0.57], [-0.09, 0.52]], 0.035), blue, 0, 0, -0.2);
+  a(facing([[-0.17, 0.73], [0.17, 0.73], [0.14, 0.56], [-0.14, 0.56]], 0.04), white, -0.13);
+  for (const s of [-1, 1]) {
+    a(facing([[0.04, 0.74], [0.2, 0.74], [0.205, 0.6], [0.09, 0.53]].map(([z, y]) => [z * s, y]), 0.035), white, 0.125);
+    a(box(0.012, 0.075, 0.07), gold, 0.146, 0.655, s * 0.135);
+    a(box(0.04, 0.05, 0.09), white, 0.115, 0.775, s * 0.057);
+    a(box(0.04, 0.05, 0.09), white, 0.115, 0.83, s * 0.062);
   }
-  root.userData = { arms, tips, wings, flames };
+  a(facing([[-0.13, 0.71], [0.13, 0.71], [0.17, 0.87], [-0.17, 0.87]], 0.22), dark);
+
+  // Chest: a broad blue block under a white breastplate, vents either side of the reactor.
+  a(facing([[-0.17, 0.85], [0.17, 0.85], [0.28, 0.99], [0.3, 1.11], [0.17, 1.18], [-0.17, 1.18], [-0.3, 1.11], [-0.28, 0.99]], 0.34, 0.016), blue);
+  a(facing([[-0.17, 0.85], [0.17, 0.85], [0.2, 0.92], [-0.2, 0.92]], 0.36), red);
+  a(facing([[-0.24, 1.01], [-0.06, 0.94], [0.06, 0.94], [0.24, 1.01], [0.27, 1.1], [0.15, 1.17], [-0.15, 1.17], [-0.27, 1.1]], 0.05, 0.012), white, 0.165);
+  a(new THREE.TorusGeometry(0.052, 0.014, 6, 12).rotateY(Math.PI / 2), gold, 0.195, 1.02);
+  l(new THREE.OctahedronGeometry(0.042, 0), CYAN, 0.2, 1.02);
+  for (const s of [-1, 1]) {
+    a(box(0.03, 0.095, 0.1), gold, 0.185, 1.08, s * 0.155);
+    for (let i = 0; i < 3; i++) a(box(0.012, 0.012, 0.085), dark, 0.2, 1.05 + i * 0.03, s * 0.155);
+    a(box(0.008, 0.11, 0.008), shade, 0.193, 1.04, s * 0.085);
+  }
+
+  // Backpack with its two main engines.
+  a(plate([[-0.14, 0.88], [-0.31, 0.93], [-0.35, 1.08], [-0.3, 1.17], [-0.14, 1.19]], 0.36, 0.014), blue);
+  a(plate([[-0.2, 1.14], [-0.33, 1.1], [-0.3, 1.19], [-0.17, 1.21]], 0.24), white);
+  for (const s of [-1, 1]) {
+    a(new THREE.CylinderGeometry(0.075, 0.055, 0.1, 10), steel, -0.27, 0.89, s * 0.1);
+    a(new THREE.CylinderGeometry(0.05, 0.05, 0.03, 10), dark, -0.27, 0.84, s * 0.1);
+    a(box(0.09, 0.1, 0.05), red, -0.27, 1.07, s * 0.2);
+  }
+
+  // Head: white helmet, dark face, twin eyes, a tall gold crest and antennae swept back along the helmet.
+  a(rod(0.05, 0.08).rotateZ(Math.PI / 2), dark, 0.01, 1.21);
+  a(facing([[-0.13, 1.17], [0.13, 1.17], [0.09, 1.22], [-0.09, 1.22]], 0.16), blue, -0.01);
+  a(plate([[-0.11, 1.235], [0.05, 1.225], [0.115, 1.285], [0.115, 1.345], [0.05, 1.405], [-0.07, 1.41], [-0.13, 1.35]], 0.17, 0.014), white, 0.01);
+  a(plate([[-0.08, 1.4], [0.05, 1.395], [0.1, 1.355], [0.03, 1.43], [-0.07, 1.435]], 0.1), blue, 0.01);
+  a(box(0.012, 0.05, 0.125), dark, 0.123, 1.315);
+  a(plate([[0.04, 1.215], [0.135, 1.255], [0.13, 1.285], [0.04, 1.27]], 0.075), red, 0.005);
+  for (const s of [-1, 1]) {
+    l(facing([[0.012, 1.303], [0.056, 1.32], [0.056, 1.334], [0.012, 1.325]].map(([z, y]) => [z * s, y]), 0.01, 0.002), EYE, 0.131);
+    a(plate([[-0.06, 1.25], [0.07, 1.26], [0.06, 1.34], [-0.05, 1.36]], 0.018), shade, 0.01, 0, s * 0.095);
+    a(box(0.05, 0.008, 0.006), dark, 0.012, 1.3, s * 0.105);
+    a(plate([[0.03, 1.375], [-0.22, 1.515], [-0.245, 1.49], [-0.05, 1.35]], 0.02), gold, 0, 0, s * 0.092);
+  }
+  a(plate([[0.05, 1.39], [0.135, 1.405], [0.075, 1.565], [0.015, 1.45]], 0.024), gold, 0.005);
+  l(box(0.008, 0.024, 0.028), 0xff3a3a, 0.102, 1.425);
+  return bake();
+}
+
+function robotThigh() {
+  const { a, bake } = robotSheet(), { white, shade, blue, red, dark } = PAINT;
+  a(new THREE.SphereGeometry(0.07, 10, 8), dark, 0, 0.015);
+  a(plate([[-0.095, -0.015], [0.09, -0.015], [0.105, -0.13], [0.075, -0.25], [-0.075, -0.25], [-0.1, -0.14]], 0.17, 0.014), white);
+  a(box(0.006, 0.12, 0.09), shade, 0.1, -0.13);
+  a(plate([[-0.03, -0.05], [0.07, -0.05], [0.06, -0.19], [-0.03, -0.19]], 0.178, 0.003), blue);
+  a(rod(0.055, 0.15).rotateY(Math.PI / 2), dark, 0, -0.27);
+  a(plate([[0.05, -0.2], [0.135, -0.235], [0.14, -0.3], [0.06, -0.335]], 0.135, 0.012), red);
+  return bake();
+}
+
+function robotShin() {
+  const { a, l, bake } = robotSheet(), { white, shade, blue, red, gold, dark, steel } = PAINT;
+  a(plate([[-0.11, 0.0], [0.08, -0.01], [0.135, -0.13], [0.115, -0.3], [-0.12, -0.3], [-0.155, -0.16]], 0.205, 0.016), white);
+  a(plate([[0.03, -0.075], [0.13, -0.12], [0.115, -0.27], [0.03, -0.27]], 0.11, 0.008), blue, 0.006);
+  a(box(0.008, 0.14, 0.04), gold, 0.128, -0.19);
+  for (const s of [-1, 1]) {
+    a(plate([[-0.1, -0.08], [0.02, -0.08], [0.03, -0.26], [-0.11, -0.26]], 0.012, 0.003), shade, 0, 0, s * 0.102);
+    for (let i = 0; i < 3; i++) a(box(0.08, 0.009, 0.008), dark, -0.04, -0.12 - i * 0.045, s * 0.109);
+  }
+  a(plate([[-0.155, -0.12], [-0.12, -0.27], [-0.18, -0.24], [-0.19, -0.14]], 0.11), red);
+  l(box(0.01, 0.1, 0.05), CYAN, -0.19, -0.19);
+  // Ankle and foot.
+  a(rod(0.05, 0.14).rotateY(Math.PI / 2), dark, 0, -0.325);
+  a(plate([[-0.16, -0.4], [0.24, -0.4], [0.275, -0.37], [0.13, -0.3], [-0.1, -0.285], [-0.175, -0.34]], 0.185, 0.014), white);
+  a(plate([[0.1, -0.4], [0.24, -0.4], [0.275, -0.37], [0.14, -0.325]], 0.195, 0.008), red);
+  a(plate([[-0.16, -0.4], [-0.04, -0.4], [-0.07, -0.33], [-0.175, -0.34]], 0.195, 0.008), blue);
+  a(box(0.38, 0.016, 0.17), dark, 0.04, -0.405);
+  a(new THREE.CylinderGeometry(0.05, 0.04, 0.02, 8), steel, -0.03, -0.42);
+  return bake();
+}
+
+function robotShoulder() {
+  const { a, l, bake } = robotSheet(), { white, shade, blue, red, gold, dark } = PAINT;
+  a(new THREE.SphereGeometry(0.08, 10, 8), dark);
+  a(facing([[-0.1, -0.1], [0.14, -0.13], [0.2, -0.02], [0.17, 0.12], [0.02, 0.17], [-0.1, 0.13]], 0.27, 0.018), white, 0, 0, 0.03);
+  a(facing([[0.02, 0.12], [0.16, 0.08], [0.19, -0.02], [0.13, -0.1], [0.02, -0.08]], 0.285, 0.006), blue, 0, 0, 0.03);
+  a(plate([[-0.14, 0.13], [0.14, 0.13], [0.11, 0.185], [-0.11, 0.185]], 0.09), red, 0, 0, 0.09);
+  a(box(0.13, 0.012, 0.045), gold, 0, 0.19, 0.09);
+  a(box(0.2, 0.014, 0.008), gold, 0, -0.045, 0.228);
+  a(box(0.006, 0.12, 0.09), shade, 0.145, 0.03, 0.15);
+  for (let i = 0; i < 3; i++) a(box(0.1, 0.012, 0.008), dark, -0.02, 0.06 - i * 0.03, 0.227);
+  l(box(0.012, 0.03, 0.06), CYAN, 0.142, -0.04, 0.12);
+  return bake();
+}
+
+function robotArm() {
+  const { a, bake } = robotSheet(), { white, shade, blue, red, gold, dark } = PAINT;
+  a(new THREE.CylinderGeometry(0.052, 0.058, 0.2, 10), dark, 0, -0.11);
+  a(plate([[-0.07, -0.05], [0.07, -0.05], [0.075, -0.19], [-0.075, -0.19]], 0.125, 0.012), white, 0, 0, 0.005);
+  a(rod(0.06, 0.13).rotateY(Math.PI / 2), dark, 0, -0.225);
+  // Forearm, held level with the rifle.
+  a(plate([[-0.06, -0.165], [0.15, -0.165], [0.24, -0.185], [0.24, -0.285], [0.1, -0.3], [-0.06, -0.285]], 0.135, 0.014), white, 0.01);
+  a(plate([[-0.03, -0.17], [0.15, -0.17], [0.235, -0.19], [0.235, -0.225], [-0.03, -0.225]], 0.145, 0.004), blue, 0.01);
+  a(box(0.03, 0.105, 0.145), red, 0.238, -0.235);
+  a(box(0.13, 0.008, 0.006), gold, 0.08, -0.26, 0.07);
+  a(box(0.006, 0.05, 0.08), shade, 0.25, -0.25);
+  a(box(0.095, 0.09, 0.09), dark, 0.285, -0.305);
+  return bake();
+}
+
+/** The rifle: stock, receiver, energy cell, sight and a long coil barrel. Held at the grip, muzzle toward +X. */
+function robotRifle() {
+  const { a, l, bake } = robotSheet(), { white, shade, blue, red, gold, dark, steel } = PAINT;
+  a(plate([[-0.42, -0.1], [-0.35, -0.1], [-0.27, -0.02], [-0.13, 0.015], [-0.13, 0.075], [-0.32, 0.07], [-0.43, 0]], 0.05, 0.01), blue);
+  a(plate([[-0.44, -0.11], [-0.405, -0.11], [-0.41, 0.015], [-0.445, 0.015]], 0.06, 0.006), red);
+  a(plate([[-0.045, 0.03], [0.04, 0.03], [0.02, -0.085], [-0.06, -0.085]], 0.05, 0.008), dark);
+  a(plate([[-0.17, 0.01], [0.24, 0.01], [0.28, 0.05], [0.24, 0.125], [0.0, 0.14], [-0.1, 0.115], [-0.17, 0.075]], 0.08, 0.012), white);
+  a(box(0.2, 0.008, 0.083), shade, 0.05, 0.04);
+  a(plate([[0.08, 0.02], [0.18, 0.02], [0.155, -0.12], [0.075, -0.12]], 0.06, 0.008), blue);
+  a(box(0.08, 0.012, 0.065), gold, 0.118, -0.122);
+  l(box(0.045, 0.075, 0.066), CYAN, 0.122, -0.045);
+  l(box(0.16, 0.014, 0.086), CYAN, 0.1, 0.09);
+
+  // Sight on a gold mount.
+  a(box(0.06, 0.03, 0.03), gold, 0.03, 0.15);
+  a(rod(0.021, 0.14), dark, 0.04, 0.178);
+  a(rod(0.026, 0.016), gold, 0.112, 0.178);
+  l(rod(0.017, 0.006), 0xff5a4a, 0.122, 0.178);
+
+  // Handguard, coil barrel and split muzzle.
+  a(plate([[0.24, 0.015], [0.54, 0.03], [0.56, 0.06], [0.54, 0.105], [0.27, 0.125]], 0.085, 0.012), blue);
+  a(box(0.2, 0.01, 0.088), gold, 0.39, 0.095);
+  for (let i = 0; i < 4; i++) a(box(0.02, 0.012, 0.088), dark, 0.31 + i * 0.05, 0.05);
+  a(rod(0.021, 0.42), steel, 0.76, 0.065);
+  for (let i = 0; i < 4; i++) l(new THREE.TorusGeometry(0.036, 0.009, 6, 14).rotateY(Math.PI / 2), CYAN, 0.6 + i * 0.065, 0.065);
+  for (const s of [-1, 1]) {
+    const rail = [[0.8, 0.025], [0.98, 0.012], [1.04, 0.03], [1.0, 0.05], [0.83, 0.06]];
+    a(plate(rail.map(([x, y]) => [x, y * s]), 0.058, 0.008), white, 0, 0.065);
+    a(plate([[0.97, 0.013], [1.04, 0.03], [1.0, 0.05], [0.95, 0.056]].map(([x, y]) => [x, y * s]), 0.062, 0.004), red, 0, 0.065);
+  }
+  a(rod(0.04, 0.05), gold, 0.81, 0.065);
+  l(rod(0.012, 0.03), 0xdffcff, 0.98, 0.065);
+  return bake();
+}
+
+/** One wing blade, reaching along +Z, white with a blue panel, a lit vein and a red point. */
+function robotFeather(length) {
+  const { a, l, bake } = robotSheet(), { white, blue, red, gold } = PAINT;
+  const flat = (points, thick, chamfer) => plate(points, thick, chamfer).rotateX(Math.PI / 2);
+  const w = length * 0.13;
+  a(flat([[-w, 0], [w * 0.7, 0], [w * 1.1, length * 0.62], [w * 0.3, length * 0.92], [-w * 0.75, length * 0.8]], 0.03, 0.008), white);
+  a(flat([[-w * 0.65, length * 0.08], [w * 0.1, length * 0.08], [w * 0.2, length * 0.62], [-w * 0.55, length * 0.68]], 0.036, 0.003), blue);
+  a(flat([[w * 1.1, length * 0.62], [w * 0.3, length * 0.92], [w * 0.05, length], [-w * 0.75, length * 0.8], [-w * 0.4, length * 0.7]], 0.034, 0.005), red);
+  a(box(w * 1.9, 0.04, 0.05), gold, -w * 0.15, 0, 0.025);
+  l(flat([[w * 0.42, length * 0.08], [w * 0.62, length * 0.08], [w * 0.72, length * 0.6], [w * 0.5, length * 0.6]], 0.04, 0.001), CYAN);
+  return bake();
+}
+
+const robotShapes = () => robotKit ||= {
+  body: robotBody(), thigh: robotThigh(), shin: robotShin(), shoulder: robotShoulder(), arm: robotArm(), rifle: robotRifle(),
+  feathers: [0.95, 0.8, 0.62].map(robotFeather),
+  flame: new THREE.ConeGeometry(0.075, 0.5, 10).translate(0, 0.25, 0).rotateX(Math.PI),
+  flash: new THREE.OctahedronGeometry(0.11, 0).scale(1.9, 1, 1)
+};
+
+/** Puts a baked section on a parent as real meshes. */
+const mount = (parent, baked, x = 0, y = 0, z = 0) => {
+  const group = new THREE.Group();
+  group.position.set(x, y, z);
+  const armour = new THREE.Mesh(baked.armour, ROBOT_ARMOUR);
+  armour.castShadow = true;
+  group.add(armour);
+  if (baked.light) group.add(new THREE.Mesh(baked.light, ROBOT_GLOW));
+  parent.add(group);
+  return group;
+};
+
+export function buildRobot() {
+  const k = robotShapes(), root = new THREE.Group(), arms = [], guns = [], tips = [], flashes = [], wings = [], legs = [], flames = [];
+  mount(root, k.body);
+  const flame = (parent, x, y, z, size) => {
+    const mesh = new THREE.Mesh(k.flame, soft(0x62dcff, 0.72));
+    mesh.position.set(x, y, z);
+    mesh.scale.setScalar(size);
+    mesh.userData.size = size;
+    parent.add(mesh);
+    flames.push(mesh);
+  };
+  for (const side of [-1, 1]) {
+    // Each side is built once and mirrored, so the two halves always match.
+    const half = new THREE.Group();
+    half.scale.z = side;
+    root.add(half);
+
+    const leg = mount(half, k.thigh, 0, 0.665, 0.13), shin = mount(leg, k.shin, 0.01, -0.265, 0);
+    flame(shin, -0.03, -0.42, 0, 0.62);
+    legs.push({ leg, shin, side });
+
+    mount(half, k.shoulder, 0, 1.12, 0.39);
+    const arm = mount(half, k.arm, 0, 1.12, 0.39), gun = mount(arm, k.rifle, 0.285, -0.325, 0);
+    const tip = new THREE.Object3D();
+    tip.position.set(1.05, 0.065, 0);
+    const flash = new THREE.Mesh(k.flash, soft(0xbaf8ff, 0.95));
+    flash.position.copy(tip.position);
+    flash.visible = false;
+    gun.add(tip, flash);
+    arms.push(arm); guns.push(gun); tips.push(tip); flashes.push(flash);
+
+    flame(half, -0.27, 0.83, 0.1, 1);
+
+    const wing = new THREE.Group(), feathers = [];
+    wing.position.set(-0.27, 1.09, 0.2);
+    k.feathers.forEach((baked, i) => feathers.push(mount(wing, baked, -i * 0.02, -i * 0.035, 0)));
+    wings.push({ wing, feathers, side });
+    half.add(wing);
+  }
+  root.userData = { arms, guns, tips, flashes, wings, legs, flames, lean: 0, stride: 0 };
   return root;
+}
+
+/** Hover, lean into a flight, spread the wings as it rises, and bring both rifles onto the target. */
+function poseRobot(robot, { dt, time, moving, kick, aim, open }) {
+  const parts = robot.userData, ease = Math.min(1, dt * 7);
+  parts.lean += ((moving ? -0.3 : 0) - parts.lean) * ease;
+  parts.stride += ((moving ? 1 : 0) - parts.stride) * ease;
+  robot.rotation.z = parts.lean;
+  robot.position.y = Math.sin(time * 2.6) * 0.05;
+  robot.scale.setScalar(0.72 + 0.28 * open);
+  for (const { wing, feathers } of parts.wings) {
+    wing.rotation.x = -0.5 - 0.14 * parts.stride + Math.sin(time * 2.6) * 0.035;
+    feathers.forEach((feather, i) => { feather.rotation.y = -(0.12 + (0.2 + i * 0.44) * open) - parts.stride * 0.22; });
+  }
+  parts.legs.forEach(({ leg, shin, side }) => {
+    const rest = side > 0 ? 0.2 : -0.04;
+    leg.rotation.z = rest * (1 - parts.stride) - 0.34 * parts.stride + Math.sin(time * 2.6 + side) * 0.025;
+    shin.rotation.z = (side > 0 ? -0.5 : -0.18) * (1 - parts.stride) - 0.42 * parts.stride;
+  });
+  parts.arms.forEach(arm => { arm.rotation.z += (aim - parts.lean - arm.rotation.z) * Math.min(1, dt * 12); });
+  parts.guns.forEach(gun => { gun.position.x = 0.285 - kick * 0.1; });
+  parts.flashes.forEach(flash => {
+    flash.visible = kick > 0.35;
+    flash.scale.setScalar(0.6 + kick * 0.9);
+  });
+  parts.flames.forEach((mesh, i) => {
+    mesh.scale.y = mesh.userData.size * ((moving ? 1.55 : 1) + Math.sin(time * 43 + i * 2.1) * 0.2);
+  });
 }
 
 const _tip = new THREE.Vector3(), _a = new THREE.Vector3(), _b = new THREE.Vector3();
@@ -246,8 +456,17 @@ export class Hero extends Marine {
     if (this.silenceT > 0 || !game.isEnemy(t)) return;
     this.strike = Math.random() * 100 < this.gear.crit ? HERO.critMultiplier : 1;
     if (this.robotT > 0) {
-      // Both cannons, one shot each.
-      for (const tip of this.robot.userData.tips) { this.aimMuzzle(tip); super.fire(game); }
+      // Both rifles, one shot each: a bright bolt along a beam that fades behind it.
+      for (const tip of this.robot.userData.tips) {
+        this.aimMuzzle(tip);
+        super.fire(game);
+        const bolt = game.tracers.at(-1);
+        bolt.speed = 72;
+        bolt.mesh.material = BEAM_BOLT;
+        bolt.mesh.scale.set(1.1, 2.6, 2.6);
+        tip.getWorldPosition(_tip);
+        game.fx.link(_tip, { x: t.x, y: (t.flying ? t.obj.position.y : t.altitude || 0) + 0.4, z: t.z }, CYAN, 0.13, 0.03);
+      }
       this.gunKick = 1;
       this.afterShot(t, game);
     } else if (this.inReach(t)) this.slash(t, game);
@@ -406,13 +625,10 @@ export class Hero extends Marine {
     this.lift = Math.min(1, this.lift + dt * 1.8);
     this.obj.position.y = this.altitude * this.lift * (2 - this.lift);
     this.gunKick = Math.max(0, this.gunKick - dt * 7);
-    const parts = this.robot.userData, t = game.time;
+    const prey = this.target && !this.target.dead ? this.target : null;
+    const aim = prey ? Math.max(-0.8, Math.min(0.4, Math.atan2((prey.flying ? prey.obj.position.y : prey.altitude || 0) + 0.4 - this.obj.position.y - 0.85, Math.max(0.5, Math.hypot(prey.x - this.x, prey.z - this.z))))) : 0;
     this.robot.rotation.y = -this.yaw;
-    this.robot.rotation.z = this.driving ? -0.16 : 0;
-    this.robot.position.y = Math.sin(t * 3) * 0.05;
-    for (const { wing, side } of parts.wings) wing.rotation.x = -side * (0.42 + Math.sin(t * (this.driving ? 11 : 4)) * 0.16);
-    for (const arm of parts.arms) arm.position.x = -this.gunKick * 0.07;
-    for (const flame of parts.flames) flame.scale.y = (this.driving ? 1.5 : 1) + Math.sin(t * 43 + flame.position.z * 9) * 0.22;
+    poseRobot(this.robot, { dt, time: game.time, moving: !!this.driving, kick: this.gunKick, aim, open: this.lift * (2 - this.lift) });
   }
 
   /** A ring of damage around the hero. */
@@ -629,8 +845,9 @@ export class HeroCorps {
     this.drops = [];
     this.respawnT = 0;
     this.nearKills = 0;
-    this.cd = { grenade: 0, shield: 0, robot: 0 };
-    this.grenades = [];
+    this.cd = { blast: 0, shield: 0, robot: 0 };
+    this.blasts = [];
+    this.shocks = [];
     this.guards = new Map();
     this.guardT = 0;
     this.shownHud = '';
@@ -754,14 +971,15 @@ export class HeroCorps {
   /** Between rounds: nothing carries over but the timers, and a new run starts them all ready. */
   clearSkills() {
     const g = this.game;
-    for (const grenade of this.grenades) g.scene.remove(grenade.mesh);
-    this.grenades = [];
+    for (const blast of this.blasts) g.scene.remove(blast.mesh);
+    this.blasts = [];
+    for (const shock of this.shocks) this.endShock(shock);
     this.dropShields(false);
     if (this.unit?.robotT > 0) this.cd.robot = HERO.skills.robot.cooldown;
-    if (g.level === 1 && g.kills === 0) this.cd = { grenade: 0, shield: 0, robot: 0 };
+    if (g.level === 1 && g.kills === 0) this.cd = { blast: 0, shield: 0, robot: 0 };
   }
 
-  grenadeDamage() { return HERO.skills.grenade.base + HERO.skills.grenade.perLevel * this.profile.level; }
+  blastDamage() { return HERO.skills.blast.base + HERO.skills.blast.perLevel * this.profile.level; }
 
   shielded(unit) { return this.guards.has(unit); }
 
@@ -775,7 +993,7 @@ export class HeroCorps {
   /** Called every tick: timers run, and each skill that is ready goes off when the fight calls for it. */
   tickSkills(dt) {
     const g = this.game, cd = this.cd, u = this.unit, skills = HERO.skills;
-    cd.grenade = Math.max(0, cd.grenade - dt);
+    cd.blast = Math.max(0, cd.blast - dt);
     if (this.guardT > 0) {
       this.guardT -= dt;
       if (this.guardT <= 0) { this.guardT = 1e-9; this.dropShields(); }
@@ -785,12 +1003,12 @@ export class HeroCorps {
       if (unit.dead || unit.bunker || !g.gunners.includes(unit)) { unit.obj.remove(mesh); this.guards.delete(unit); }
       else mesh.scale.setScalar((mesh.userData.size || 1) * (1 + Math.sin(g.time * 7) * 0.03));
     }
-    this.flyGrenades(dt);
+    this.flyBlasts(dt);
     if (!this.present || u.swallowed || u.downed || u.silenceT > 0 || !['wave', 'raid'].includes(g.state)) return;
 
+    if (cd.blast <= 0) this.launchBlast();
     const foes = g.zerglings.filter(b => !b.dead && u.distTo(b) <= skills.robot.sight);
     if (!foes.length) return;
-    if (cd.grenade <= 0) this.tossGrenade(foes);
     if (cd.shield <= 0 && this.guardT <= 0) {
       const allies = g.gunners.filter(a => !a.dead && !a.downed && !a.bunker && u.distTo(a) <= skills.shield.radius);
       if (allies.some(a => a.hp < a.maxHp * skills.shield.hurt)) this.raiseShields(allies);
@@ -799,43 +1017,100 @@ export class HeroCorps {
     if (cd.robot <= 0 && u.robotT <= 0 && danger) u.startRobot(g);
   }
 
-  /** Skill one: the grenade goes where the most ground bugs are standing. */
-  tossGrenade(foes) {
-    const spec = HERO.skills.grenade, u = this.unit, g = this.game;
-    const ground = foes.filter(b => !b.flying && u.distTo(b) <= spec.range);
+  /** Skill one: the blade throws a crescent of energy at the thickest ground group in reach. */
+  launchBlast() {
+    const spec = HERO.skills.blast, u = this.unit, g = this.game;
+    const ground = g.zerglings.filter(b => !b.dead && !b.flying && u.distTo(b) <= spec.range);
     if (!ground.length) return false;
     const crowd = b => ground.filter(o => Math.hypot(o.x - b.x, o.z - b.z) <= spec.radius).length;
-    const aim = ground.reduce((best, b) => crowd(b) > crowd(best) ? b : best);
-    const mesh = new THREE.Mesh(shapes.orb, glow(0xffa030));
-    mesh.scale.setScalar(0.9);
+    const prey = ground.reduce((best, b) => crowd(b) > crowd(best) ? b : best);
+    const heading = angleTo(u, prey);
+    u.yaw = heading;
+    u.swing = 1;
+    u.slashMark.visible = true;
+    u.slashMark.rotation.y = -heading;
+    const mesh = new THREE.Group(), halo = new THREE.Mesh(shapes.crescent, soft(0x38c8ff, 0.6)), core = new THREE.Mesh(shapes.crescent, soft(0xeafcff, 0.95));
+    halo.scale.setScalar(1.3);
+    halo.position.x = -0.12;
+    mesh.add(halo, core);
+    mesh.position.set(u.x, u.obj.position.y + 0.7, u.z);
+    mesh.rotation.y = -heading;
     g.scene.add(mesh);
-    this.grenades.push({ mesh, t: 0, from: { x: u.x, y: u.obj.position.y + 1, z: u.z }, to: { x: aim.x, z: aim.z }, damage: this.grenadeDamage() });
-    this.cd.grenade = spec.cooldown;
-    g.sfx.ui();
+    this.blasts.push({ mesh, prey, to: { x: prey.x, z: prey.z }, damage: this.blastDamage(), run: 0 });
+    this.cd.blast = spec.cooldown;
+    g.stage.kick(1.4);
+    g.sfx.laser?.();
     return true;
   }
 
-  flyGrenades(dt) {
-    const spec = HERO.skills.grenade, g = this.game;
-    for (const grenade of this.grenades.slice()) {
-      grenade.t += dt;
-      const k = Math.min(1, grenade.t / spec.flight), { from, to, mesh } = grenade;
-      mesh.position.set(from.x + (to.x - from.x) * k, from.y * (1 - k) + Math.sin(k * Math.PI) * 1.8 + 0.1, from.z + (to.z - from.z) * k);
-      mesh.rotation.x += dt * 14;
-      g.fx.spawn(mesh.position.x, mesh.position.y, mesh.position.z, 0, 0.2, 0, 0.3, 0.09, [1, 0.6, 0.2], { drag: 1 });
-      if (k < 1) continue;
-      this.grenades = this.grenades.filter(o => o !== grenade);
-      g.scene.remove(mesh);
-      const at = { x: to.x, y: 0.35, z: to.z };
-      g.fx.explosion(at, 1.3);
-      g.fx.ring(at, spec.radius, 0xffa030);
-      g.fx.decal(to.x, to.z, spec.radius * 0.55, 0x1a130d, 0.5);
-      g.stage.kick(2.6);
-      g.sfx.cannonHit();
-      for (const bug of g.combatTargets.slice()) {
-        if (bug.dead || bug.flying || Math.hypot(bug.x - to.x, bug.z - to.z) > spec.radius + girth(bug)) continue;
-        bug.takeDamage(grenade.damage, g, Math.atan2(bug.z - to.z, bug.x - to.x));
-      }
+  /** The crescent chases its target and widens as it goes. */
+  flyBlasts(dt) {
+    const spec = HERO.skills.blast, g = this.game;
+    for (const blast of this.blasts.slice()) {
+      const { mesh, prey, to } = blast;
+      if (!prey.dead) { to.x = prey.x; to.z = prey.z; }
+      const dx = to.x - mesh.position.x, dz = to.z - mesh.position.z, left = Math.hypot(dx, dz), step = spec.speed * dt;
+      if (left <= step) { this.burstBlast(blast); continue; }
+      mesh.position.x += dx / left * step;
+      mesh.position.z += dz / left * step;
+      mesh.position.y += (0.5 - mesh.position.y) * Math.min(1, dt * 8);
+      mesh.rotation.y = -Math.atan2(dz, dx);
+      blast.run += step;
+      mesh.scale.setScalar(0.85 + Math.min(0.75, blast.run * 0.09));
+      g.fx.spawn(mesh.position.x, mesh.position.y, mesh.position.z, -dx / left * 2, 0.3, -dz / left * 2, 0.3, 0.12, [0.45, 0.88, 1], { drag: 2 });
+    }
+    for (const shock of this.shocks.slice()) {
+      shock.t += dt / spec.shock;
+      if (shock.t >= 1) { this.endShock(shock); continue; }
+      const k = shock.t, spread = spec.radius * (1 - (1 - k) ** 3), fade = 1 - k;
+      shock.ring.scale.setScalar(Math.max(0.2, spread));
+      shock.disc.scale.setScalar(Math.max(0.2, spread));
+      shock.dome.scale.set(Math.max(0.2, spread), Math.max(0.2, spread) * 0.62, Math.max(0.2, spread));
+      shock.pillar.scale.set(1 + k * 1.5, 1 - k * 0.35, 1 + k * 1.5);
+      shock.ring.material.opacity = fade;
+      shock.disc.material.opacity = 0.42 * fade * fade;
+      shock.dome.material.opacity = 0.4 * fade * fade;
+      shock.pillar.material.opacity = 0.85 * fade ** 3;
+    }
+  }
+
+  /** A shockwave that opens to exactly the radius the blast hits. */
+  startShock(x, z) {
+    const g = this.game, group = new THREE.Group();
+    group.position.set(x, (g.heightAt?.(x, z) || 0) + 0.09, z);
+    const layer = (shape, color) => {
+      const mesh = new THREE.Mesh(shape, new THREE.MeshBasicMaterial({ color, transparent: true, depthWrite: false, depthTest: shape === shapes.shockDome, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false }));
+      group.add(mesh);
+      return mesh;
+    };
+    const shock = { group, t: 0, ring: layer(shapes.shockRing, 0xc8f6ff), disc: layer(shapes.shockDisc, 0x2aa8e8), dome: layer(shapes.shockDome, 0x58d4ff), pillar: layer(shapes.shockPillar, 0xbff3ff) };
+    shock.ring.scale.setScalar(0.2); shock.disc.scale.setScalar(0.2); shock.dome.scale.setScalar(0.2);
+    g.scene.add(group);
+    this.shocks.push(shock);
+  }
+
+  endShock(shock) {
+    this.game.scene.remove(shock.group);
+    for (const mesh of shock.group.children) mesh.material.dispose();
+    this.shocks = this.shocks.filter(o => o !== shock);
+  }
+
+  /** Where it lands: every ground bug inside the radius takes the full hit. */
+  burstBlast(blast) {
+    const spec = HERO.skills.blast, g = this.game, { to } = blast, at = { x: to.x, y: 0.4, z: to.z };
+    this.blasts = this.blasts.filter(o => o !== blast);
+    g.scene.remove(blast.mesh);
+    this.startShock(to.x, to.z);
+    g.fx.muzzleFlash(at, 0);
+    g.fx.sparks(at, 0, 70, [0.55, 0.92, 1], 13, 6.28);
+    g.fx.sparks(at, 0, 24, [1, 1, 1], 7, 6.28);
+    g.fx.smoke(at, 12, [0.42, 0.5, 0.58]);
+    g.fx.decal(to.x, to.z, spec.radius * 0.55, 0x0d1a22, 0.5);
+    g.stage.kick(4);
+    g.sfx.cannonHit();
+    for (const bug of g.combatTargets.slice()) {
+      if (bug.dead || bug.flying || Math.hypot(bug.x - to.x, bug.z - to.z) > spec.radius + girth(bug)) continue;
+      bug.takeDamage(blast.damage, g, Math.atan2(bug.z - to.z, bug.x - to.x));
     }
   }
 
@@ -858,10 +1133,10 @@ export class HeroCorps {
 
   /** What the gear screen says about each skill right now. */
   skillSheet() {
-    const { grenade, shield, robot } = HERO.skills, cd = this.cd, wait = t => `Ready in ${Math.ceil(t)}s`;
+    const { blast, shield, robot } = HERO.skills, cd = this.cd, wait = t => `Ready in ${Math.ceil(t)}s`;
     const flying = this.unit?.robotT > 0;
     return [
-      { name: grenade.name, text: `Throws a grenade into the thickest group for ${this.grenadeDamage()} damage.`, every: grenade.cooldown, state: cd.grenade > 0 ? wait(cd.grenade) : 'Ready' },
+      { name: blast.name, text: `The blade hurls a blast up to ${blast.range} tiles that deals ${this.blastDamage()} damage to ground enemies within ${blast.radius} tiles of where it lands.`, every: blast.cooldown, state: cd.blast > 0 ? wait(cd.blast) : 'Ready' },
       { name: shield.name, text: `Allied units within ${shield.radius} tiles take no damage for ${shield.seconds} seconds.`, every: shield.cooldown, state: this.guardT > 0 ? `Active ${Math.ceil(this.guardT)}s` : cd.shield > 0 ? wait(cd.shield) : 'Ready' },
       { name: robot.name, text: `Becomes a winged robot for ${robot.seconds} seconds: 50% bigger, flying, twin guns, and 50% more speed, attack speed and damage.`, every: robot.cooldown, state: flying ? `Active ${Math.ceil(this.unit.robotT)}s` : cd.robot > 0 ? wait(cd.robot) : 'Ready' }
     ];
