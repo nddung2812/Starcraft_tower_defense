@@ -596,7 +596,7 @@ on sides (opposite sides first). The swarm and health factors multiply: four Fie
 | Waves | Wave 1 at the start, then one per wave gap whether or not the last is dead |
 | Wave N | The endless stand's round-N swarm (`wavePlan(N)`) scaled to the setup, dealt to the hives in turn |
 | Pay for each wave held | 40 + 15 × the wave just held, paid as the next wave leaves. Kills pay as usual |
-| Hive health | 2,600, plus 200 for every wave launched (max and current), times the swarm setting's factor |
+| Hive health | 2,600 times the swarm setting's factor, plus a free upgrade every 30 s: +102 on Calm, +150 on Standard, +225 on Fierce (max and current) |
 | Hive guards | Hit a hive and it hatches round(3 + 0.5 × (wave − 1)) bugs beside itself, 10 at most, once per 6 seconds per hive. Rippers, with every fourth a Brute from wave 4, at +10% health per wave |
 | Hive bounty | 250 minerals |
 | A destroyed hive | Stops sending what it had queued, and its share of every later wave is gone |
@@ -604,6 +604,20 @@ on sides (opposite sides first). The swarm and health factors multiply: four Fie
 | Not in a match | Round refunds, Redeploy, salvage, the raid phase, last-bug slow motion, checkpoints, the kills leaderboard |
 
 For comparison, a round-1 hive in the endless stand has 300 health and pays 100.
+
+### Hive upgrades and thorns (19 November 2026)
+
+Both modes. Tuning is `HIVE_THORNS` and `HIVE_RAID.upgradeHp` in `src/config.js`.
+
+| Rule | Value |
+| --- | --- |
+| Free upgrade | Every 30 s of battle |
+| Health per upgrade | Endless: 20% of the hive's starting health. Survival: see the table above. Added to maximum and current health, so it never refills the bar |
+| Thorns wake | After 60 s of battle |
+| Thorn attack | Every 4.5 s at the nearest ground unit within 9 tiles. A red ring warns for 0.9 s, then thorns hit ground units within 0.9 tiles |
+| Thorn damage | 20 + 1.5 per upgrade, 40 at most, before armour |
+| Safe from thorns | Aircraft and crews inside bunkers. Walls, bunkers and the base are not targeted |
+| Looks | Each of the first 8 upgrades adds to the model: veins, spines, eyes, tusks, more spines, more eyes, hooked limbs, a bone crown. The hive grows 5% per upgrade, up to 150% |
 
 The result is the time to win. The best time, wins and matches played are kept per setup (hives,
 swarm, map size and minerals) and per browser in `td.skirmish.v1`; the last setup is remembered

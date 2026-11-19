@@ -1403,6 +1403,7 @@ layer('mines', async () => (await import('./mines.js')).installMines(game));
 layer('groundfire', async () => (await import('./groundfire.js')).installGroundFire(game));
 layer('bossmagic', async () => (await import('./bossmagic.js')).installBossMagic(game));
 layer('impacts', async () => (await import('./impacts.js')).installImpacts(game));
+layer('thorns', async () => (await import('./thorns.js')).installThorns(game, ui));
 layer('plasma', async () => (await import('./plasma.js')).installPlasma(game, ui));
 layer('skymother', async () => (await import('./skymother.js')).installSkymother(game, ui));
 layer('hero', async () => (await import('./hero.js')).installHero(game, ui));

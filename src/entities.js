@@ -927,10 +927,14 @@ export class Hive {
     this.kind = 'hive';
     this.evolution = 0;
     this.evolutionT = 0;
+    this.upgrades = 0;
+    this.battleT = 0;           // seconds of fighting this hive has seen
     this.hatchT = 0;
     this.x = spawn.x + 0.5; this.z = spawn.y + 0.9;
     this.maxHp = HIVE_RAID.hp + (level - 1) * HIVE_RAID.hpPerLevel;
     this.hp = this.maxHp;
+    this.upgradeHp = Math.round(this.maxHp * HIVE_RAID.upgradeHp);
+    this.lightColour = 0xe8b840;
     this.reward = HIVE_RAID.reward + (level - 1) * HIVE_RAID.rewardPerLevel;
     this.dead = false;
     this.obj = buildHatchery();
@@ -944,25 +948,12 @@ export class Hive {
 
   update(dt, game) {
     if (this.dead) return;
-    // In a match the director sends the waves and grows the hive; there is no separate brood timer.
-    if (!game.match && ['wave', 'raid'].includes(game.state)) {
+    if (['wave', 'raid'].includes(game.state)) {
+      this.battleT += dt;
       this.evolutionT += dt;
       while (this.evolutionT >= HIVE_RAID.evolutionInterval) {
         this.evolutionT -= HIVE_RAID.evolutionInterval;
-        this.evolution++;
-        this.hatchT = 2;
-        const count = Math.min(HIVE_RAID.broodCap, HIVE_RAID.broodBase + this.evolution * HIVE_RAID.broodPerEvolution);
-        for (let i = 0; i < count; i++) {
-          const breed = game.level >= 7 && this.evolution >= 2 && i === count - 1 ? 'broodray'
-            : game.level >= 5 && i % 4 === 3 ? 'skyhunter' : 'zergling';
-          const bug = new Zergling(this.x + (Math.random() - 0.5) * 0.28, this.z,
-            breed, 1 + (game.level - 1) * 0.1, 1);
-          game.zerglings.push(bug);
-          game.world.add(bug.obj);
-        }
-        game.fx.ring(this, 2.5, 0xe8b840);
-        game.fx.label({ x: this.x, y: 2.8, z: this.z }, `EVOLVED · +${count}`, 'cash');
-        game.emit('change');
+        this.upgrade(game);
       }
     }
     this.hatchT = Math.max(0, this.hatchT - dt);
@@ -977,10 +968,36 @@ export class Hive {
       plate.position.z *= 1 + opening;
     }
     membrane.emissiveIntensity = 0.45 + this.evolutionT / 60 + opening * 3;
-    this.light.color.setHex(0xe8b840);
+    this.light.color.setHex(this.lightColour);
     this.light.intensity = 3 + pulse + opening * 8;
     this.bar.set(this.hp / this.maxHp, game.camera, true);
     this.bar.group.visible = game.state === 'raid' || this.hp < this.maxHp;
+  }
+
+  /** A free upgrade: more health on top of what it has left, and in the stand a brood as well. */
+  upgrade(game) {
+    this.upgrades++;
+    this.maxHp += this.upgradeHp;
+    this.hp += this.upgradeHp;
+    this.hatchT = 2;
+    game.thorns?.upgraded(this);
+    game.fx.ring(this, 2.5, 0xe8b840);
+    let brood = '';
+    if (!game.match) {           // in a match the director sends the waves instead
+      this.evolution++;
+      const count = Math.min(HIVE_RAID.broodCap, HIVE_RAID.broodBase + this.evolution * HIVE_RAID.broodPerEvolution);
+      for (let i = 0; i < count; i++) {
+        const breed = game.level >= 7 && this.evolution >= 2 && i === count - 1 ? 'broodray'
+          : game.level >= 5 && i % 4 === 3 ? 'skyhunter' : 'zergling';
+        const bug = new Zergling(this.x + (Math.random() - 0.5) * 0.28, this.z,
+          breed, 1 + (game.level - 1) * 0.1, 1);
+        game.zerglings.push(bug);
+        game.world.add(bug.obj);
+      }
+      brood = ` · +${count}`;
+    }
+    game.fx.label({ x: this.x, y: 2.8, z: this.z }, `EVOLVED${brood} · +${this.upgradeHp} HP`, 'cash');
+    game.emit('change');
   }
 
   takeDamage(amount, game) {

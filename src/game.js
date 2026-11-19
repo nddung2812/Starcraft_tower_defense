@@ -54,6 +54,7 @@ export class Game {
     this.bossMagic = null;   // the bossmagic layer installs the Firestorm and Earthquake here; without it bosses keep their other spells
     this.impacts = null;     // the impacts layer installs the enemy hit effects here; without it hits show plain sparks
     this.skyfleet = null;    // the skymother layer installs the swarm's carrier here; without it she stays out of the wave
+    this.thorns = null;      // the thorns layer installs the hives' ground attack and growing looks here
     this.hero = null;        // the hero layer installs the commander's hero here; without it the army fights alone
     this.reset();
   }
@@ -166,6 +167,7 @@ export class Game {
     this.clearCrates();
     this.minefield?.clear();
     this.groundFire?.clear();
+    this.thorns?.clear();
     this.impacts?.clear();
     this.streak = 0;
 
@@ -1129,6 +1131,7 @@ export class Game {
     this.ambush.update(dt);
     this.minefield?.update(dt);
     this.groundFire?.update(dt);
+    this.thorns?.update(dt);
     this.impacts?.update(dt);
     this.plasma?.update(dt);
     this.hero?.update(dt);

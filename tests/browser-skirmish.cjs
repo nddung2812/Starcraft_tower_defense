@@ -78,7 +78,7 @@ const SEED = 12345;
     assert.equal(waves.level, 2);
     assert.ok(waves.next > 39 && waves.next <= 40, `the timer restarts (${waves.next})`);
     assert.ok(waves.sameMap && waves.kept && waves.paid, JSON.stringify(waves));
-    assert.deepEqual(waves.hives, [[2800, 2800], [2800, 2800]], 'hives grow with every wave');
+    assert.deepEqual(waves.hives, [[2750, 2750], [2750, 2750]], 'hives upgrade every 30 seconds');
     assert.equal(waves.coming, waves.planned, 'wave 2 is the round-2 swarm');
     assert.ok(waves.torch && waves.card, 'units unlock by wave number');
     assert.equal(waves.callout, 'New unit unlocked');   // the unlock replaces the "Wave 2" callout it follows
@@ -97,7 +97,7 @@ const SEED = 12345;
       const near = g.zerglings.filter(z => z.isGuard).every(z => Math.hypot(z.x - hive.x, z.z - hive.z) < 1);
       return { first: b - a, again: c - b, early: d - c, later: e - d, near, hp: hive.hp };
     });
-    assert.deepEqual(guards, { first: 4, again: 0, early: 0, later: 4, near: true, hp: 2760 });
+    assert.deepEqual(guards, { first: 4, again: 0, early: 0, later: 4, near: true, hp: 2710 });
 
     /* ---------- one hive down: its share of every later wave is gone ---------- */
     const half = await page.evaluate(async () => {
@@ -110,6 +110,7 @@ const SEED = 12345;
         lanes: [...new Set(g.queue.map(s => s.lane))], callout: document.getElementById('calloutTitle').textContent };
       g.queue.length = 0;
       m.nextT = 0.01; g.update(0.05);
+      for (const hive of g.hives) hive.update(30, g);
       return { ...after, level: g.level, queued: g.queue.length, lanesNext: [...new Set(g.queue.map(s => s.lane))],
         share: wavePlan(3).filter((_, i) => i % 2 === 1).length, grown: [g.hives[0].maxHp, g.hives[1].maxHp] };
     });
@@ -119,7 +120,7 @@ const SEED = 12345;
     assert.equal(half.level, 3);
     assert.deepEqual(half.lanesNext, [1]);
     assert.equal(half.queued, half.share, 'only the surviving hive sends its share');
-    assert.deepEqual(half.grown, [2800, 3000], 'a dead hive stops growing');
+    assert.deepEqual(half.grown, [2750, 2900], 'a dead hive stops growing');
 
     /* ---------- both hives down: the match is won ---------- */
     const won = await page.evaluate(() => {
@@ -234,7 +235,7 @@ const SEED = 12345;
     assert.equal(custom.wave1, custom.planned[0], 'wave 1 is scaled like every other wave');
     assert.match(custom.hud, /^SURVIVAL · HIVES 4\/4 · WAVE 1 · /);
     assert.deepEqual(custom.stored, { hives: 4, size: 88, mood: 'fierce', minerals: 800, quick: false }, 'the setup is remembered');
-    assert.deepEqual(custom.wave2, [2, [3360, 3360, 3360, 3360], 'wave'], 'the second wave leaves after 32 seconds and Fierce hives grow by 240');
+    assert.deepEqual(custom.wave2, [2, [3345, 3345, 3345, 3345], 'wave'], 'the second wave leaves after 32 seconds and Fierce hives upgrade by 225');
     assert.equal(custom.won[0], 'victory');
     assert.match(custom.won[1], /^Commander, you destroyed all 4 hives in 0:3\d, on wave 2, .* First win on this setup\.$/);
     assert.deepEqual(custom.records, ['2h-standard-56-480', '4h-fierce-88-800'], 'each setup keeps its own record');

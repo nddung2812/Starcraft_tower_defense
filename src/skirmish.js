@@ -21,7 +21,7 @@
  * `launchNewRun(..., 'skirmish')`): without it the Skirmish button simply stays hidden. `ui.js`
  * draws the readout, callouts and result from the events emitted here.
  */
-import { SKIRMISH, ECON, BUILD, SKYMOTHER, wavePlan } from './config.js';
+import { SKIRMISH, HIVE_RAID, ECON, BUILD, SKYMOTHER, wavePlan } from './config.js';
 import { Zergling } from './entities.js';
 
 const RECORD_KEY = 'td.skirmish.v1';
@@ -53,7 +53,8 @@ export function rulesFor(setup) {
     waveGap: mood.waveGap,
     swarm: mood.swarm * (SKIRMISH.swarmBase + SKIRMISH.swarmPerHive * setup.hives),
     hiveHp: Math.round(SKIRMISH.hiveHp * mood.hive),
-    hiveHpPerWave: Math.round(SKIRMISH.hiveHpPerWave * mood.hive)
+    // Hives upgrade on their own clock, at the pace of `hiveHpPerWave` for every wave gap.
+    hiveHpPerUpgrade: Math.round(SKIRMISH.hiveHpPerWave * mood.hive * HIVE_RAID.evolutionInterval / mood.waveGap)
   };
 }
 
@@ -73,6 +74,7 @@ export class Match {
     game.minerals = setup.minerals;
     for (const hive of game.hives) {
       hive.maxHp = hive.hp = this.rules.hiveHp;
+      hive.upgradeHp = this.rules.hiveHpPerUpgrade;
       hive.reward = SKIRMISH.hiveReward;
       hive.guardAt = -99;
     }
@@ -110,7 +112,7 @@ export class Match {
     return out;
   }
 
-  /** The next wave: pay for the one just held, grow the hives, queue the swarm on top of what is left. */
+  /** The next wave: pay for the one just held, queue the swarm on top of what is left. */
   launchWave() {
     const g = this.game;
     const bonus = ECON.waveClearBase + g.level * ECON.waveClearPerWave;
@@ -119,8 +121,6 @@ export class Match {
     g.expireTreasureBoosts();
     for (const hive of g.hives) {
       if (hive.dead) continue;
-      hive.maxHp += this.rules.hiveHpPerWave;
-      hive.hp += this.rules.hiveHpPerWave;
       hive.evolution = Math.min(5, g.level - 1);
       hive.hatchT = 2;
       g.fx.ring(hive, 2.5, 0xe8b840);

@@ -403,11 +403,18 @@ export const plasmaRadius = tier => Math.min(PLASMA_SHIELD.maxRadius, PLASMA_SHI
 export const plasmaPool = tier => PLASMA_SHIELD.pool + (tier - 1) * PLASMA_SHIELD.poolStep;
 /* From research level `twinLevel` each rail of the cannon is its own laser with its own charge. */
 export const BASE_LASER = { chargeTime: 90, damage: 600, halfWidth: 0.8, duration: 1.1, twinLevel: 5 };
-export const HIVE_RAID = { duration: 60, evolutionInterval: 30, broodBase: 2, broodPerEvolution: 2, broodCap: 12, hp: 300, hpPerLevel: 45, reward: 100, rewardPerLevel: 25 };
+export const HIVE_RAID = { duration: 60, evolutionInterval: 30, broodBase: 2, broodPerEvolution: 2, broodCap: 12, hp: 300, hpPerLevel: 45, reward: 100, rewardPerLevel: 25, upgradeHp: 0.2 };
+/*
+ * Every `evolutionInterval` seconds of battle a hive upgrades for free: `upgradeHp` of its starting
+ * health is added to its maximum and its current health, so damage already dealt stays dealt.
+ * After `awake` seconds it strikes the nearest ground unit within `range`: a ring marks the spot and
+ * thorns burst up `telegraph` seconds later, hitting ground units within `radius`.
+ */
+export const HIVE_THORNS = { awake: 60, interval: 4.5, range: 9, telegraph: 0.9, radius: 0.9, damage: 20, damagePerUpgrade: 1.5, maxDamage: 40, growth: 0.05, growthCap: 10, growTime: 1.4 };
+export const thornDamage = upgrades => Math.min(HIVE_THORNS.maxDamage, Math.round(HIVE_THORNS.damage + upgrades * HIVE_THORNS.damagePerUpgrade));
 /*
  * Skirmish: one continuous match on one map. A bigger wave leaves the hives every `waveGap`
- * seconds; destroying every hive wins. Hives are tougher than in the endless stand, grow with
- * every wave, and hatch guards (at most once per `guardGap` seconds) when they are hit.
+ * seconds; destroying every hive wins. Hives are tougher than in the endless stand and hatch guards (at most once per `guardGap` seconds) when they are hit.
  */
 export const SKIRMISH = {
   waveGap: 40,
