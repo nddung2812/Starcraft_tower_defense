@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="BREACHLINE: 29">
+<polygon points="256,18 462,137 462,375 256,494 50,375 50,137" fill="#0c1621" stroke="#f2b13b" stroke-width="28" stroke-linejoin="round"/>
+<path d="M247 92C128 116 62 262 146 392L176 358C150 316 142 278 150 244L198 228L172 192C190 154 220 120 247 92Z" fill="#eef6fc"/>
+<g transform="matrix(-1 0 0 1 512 0)"><path d="M247 92C128 116 62 262 146 392L176 358C150 316 142 278 150 244L198 228L172 192C190 154 220 120 247 92Z" fill="#eef6fc"/><path d="M247 92C128 116 62 262 146 392L176 358C96 262 150 150 247 92Z" fill="#9fb5c6"/></g>
+<path d="M256 230 318 290V366L256 306 194 366V290Z" fill="#f2b13b"/>
+<path d="M256 230 318 290V366L256 306Z" fill="#c98a1f"/>
+</svg>

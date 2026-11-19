@@ -28,10 +28,7 @@
 /* ---------------- top bar ---------------- */
 
 .app .hud { background: var(--steel-plate); border: 0; box-shadow: 0 1px 0 #5a7184, 0 8px 24px #0006; }
-.app .hud__sigil {
-  color: #171006; font-family: var(--menu-display); font-size: 17px; font-weight: 700;
-  background: linear-gradient(180deg, #f8c665, #c98c25); clip-path: var(--cut-s); border-radius: 0;
-}
+.app .hud__sigil { width: 30px; height: 30px; background: none; clip-path: none; border-radius: 0; box-shadow: none; }
 .app .hud__brand h1 { font: 700 16px/1 var(--menu-display); letter-spacing: .14em; }
 .app .hud .readout__k { font-family: var(--menu-display); font-size: 12px; letter-spacing: .12em; }
 .app .hud .readout__v { font-family: var(--menu-display); font-size: 18px; font-weight: 700; letter-spacing: .04em; }

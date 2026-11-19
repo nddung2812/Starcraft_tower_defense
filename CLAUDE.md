@@ -69,6 +69,7 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 | `src/daily.js` | Daily challenge: one seed per UTC day, today's best and day streak in `td.daily.v1`, share text. |
 | `src/fx.js`, `audio.js`, `voice.js` | Particles and decals, synthesised sound effects, speech-synthesis voice lines. |
 | `assets/models/README.md` | How to drop in `.glb` unit models. |
+| `tools/make-brand.py`, `assets/brand/` | The logo (swarm jaws closing on a rank chevron in a hive cell) and every icon size, drawn by the script. `/assets/` is cached as immutable for a year, so a redraw must bump `VERSION` and the links to the files. `favicon.svg` and `favicon.ico` stay at the root, uncached. |
 
 ## Search and public pages (Nov 18, 2026)
 
