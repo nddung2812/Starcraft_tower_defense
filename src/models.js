@@ -1233,14 +1233,17 @@ export function buildCore(level = 0) {
   laserTurret.add(coreRod);
   for (const x of [0.36, 0.74, 1.12]) laserTurret.add(mesh(box(0.07, 0.07, 0.4, 0.015), hull, x, -0.03, 0));
 
-  // The charge bar: cells along both rails that light up one by one, breech to muzzle.
-  const laserCells = [];
+  // The charge bars: cells along each rail that light up one by one, breech to muzzle.
+  const laserCells = [], laserCellsB = [];
   const cellShape = box(0.086, 0.02, 0.058, 0.005, 1);
   for (let i = 0; i < LASER_CELLS; i++) {
-    const cell = new THREE.MeshBasicMaterial({ color: LASER_CELL_OFF, toneMapped: false });
-    cell.userData.on = new THREE.Color(0xff2a12).lerp(new THREE.Color(0xffc24a), i / (LASER_CELLS - 1));
-    for (const side of [-1, 1]) laserTurret.add(mesh(cellShape, cell, 0.3 + i * 0.106, 0.14, side * 0.13));
-    laserCells.push(cell);
+    const on = new THREE.Color(0xff2a12).lerp(new THREE.Color(0xffc24a), i / (LASER_CELLS - 1));
+    [[laserCells, -1], [laserCellsB, 1]].forEach(([rail, side]) => {
+      const cell = new THREE.MeshBasicMaterial({ color: LASER_CELL_OFF, toneMapped: false });
+      cell.userData.on = on;
+      laserTurret.add(mesh(cellShape, cell, 0.3 + i * 0.106, 0.14, side * 0.13));
+      rail.push(cell);
+    });
   }
 
   // Flared emitter with three prongs around the lens.
@@ -1272,7 +1275,7 @@ export function buildCore(level = 0) {
     g.add(mesh(box(0.05, 0.07, 0.04, 0.01), pip, 0.62, 0.58, -0.22 + i * 0.1));
   });
 
-  g.userData = { dish, laserTurret, laserMuzzle, laserCells, laserCore, laserHalo, hull };
+  g.userData = { dish, laserTurret, laserMuzzle, laserCells, laserCellsB, laserCore, laserHalo, hull };
   upgradeCore(g, level);
   return g;
 }

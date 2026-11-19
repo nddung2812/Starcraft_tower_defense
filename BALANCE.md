@@ -171,6 +171,8 @@ balance as permanent treasure stacks and enemy HP grow.
   future combat units. Patch Rigs gain health too. Promotions and Trooper loot apply first;
   research multiplies the result. Existing health percentages are preserved. Research lasts
   for the run and is included in checkpoints, independently of hardware refunds.
+- The base gains the same 15 points of health per level: 500 at level 0, 575 at level 1, 875 at
+  level 5. Landing a level keeps its current health percentage.
 - Research is paid at once and lands after a build: 6 s for the first level, one second more
   per level, 12 s at most. Only one can build at a time; pausing freezes it and a checkpoint
   keeps the time left. Each level adds to the building: lit gallery, armour buttresses, beacon
@@ -201,6 +203,9 @@ balance as permanent treasure stacks and enemy HP grow.
   aircraft; normal enemy armor still applies. The beam has a 0.8-tile half-width plus target
   radius. Firing resets charge to zero; canceling aim costs nothing. Charge carries into the
   next canyon and is stored in checkpoints. Pausing freezes both charging and the bonus timer.
+- From base level 5 the cannon has two lasers, one per rail. Each has its own 90-second charge and
+  bar, and the second starts empty when level 5 lands. They fire one at a time: a ready laser waits
+  for the other's beam to finish, then aims at a different target unless only one is left.
   New runs reset research and energy. Combat/bonus-phase Save & quit replays the saved start
   of the round, using that checkpoint's research and charge.
 - Base income (Nov 18, 2026): base research level 3 mines 1 mineral every 0.5 seconds of play (2 a second) and

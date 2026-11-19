@@ -1008,8 +1008,11 @@ export class Core {
     this.w = spec.w; this.h = spec.h;
     this.x = spec.x + spec.w / 2;
     this.z = spec.y + spec.h / 2;
-    this.maxHp = spec.hp;
-    this.hp = spec.hp;
+    this.baseHp = spec.hp;
+    const stats = { hp: spec.hp };
+    applyBaseUpgrade(stats, level);
+    this.maxHp = stats.hp;
+    this.hp = stats.hp;
     this.dead = false;
 
     this.obj = new THREE.Group();
@@ -1033,38 +1036,55 @@ export class Core {
     this.bar = new HealthBar(this.obj, 1.6, 0.12, 2.35);
     this.buildBar = new HealthBar(this.obj, 1.6, 0.12, 2.35, 0xffd36a);
     this.laserFlash = 0;
+    this.laserFlash2 = 0;
+    this.laserTarget = null;   // the twin cannon's last target, so the other laser picks someone else
     this.light.intensity = 6 + Math.min(level, 12) * 0.5;
   }
+
+  get twinLaser() { return this.level >= BASE_LASER.twinLevel; }
 
   /** Redress the building for a research level; `animate` grows the newest addition into place. */
   setLevel(level, animate = false) {
     this.level = level;
+    const ratio = this.hp / this.maxHp, stats = { hp: this.baseHp };
+    applyBaseUpgrade(stats, level);
+    this.maxHp = stats.hp;
+    this.hp = stats.hp * ratio;
     const newest = upgradeCore(this.model, level);
     this.light.intensity = 6 + Math.min(level, 12) * 0.5;
     this.pop = animate && newest ? { group: newest, t: 0 } : null;
     if (this.pop) newest.scale.setScalar(0.01);
   }
 
-  fireLaser(ux, uz) {
+  /** `gun` 0 or 1 is the rail that fires; the twin cannon's beams leave from their own rail. */
+  fireLaser(ux, uz, gun = 0) {
     const { laserTurret, laserMuzzle } = this.model.userData;
     laserTurret.rotation.y = -Math.atan2(uz, ux);
-    this.laserFlash = BASE_LASER.duration;
+    if (gun) this.laserFlash2 = BASE_LASER.duration;
+    else this.laserFlash = BASE_LASER.duration;
     laserMuzzle.material.emissiveIntensity = 6;
-    return laserMuzzle.getWorldPosition(new THREE.Vector3());
+    if (!this.twinLaser) return laserMuzzle.getWorldPosition(new THREE.Vector3());
+    laserTurret.updateWorldMatrix(true, false);
+    return laserTurret.localToWorld(laserMuzzle.position.clone().setZ(gun ? 0.13 : -0.13));
   }
 
-  /** The cannon shows its own charge: cells fill along the rails, then drain while the beam burns. */
+  /** The cannon shows its own charge: cells fill along each rail, then drain while that rail's beam burns. */
   syncCannon(game) {
-    const { laserCells, laserCore, laserHalo, laserMuzzle } = this.model.userData;
-    const charge = game.laserCharge / BASE_LASER.chargeTime;
-    const firing = this.laserFlash > 0;
-    const shown = Math.max(charge, this.laserFlash / BASE_LASER.duration);
+    const { laserCells, laserCellsB, laserCore, laserHalo, laserMuzzle } = this.model.userData;
+    const twin = this.twinLaser, full = BASE_LASER.chargeTime;
+    const charge = Math.max(game.laserCharge, twin ? game.laserCharge2 : 0) / full;
+    const firing = this.laserFlash > 0 || this.laserFlash2 > 0;
     const ready = game.laserReady;
-    laserCells.forEach((cell, i) => {
-      const lit = Math.max(0, Math.min(1, shown * laserCells.length - i));
-      const wave = ready ? 0.72 + 0.28 * Math.sin(game.time * 7 - i * 0.8) : 1;   // a full bar runs toward the muzzle
-      cell.color.setHex(LASER_CELL_OFF).lerp(cell.userData.on, lit * wave);
-    });
+    const paint = (cells, level, flash) => {
+      const shown = Math.max(level / full, flash / BASE_LASER.duration);
+      cells.forEach((cell, i) => {
+        const lit = Math.max(0, Math.min(1, shown * cells.length - i));
+        const wave = level >= full ? 0.72 + 0.28 * Math.sin(game.time * 7 - i * 0.8) : 1;   // a full bar runs toward the muzzle
+        cell.color.setHex(LASER_CELL_OFF).lerp(cell.userData.on, lit * wave);
+      });
+    };
+    paint(laserCells, game.laserCharge, this.laserFlash);
+    paint(laserCellsB, twin ? game.laserCharge2 : game.laserCharge, twin ? this.laserFlash2 : this.laserFlash);
     const heat = firing ? 1 : ready ? 0.75 + 0.25 * Math.sin(game.time * 7) : charge * 0.7;
     laserCore.color.setHex(LASER_CORE_OFF).lerp(CANNON_HOT, heat);
     laserMuzzle.material.emissiveIntensity = firing ? 6 : 0.35 + 2.65 * charge;
@@ -1102,21 +1122,27 @@ export class Core {
     }
     if (!this.dead && !game.paused && !game.pendingEvolution && ['wave', 'raid'].includes(game.state)) {
       // Defend against the nearest mobile threat first, then attack surviving bases.
-      let target = null, best = Infinity;
+      // The twin cannon only returns to its last target when nothing else is left to shoot.
+      const twin = this.twinLaser, burning = this.laserFlash > 0 || this.laserFlash2 > 0;
+      let target = null, best = Infinity, repeat = null;
       for (const enemy of game.combatTargets) {
         if (enemy.dead) continue;
         const distance = Math.hypot(enemy.x - this.x, enemy.z - this.z);
         if (distance < 0.1) continue;
+        if (twin && enemy === this.laserTarget) { repeat = enemy; continue; }
         const score = distance + (enemy.kind === 'hive' ? game.grid.COLS + game.grid.ROWS : 0);
         if (score < best) { best = score; target = enemy; }
       }
+      target ||= repeat;
       if (target) {
         const yaw = -Math.atan2(target.z - this.z, target.x - this.x);
-        if (this.laserFlash <= 0) ud.laserTurret.rotation.y = angleLerp(ud.laserTurret.rotation.y, yaw, Math.min(1, dt * 6));
-        if (game.laserReady) game.fireLaser(target.x, target.z);
+        if (!burning) ud.laserTurret.rotation.y = angleLerp(ud.laserTurret.rotation.y, yaw, Math.min(1, dt * 6));
+        // Two lasers take turns: the second waits for the first beam to finish.
+        if (game.laserReady && !(twin && burning) && game.fireLaser(target.x, target.z)) this.laserTarget = target;
       }
     }
     this.laserFlash = Math.max(0, this.laserFlash - dt);
+    this.laserFlash2 = Math.max(0, this.laserFlash2 - dt);
     this.syncCannon(game);
     const pct = this.hp / this.maxHp;
     this.light.color.setHex(pct < 0.35 ? 0xff5a4a : 0xffc56a);

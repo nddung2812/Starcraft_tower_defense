@@ -399,7 +399,8 @@ export const PLASMA_SHIELD = { every: 3, radius: 5, radiusStep: 1.5, maxRadius: 
 export const plasmaTier = level => Math.floor(level / PLASMA_SHIELD.every);
 export const plasmaRadius = tier => Math.min(PLASMA_SHIELD.maxRadius, PLASMA_SHIELD.radius + (tier - 1) * PLASMA_SHIELD.radiusStep);
 export const plasmaPool = tier => PLASMA_SHIELD.pool + (tier - 1) * PLASMA_SHIELD.poolStep;
-export const BASE_LASER = { chargeTime: 90, damage: 600, halfWidth: 0.8, duration: 1.1 };
+/* From research level `twinLevel` each rail of the cannon is its own laser with its own charge. */
+export const BASE_LASER = { chargeTime: 90, damage: 600, halfWidth: 0.8, duration: 1.1, twinLevel: 5 };
 export const HIVE_RAID = { duration: 60, evolutionInterval: 30, broodBase: 2, broodPerEvolution: 2, broodCap: 12, hp: 300, hpPerLevel: 45, reward: 100, rewardPerLevel: 25 };
 /*
  * Skirmish: one continuous match on one map. A bigger wave leaves the hives every `waveGap`

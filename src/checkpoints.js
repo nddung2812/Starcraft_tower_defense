@@ -18,7 +18,7 @@ export function captureCheckpoint(g, meta) {
   const snapshot = {
     version: 1, savedAt: Date.now(), ...meta,
     level: g.level, seed: g.mapSeed, minerals: g.minerals, kills: g.kills, time: g.time,
-    mapVersion: g.mapVersion, baseLevel: g.baseLevel, baseUpgradeT: g.baseUpgradeT, laserCharge: g.laserCharge,
+    mapVersion: g.mapVersion, baseLevel: g.baseLevel, baseUpgradeT: g.baseUpgradeT, laserCharge: g.laserCharge, laserCharge2: g.laserCharge2,
     airStrikeCd: g.airStrikeCd, phase: g.state, coreHp: g.core.hp,
     armory: g.armory.map(a => a.id),
     evolutions: { ...g.evolutions },
@@ -48,6 +48,7 @@ export function validateCheckpoint(s) {
       !number(s.minerals) || !integer(s.kills) || !number(s.time) || !number(s.airStrikeCd) ||
       !['build', 'brief'].includes(s.phase) || !number(s.coreHp, 0.001)) return false;
     if (s.laserCharge !== undefined && !number(s.laserCharge, 0, BASE_LASER.chargeTime)) return false;
+    if (s.laserCharge2 !== undefined && !number(s.laserCharge2, 0, BASE_LASER.chargeTime)) return false;
     if (s.baseLevel !== undefined && !integer(s.baseLevel, 0, 100000)) return false;
     if (s.baseUpgradeT !== undefined && !number(s.baseUpgradeT, 0, BASE_UPGRADE.maxTime)) return false;
     if (s.mapVersion !== undefined && !SUPPORTED_MAP_VERSIONS.includes(s.mapVersion)) return false;
@@ -65,7 +66,9 @@ export function validateCheckpoint(s) {
         t.expiresAfterLevel === t.earnedLevel + TREASURE_RULES.silverRounds && t.expiresAfterLevel >= s.level))) return false;
     const grid = new Grid();
     grid.load(carveLevel(s.level, s.seed, s.mapVersion ?? 1));
-    if (s.coreHp > grid.core.hp) return false;
+    const coreStats = { hp: grid.core.hp };
+    applyBaseUpgrade(coreStats, s.baseLevel ?? 0);
+    if (s.coreHp > coreStats.hp) return false;
     const pos = e => e && number(e.x, 0, grid.COLS - 0.001) && number(e.z, 0, grid.ROWS - 0.001);
     const tile = e => e && integer(e.tx, 0, grid.COLS - 1) && integer(e.ty, 0, grid.ROWS - 1);
     const ownTile = e => {
@@ -127,7 +130,7 @@ export function restoreCheckpoint(g, s) {
   if (!validateCheckpoint(s)) throw Error('This saved run is incompatible or damaged.');
   g.wipeUnits();
   Object.assign(g, { match: null, matchMap: null, level: s.level, mapSeed: s.seed, minerals: s.minerals, kills: s.kills, score: s.kills,
-    mapVersion: s.mapVersion ?? 1, baseLevel: s.baseLevel ?? 0, baseUpgradeT: s.baseUpgradeT ?? 0, laserCharge: s.laserCharge ?? 0,
+    mapVersion: s.mapVersion ?? 1, baseLevel: s.baseLevel ?? 0, baseUpgradeT: s.baseUpgradeT ?? 0, laserCharge: s.laserCharge ?? 0, laserCharge2: s.laserCharge2 ?? 0,
     time: s.time, airStrikeCd: s.airStrikeCd, state: 'build', paused: true, queue: [],
     armory: s.armory.map(id => ARMORY.find(a => a.id === id)),
     evolutions: { ...(s.evolutions || {}) }, pendingEvolution: null,

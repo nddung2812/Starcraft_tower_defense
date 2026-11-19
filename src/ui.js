@@ -338,7 +338,8 @@ export class UI {
       const tier = incomeTier(level);
       const mining = tier && level % BASE_INCOME.levels === 0
         ? ` Now mining ${incomeMinerals(tier) / BASE_INCOME.interval} minerals a second and ${tier} free Trooper${tier === 1 ? '' : 's'} every ${BASE_INCOME.troopEvery} seconds.` : '';
-      this.toast(`Base level ${level}`, `${stage ? stage + ' added. ' : ''}All units +${Math.round(BASE_UPGRADE.bonus * 100)}% health and damage.${mining}`, 'unlock', 4500);
+      const twin = level === BASE_LASER.twinLevel ? ' Second laser online.' : '';
+      this.toast(`Base level ${level}`, `${stage ? stage + ' added. ' : ''}Base and all units +${Math.round(BASE_UPGRADE.bonus * 100)}% health, units +${Math.round(BASE_UPGRADE.bonus * 100)}% damage.${twin}${mining}`, 'unlock', 4500);
       if (this.inspect.entity?.kind === 'core') this.showUnit(this.inspect.kind, this.inspect.tier, this.inspect.entity);
     });
     game.on('unitUnlocked', (b) => {
@@ -484,7 +485,7 @@ export class UI {
       $('pName').textContent = hive ? 'Rift Hive' : `Ridge Relay · Upgrade ${g.baseLevel}`;
       $('pRole').textContent = hive ? `Evolution ${entity.evolution} · hatches in ${Math.ceil(30 - entity.evolutionT)}s · ${entity.reward} minerals` : 'Army research / piercing laser';
       $('pFaction').textContent = hive ? 'The Rift Brood' : 'Breachline Compact';
-      $('pBio').textContent = hive ? 'This brood egg evolves every 30 combat seconds, hatching a larger swarm each time. Destroy it to stop reinforcements and earn minerals. Attack (A) sends the whole army. Destroy every enemy base to finish the round. Surviving bases keep evolving until you destroy them.' : 'Upgrade the base to boost every current and future unit. The cannon tracks enemies and automatically fires a piercing laser every 90 seconds when a target is available. Upgrades and energy carry across rounds.';
+      $('pBio').textContent = hive ? 'This brood egg evolves every 30 combat seconds, hatching a larger swarm each time. Destroy it to stop reinforcements and earn minerals. Attack (A) sends the whole army. Destroy every enemy base to finish the round. Surviving bases keep evolving until you destroy them.' : `Upgrade the base to raise its own health and boost every current and future unit. ${g.laserGuns > 1 ? 'The cannon has two lasers. Each charges for 90 seconds on its own rail, and they fire one at a time at different targets.' : `The cannon tracks enemies and automatically fires a piercing laser every 90 seconds when a target is available. A second laser comes online at base level ${BASE_LASER.twinLevel}.`} Upgrades and energy carry across rounds.`;
       $('pQuote').textContent = '';
       $('stats').innerHTML = statRow('Hit Points', Math.ceil(entity.hp) + ' / ' + entity.maxHp, entity.hp / entity.maxHp, '#5ef08a');
     } else if (entity?.kind === 'wall') {
@@ -866,12 +867,14 @@ export class UI {
     $('baseBonus').textContent = upgrading
       ? `Lv ${g.baseLevel} → ${g.baseLevel + 1}${g.paused ? ' · paused' : ''}${next ? ' · ' + next : ''}`
       : `Lv ${g.baseLevel} · +${bonus}% HP / damage${incomeTier(g.baseLevel) ? ` · +${incomeMinerals(incomeTier(g.baseLevel)) / BASE_INCOME.interval} minerals/s · ${incomeTier(g.baseLevel)} Trooper${incomeTier(g.baseLevel) === 1 ? '' : 's'}/${BASE_INCOME.troopEvery}s` : ''}${g.plasma ? ' · ' + g.plasma.summary() : ''}`;
-    $('btnBaseUpgrade').title = `Each level: +15% health for all units, +15% damage for all combat units, and a visible addition to the base${next ? ' (next: ' + next + ')' : ''}. Takes ${g.baseUpgradeTime}s to build. Applies to current and future units; lasts for this run.`;
+    $('btnBaseUpgrade').title = `Each level: +15% health for the base and all units, +15% damage for all combat units, and a visible addition to the base${next ? ' (next: ' + next + ')' : ''}. Base level ${BASE_LASER.twinLevel} adds a second laser. Takes ${g.baseUpgradeTime}s to build. Applies to current and future units; lasts for this run.`;
     const aiming = $('btnLaser').getAttribute('aria-pressed') === 'true';
-    $('btnLaser').textContent = aiming ? 'Cancel laser aim' : g.laserReady ? 'Fire laser (Shift+R)' : `Laser · ${Math.floor(g.laserCharge / BASE_LASER.chargeTime * 100)}%`;
+    const charges = g.laserGuns > 1 ? [g.laserCharge, g.laserCharge2] : [g.laserCharge];
+    const fullest = Math.max(...charges);
+    $('btnLaser').textContent = aiming ? 'Cancel laser aim' : g.laserReady ? 'Fire laser (Shift+R)' : `Laser · ${charges.map(c => Math.floor(c / BASE_LASER.chargeTime * 100) + '%').join(' / ')}`;
     $('btnLaser').disabled = g.paused || !g.laserReady || !['wave', 'raid'].includes(g.state);
-    $('btnLaser').style.setProperty('--charge', `${g.laserCharge / BASE_LASER.chargeTime * 100}%`);
-    $('laserHint').textContent = aiming ? 'Click a direction from your base · Esc cancels' : g.laserReady ? 'Auto-fire armed · tracking enemies · 600 piercing damage' : `${Math.ceil(BASE_LASER.chargeTime - g.laserCharge)}s to auto-fire · tracks enemies`;
+    $('btnLaser').style.setProperty('--charge', `${fullest / BASE_LASER.chargeTime * 100}%`);
+    $('laserHint').textContent = aiming ? 'Click a direction from your base · Esc cancels' : g.laserReady ? 'Auto-fire armed · tracking enemies · 600 piercing damage' : `${Math.ceil(BASE_LASER.chargeTime - fullest)}s to auto-fire · tracks enemies`;
     const waiting = g.lastArmy?.length || 0;
     $('btnRedeploy').hidden = !waiting || !$('intro').hidden || !['build', 'brief', 'wave'].includes(g.state);
     if (waiting) {
