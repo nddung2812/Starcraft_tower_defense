@@ -592,7 +592,7 @@ export const HERO = {
   skills: {
     blast: { name: 'Blade Blast', base: 100, perLevel: 10, cooldown: 15, range: DEADEYE_TIERS[0].range, radius: 2.4, speed: 17, shock: 0.6 },
     shield: { name: 'Plasma Shield', seconds: 7, cooldown: 30, radius: 5, hurt: 0.8 },
-    robot: { name: 'War Robot', seconds: 30, cooldown: 60, speed: 1.5, haste: 1.5, damage: 1.5, range: 1.5, sight: 7, crowd: 3 }
+    robot: { name: 'War Robot', seconds: 15, cooldown: 60, speed: 1.5, haste: 1.5, damage: 1.5, range: 1.5, sight: 7, crowd: 3 }
   }
 };
 export const HERO_TIERS = [{ ...MARINE_TIERS[0], rank: 'Hero', hp: MARINE_TIERS[0].hp + HERO.extraHp, attackSpeed: HERO.attackSpeed, upgradeCost: null }];

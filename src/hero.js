@@ -224,38 +224,37 @@ function robotArm() {
   return bake();
 }
 
-/** The rifle: stock, receiver, energy cell, sight and a long coil barrel. Held at the grip, muzzle toward +X. */
+/** The rifle: a short, heavy carbine with a boxed barrel shroud and a muzzle brake. Held at the grip, muzzle toward +X. */
 function robotRifle() {
   const { a, l, bake } = robotSheet(), { white, shade, blue, red, gold, dark, steel } = PAINT;
-  a(plate([[-0.42, -0.1], [-0.35, -0.1], [-0.27, -0.02], [-0.13, 0.015], [-0.13, 0.075], [-0.32, 0.07], [-0.43, 0]], 0.05, 0.01), blue);
-  a(plate([[-0.44, -0.11], [-0.405, -0.11], [-0.41, 0.015], [-0.445, 0.015]], 0.06, 0.006), red);
-  a(plate([[-0.045, 0.03], [0.04, 0.03], [0.02, -0.085], [-0.06, -0.085]], 0.05, 0.008), dark);
-  a(plate([[-0.17, 0.01], [0.24, 0.01], [0.28, 0.05], [0.24, 0.125], [0.0, 0.14], [-0.1, 0.115], [-0.17, 0.075]], 0.08, 0.012), white);
-  a(box(0.2, 0.008, 0.083), shade, 0.05, 0.04);
-  a(plate([[0.08, 0.02], [0.18, 0.02], [0.155, -0.12], [0.075, -0.12]], 0.06, 0.008), blue);
-  a(box(0.08, 0.012, 0.065), gold, 0.118, -0.122);
-  l(box(0.045, 0.075, 0.066), CYAN, 0.122, -0.045);
-  l(box(0.16, 0.014, 0.086), CYAN, 0.1, 0.09);
+  // Short stock and grip.
+  a(plate([[-0.3, 0.0], [-0.17, 0.02], [-0.17, 0.125], [-0.3, 0.11]], 0.08, 0.012), blue);
+  a(box(0.025, 0.12, 0.085), red, -0.305, 0.055);
+  a(plate([[-0.045, 0.03], [0.04, 0.03], [0.02, -0.085], [-0.06, -0.085]], 0.06, 0.008), dark);
 
-  // Sight on a gold mount.
-  a(box(0.06, 0.03, 0.03), gold, 0.03, 0.15);
-  a(rod(0.021, 0.14), dark, 0.04, 0.178);
-  a(rod(0.026, 0.016), gold, 0.112, 0.178);
-  l(rod(0.017, 0.006), 0xff5a4a, 0.122, 0.178);
-
-  // Handguard, coil barrel and split muzzle.
-  a(plate([[0.24, 0.015], [0.54, 0.03], [0.56, 0.06], [0.54, 0.105], [0.27, 0.125]], 0.085, 0.012), blue);
-  a(box(0.2, 0.01, 0.088), gold, 0.39, 0.095);
-  for (let i = 0; i < 4; i++) a(box(0.02, 0.012, 0.088), dark, 0.31 + i * 0.05, 0.05);
-  a(rod(0.021, 0.42), steel, 0.76, 0.065);
-  for (let i = 0; i < 4; i++) l(new THREE.TorusGeometry(0.036, 0.009, 6, 14).rotateY(Math.PI / 2), CYAN, 0.6 + i * 0.065, 0.065);
+  // Receiver: a deep white block with a lit cell window on each side.
+  a(plate([[-0.18, 0.0], [0.3, 0.0], [0.31, 0.12], [0.24, 0.155], [-0.12, 0.155], [-0.18, 0.12]], 0.12, 0.016), white);
+  a(box(0.34, 0.012, 0.124), shade, 0.06, 0.03);
   for (const s of [-1, 1]) {
-    const rail = [[0.8, 0.025], [0.98, 0.012], [1.04, 0.03], [1.0, 0.05], [0.83, 0.06]];
-    a(plate(rail.map(([x, y]) => [x, y * s]), 0.058, 0.008), white, 0, 0.065);
-    a(plate([[0.97, 0.013], [1.04, 0.03], [1.0, 0.05], [0.95, 0.056]].map(([x, y]) => [x, y * s]), 0.062, 0.004), red, 0, 0.065);
+    l(box(0.14, 0.03, 0.006), CYAN, 0.08, 0.09, s * 0.063);
+    a(box(0.17, 0.05, 0.004), dark, 0.08, 0.09, s * 0.061);
   }
-  a(rod(0.04, 0.05), gold, 0.81, 0.065);
-  l(rod(0.012, 0.03), 0xdffcff, 0.98, 0.065);
+  // Energy cell under the receiver.
+  a(plate([[0.07, 0.0], [0.19, 0.0], [0.175, -0.11], [0.085, -0.11]], 0.09, 0.01), blue);
+  a(box(0.1, 0.014, 0.094), gold, 0.13, -0.105);
+
+  // Low sight on top.
+  a(box(0.14, 0.035, 0.05), dark, 0.03, 0.175);
+  l(box(0.006, 0.02, 0.03), 0xff5a4a, 0.1, 0.178);
+
+  // Barrel shroud: blue armour with vent slots and a gold stripe, then a thick barrel and muzzle brake.
+  a(plate([[0.29, 0.005], [0.58, 0.02], [0.6, 0.06], [0.58, 0.125], [0.29, 0.14]], 0.11, 0.014), blue);
+  a(box(0.27, 0.012, 0.114), gold, 0.44, 0.115);
+  for (let i = 0; i < 3; i++) a(box(0.03, 0.04, 0.114), dark, 0.36 + i * 0.07, 0.06);
+  a(rod(0.034, 0.1), steel, 0.64, 0.065);
+  a(box(0.075, 0.085, 0.085), dark, 0.705, 0.065);
+  for (const s of [-1, 1]) a(box(0.05, 0.018, 0.09), shade, 0.705, 0.065 + s * 0.028);
+  l(rod(0.02, 0.012), 0xdffcff, 0.745, 0.065);
   return bake();
 }
 
@@ -315,7 +314,7 @@ export function buildRobot() {
     mount(half, k.shoulder, 0, 1.12, 0.39);
     const arm = mount(half, k.arm, 0, 1.12, 0.39), gun = mount(arm, k.rifle, 0.285, -0.325, 0);
     const tip = new THREE.Object3D();
-    tip.position.set(1.05, 0.065, 0);
+    tip.position.set(0.76, 0.065, 0);
     const flash = new THREE.Mesh(k.flash, soft(0xbaf8ff, 0.95));
     flash.position.copy(tip.position);
     flash.visible = false;

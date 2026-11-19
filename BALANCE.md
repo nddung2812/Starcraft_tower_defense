@@ -500,7 +500,7 @@ One free soldier named after the commander. Levels and gear are saved in the bro
 - **Passive skills** fire by themselves in a fight. Each reset counts from the moment its effect ends.
   - **Blade Blast** (15 s): the blade hurls a crescent of energy at the thickest ground group within 9.5 tiles (a Spotter Spectre's range). It bursts on arrival for 100 + 10 per hero level to every ground enemy within 2.4 tiles.
   - **Plasma Shield** (30 s): when an ally within 5 tiles is below 80% health, every allied unit in that radius takes no damage for 7 seconds.
-  - **War Robot** (60 s): with 3 enemies within 7 tiles, a boss near, or the hero under half health, the hero flies as a winged robot for 30 seconds. It is 50% bigger with twin guns, 1.5× speed, attack speed and damage, and +1.5 range. It fires on the move, cannot use the blade, and a lethal hit only ends the form, leaving the hero on 25% health.
+  - **War Robot** (60 s): with 3 enemies within 7 tiles, a boss near, or the hero under half health, the hero flies as a winged robot for 15 seconds, then waits out the 60-second reset. It is 50% bigger with twin guns, 1.5× speed, attack speed and damage, and +1.5 range. It fires on the move, cannot use the blade, and a lethal hit only ends the form, leaving the hero on 25% health.
 - **Death.** The hero returns after 15 seconds and loses nothing. It cannot be salvaged and costs nothing to redeploy.
 - **Drops.** Medium bosses drop 2 items and hard bosses 3, walked over or clicked; leftovers go to the bag when the fight ends.
   Odds are 55/35/10 (medium) and 20/50/30 (hard) for magic/rare/legendary.

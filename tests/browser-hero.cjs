@@ -228,7 +228,7 @@ const start = async page => {
       check(u.robotT > 0, 'The robot can return');
       for (let i = 0; i < (skills.robot.seconds + 1) * 20; i++) u.update(0.05, g);
       g.tracers.forEach(t => { t.dead = true; });
-      check(u.robotT === 0 && !u.flying && u.isPlaced(g) && g.grid.occupant(u.tx, u.ty) === u, 'After 30 seconds the hero lands on open ground');
+      check(u.robotT === 0 && !u.flying && u.isPlaced(g) && g.grid.occupant(u.tx, u.ty) === u, 'After 15 seconds the hero lands on open ground');
       check(corps.cd.robot === skills.robot.cooldown && Math.abs(u.stats.damage - groundDamage) < 1e-6, 'Stats return to normal and the 60 second reset starts');
       clearBugs(); u.hp = u.maxHp; corps.cd = { blast: 1e9, shield: 1e9, robot: 1e9 };
 
