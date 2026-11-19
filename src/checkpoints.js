@@ -8,8 +8,9 @@ import { syncEvolutionVisual } from './evolutions.js';
 export const SAVE_KEY = 'td.checkpoint.v1';
 const number = (v, min = 0, max = 1e12) => Number.isFinite(v) && v >= min && v <= max;
 const integer = (v, min = 0, max = 1e9) => Number.isInteger(v) && number(v, min, max);
+const finite = (v) => (Number.isFinite(v) && v > 0 ? v : 0);
 const fields = ['tx', 'ty', 'x', 'z', 'hp', 'tier', 'invested', 'yaw', 'restYaw', 'cooldown',
-  'yamatoCd', 'stimT', 'blindT', 'silenceT', 'goalTx', 'goalTy', 'wp', 'driving', 'waypoints', 'defend'];
+  'yamatoCd', 'stimT', 'blindT', 'silenceT', 'goalTx', 'goalTy', 'wp', 'driving', 'waypoints', 'defend', 'free'];
 
 /** Only peaceful planning/countdown states can become checkpoints. Combat replays the round. */
 export function captureCheckpoint(g, meta) {
@@ -17,7 +18,9 @@ export function captureCheckpoint(g, meta) {
   const roster = g.gunners.filter(m => !m.isHero);   // the hero keeps its own save and musters every round
   const snapshot = {
     version: 1, savedAt: Date.now(), ...meta,
-    level: g.level, seed: g.mapSeed, minerals: g.minerals, kills: g.kills, time: g.time,
+    level: g.level, seed: g.mapSeed, runId: g.runId, minerals: g.minerals, kills: g.kills, time: g.time,
+    incomeT: g.incomeT, troopT: g.troopT, plasma: g.plasma ? { pool: g.plasma.pool, broken: g.plasma.broken } : undefined,
+    heroCd: g.hero ? { ...g.hero.cd } : undefined,
     mapVersion: g.mapVersion, baseLevel: g.baseLevel, baseUpgradeT: g.baseUpgradeT, laserCharge: g.laserCharge, laserCharge2: g.laserCharge2,
     airStrikeCd: g.airStrikeCd, phase: g.state, coreHp: g.core.hp,
     armory: g.armory.map(a => a.id),
@@ -130,6 +133,7 @@ export function restoreCheckpoint(g, s) {
   if (!validateCheckpoint(s)) throw Error('This saved run is incompatible or damaged.');
   g.wipeUnits();
   Object.assign(g, { match: null, matchMap: null, level: s.level, mapSeed: s.seed, minerals: s.minerals, kills: s.kills, score: s.kills,
+    runId: Number.isInteger(s.runId) ? s.runId : g.runId, restoredRun: true, incomeT: finite(s.incomeT), troopT: finite(s.troopT),
     mapVersion: s.mapVersion ?? 1, baseLevel: s.baseLevel ?? 0, baseUpgradeT: s.baseUpgradeT ?? 0, laserCharge: s.laserCharge ?? 0, laserCharge2: s.laserCharge2 ?? 0,
     time: s.time, airStrikeCd: s.airStrikeCd, state: 'build', paused: true, queue: [],
     armory: s.armory.map(id => ARMORY.find(a => a.id === id)),
@@ -170,6 +174,8 @@ export function restoreCheckpoint(g, s) {
     g.gunners.push(e); g.world.add(e.obj);
   }
   g.minefield?.restore(s.mines);
+  g.plasma?.restore(s.plasma);
+  if (g.hero && s.heroCd) for (const key of Object.keys(g.hero.cd)) g.hero.cd[key] = finite(s.heroCd[key]);
   // A build checkpoint also needs a countdown: there is no separate Launch control.
   g.startWave();
   g.paused = true;

@@ -612,7 +612,14 @@ export class Hero extends Marine {
   /** Airborne: rises into place, flaps, and keeps both guns firing on the move. */
   flyRobot(dt, game) {
     this.robotT -= dt;
-    if (this.robotT <= 0) { this.endRobot(game); return; }
+    if (this.robotT <= 0) {
+      // Out of time over rock or water: fly on to open ground first, so the hero never jumps there.
+      const spot = game.grid.nearestOpen(Math.floor(this.x), Math.floor(this.z), 16) || this.corps.landing();
+      if (!spot || Math.hypot(spot.x + 0.5 - this.x, spot.y + 0.5 - this.z) <= 1.2) { this.endRobot(game); return; }
+      this.robotT = 1e-3;
+      this.order = null;
+      if (!this.driving || this.goalTx !== spot.x || this.goalTy !== spot.y) this.orderMove(spot.x, spot.y, game);
+    }
     if (this.driving && this.silenceT <= 0) {
       const prey = this.acquire(game);
       if (prey) {
@@ -956,10 +963,13 @@ export class HeroCorps {
       const near = this.drops.find(d => d.t > 0.7 && Math.hypot(d.x - u.x, d.z - u.z) <= 1.1);
       if (near) this.collect(near);
     }
+    // The wait runs from the moment the hero falls, not from when the body is finally gone.
+    if (u?.downed || u?.dead) this.fellAt ??= g.time;
+    else if (u) this.fellAt = null;
     if (this.present || !['brief', 'wave', 'raid'].includes(g.state)) return;
     if (this.respawnT <= 0) {
-      this.respawnT = HERO.respawn;
-      this.ui.toast(`${this.name} is down`, `Back at the line in ${HERO.respawn} seconds. Experience and gear are safe.`, 'warn');
+      this.respawnT = Math.max(0.05, HERO.respawn - (this.fellAt == null ? 0 : g.time - this.fellAt));
+      this.ui.toast(`${this.name} is down`, `Back at the line in ${Math.ceil(this.respawnT)} seconds. Experience and gear are safe.`, 'warn');
     }
     this.respawnT -= dt;
     if (this.respawnT <= 0) { this.respawnT = 0; this.deploy(); }
@@ -1220,6 +1230,11 @@ export class HeroCorps {
 
   bossFell(round) {
     const g = this.game, boss = g.assault.boss, plan = g.assault.plan;
+    // Save & quit replays a round: its boss pays out once per run.
+    const paid = `${g.runId}:${round}`, looted = this.profile.looted ||= [];
+    if (g.restoredRun && looted.includes(paid)) return;
+    looted.push(paid);
+    if (looted.length > 40) looted.shift();
     const from = { x: boss?.x ?? g.core.x, z: boss?.z ?? g.core.z };
     const count = plan?.hard ? LOOT.drops.hard : LOOT.drops.medium;
     const used = new Set();

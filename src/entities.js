@@ -48,6 +48,9 @@ function normAngle(a) { return ((a + Math.PI) % TAU + TAU) % TAU - Math.PI; }
 
 const BAR_BG = new THREE.MeshBasicMaterial({ color: 0x0a0f14, depthTest: false, transparent: true, opacity: 0.8 });
 const BAR_GEO = new THREE.PlaneGeometry(1, 1);
+/* Every unit's selection ring and Defend diamond share these, so a round's army leaves no geometry behind. */
+const UNIT_RING_GEO = new THREE.RingGeometry(0.42, 0.5, 28).rotateX(-Math.PI / 2);
+const GUARD_MARK_GEO = new THREE.RingGeometry(0.62, 0.7, 4, 1).rotateX(-Math.PI / 2);
 
 class HealthBar {
   constructor(parent, width, height, y, color = null) {
@@ -151,7 +154,7 @@ export class Marine {
     this.obj.add(this.model);
 
     this.ring = new THREE.Mesh(
-      new THREE.RingGeometry(0.42, 0.5, 28).rotateX(-Math.PI / 2),
+      UNIT_RING_GEO,
       new THREE.MeshBasicMaterial({ color: this.spec.accent, transparent: true, opacity: 0.85, depthWrite: false })
     );
     this.ring.position.y = 0.02;
@@ -161,7 +164,7 @@ export class Marine {
     // Defend mode: a gold diamond around the ring marks a unit that stays home on Attack.
     this.defend = false;
     this.guardMark = new THREE.Mesh(
-      new THREE.RingGeometry(0.62, 0.7, 4, 1).rotateX(-Math.PI / 2),
+      GUARD_MARK_GEO,
       new THREE.MeshBasicMaterial({ color: 0xffd36a, transparent: true, opacity: 0.9, depthWrite: false })
     );
     this.guardMark.position.y = 0.025;
@@ -214,6 +217,9 @@ export class Marine {
     this.model.rotation.y = old.rotation.y;
     this.obj.remove(old);
     this.obj.add(this.model);
+    // The Medic's glow follows the hands of the model it was built on: find the new hands.
+    if (this.healAura) for (const glow of this.healAura) this.obj.remove(glow);
+    this.healHands = this.healAura = null;
     this.applyStats(armory);
     this.hp = this.stats.hp;
     return true;
@@ -254,6 +260,7 @@ export class Marine {
     packSiege(this);
     if (game.grid.occupant(this.tx, this.ty) === this) game.grid.clear(this.tx, this.ty);
     this.waypoints = path;
+    this.settling = false;
     this.wp = this.canCross(game, this.x, this.z, path[1].x, path[1].y) ? 1 : 0;
     this.goalTx = tx;
     this.goalTy = ty;
@@ -264,41 +271,76 @@ export class Marine {
 
   stepMove(dt, game) {
     if (!this.driving || !this.waypoints) return false;
-    const node = this.waypoints[this.wp];
-    if (!node) { this.finishMove(game); return false; }
-    // Orders can change between tile centers, and buildings can close an existing route.
-    // Validate the full segment so neither a corner nor a long frame skips solid terrain.
-    if (!this.flying && !this.canCross(game, this.x, this.z, node.x, node.y)) {
-      if (!this.orderMove(this.goalTx, this.goalTy, game)) this.halt(game);
-      return false;
-    }
-    const dx = node.x - this.x, dz = node.y - this.z;
-    const dist = Math.hypot(dx, dz);
-    if (dist < 0.07) {
-      this.x = node.x; this.z = node.y;
-      this.wp++;
-      if (this.wp >= this.waypoints.length) this.finishMove(game);
-      return this.driving;
-    }
-    const want = Math.atan2(dz, dx);
-    this.restYaw = want;
-    // off the canyon floor a tank keeps only part of its speed: slower on rock, slower still up a slope or in water
-    const terrain = this.spec.offroad ? game.grid.driveSpeed(this.x, this.z, dx / dist, dz / dist, this.spec.offroad) : 1;
-    const step = Math.min(dist, this.stats.moveSpeed * terrain * (this.stimT > 0 ? OVERDRIVE.moveSpeed : 1) * dt);
-    const nx = this.x + (dx / dist) * step;
-    const nz = this.z + (dz / dist) * step;
-    this.x = nx;
-    this.z = nz;
-    this.trackDist += step;
-    const treads = this.model.userData.treads;
-    if (treads) {
-      for (const tr of treads) {
-        let x = tr.userData.baseX + (this.trackDist % 0.16);
-        if (x > 0.48) x -= 0.96;
-        tr.position.x = x;
+    // Time left over after reaching a waypoint carries on to the next, so speed does not depend on the frame rate.
+    let left = dt;
+    for (let hop = 0; hop < 8; hop++) {
+      const node = this.waypoints[this.wp];
+      if (!node) { this.finishMove(game); return false; }
+      // Orders can change between tile centers, and buildings can close an existing route.
+      // Validate the full segment so neither a corner nor a long frame skips solid terrain.
+      if (!this.flying && !this.canCross(game, this.x, this.z, node.x, node.y)) {
+        if (!this.orderMove(this.goalTx, this.goalTy, game)) this.halt(game);
+        return false;
       }
+      const dx = node.x - this.x, dz = node.y - this.z;
+      const dist = Math.hypot(dx, dz);
+      // off the canyon floor a tank keeps only part of its speed: slower on rock, slower still up a slope or in water
+      const terrain = this.spec.offroad && dist > 0 ? game.grid.driveSpeed(this.x, this.z, dx / dist, dz / dist, this.spec.offroad) : 1;
+      const speed = this.stats.moveSpeed * terrain * (this.stimT > 0 ? OVERDRIVE.moveSpeed : 1);
+      if (dist < 0.07) {
+        this.x = node.x; this.z = node.y;
+        this.wp++;
+        if (this.wp >= this.waypoints.length) { this.finishMove(game); return this.driving; }
+        left -= speed > 0 ? dist / speed : left;   // the last few steps cost time like any others
+        if (left <= 1e-6) return true;
+        continue;
+      }
+      const want = Math.atan2(dz, dx);
+      this.restYaw = want;
+      const step = Math.min(dist, speed * left);
+      this.x += (dx / dist) * step;
+      this.z += (dz / dist) * step;
+      this.trackDist += step;
+      const treads = this.model.userData.treads;
+      if (treads) {
+        for (const tr of treads) {
+          let x = tr.userData.baseX + (this.trackDist % 0.16);
+          if (x > 0.48) x -= 0.96;
+          tr.position.x = x;
+        }
+      }
+      if (step < dist || speed <= 0) return true;
+      left -= step / speed;
+      if (left <= 1e-6) return true;
     }
     return true;
+  }
+
+  /** Soldiers firing from one spot edge apart, sideways to the enemy, so a squad never collapses into one figure. */
+  spreadOut(foe, dt, game) {
+    const room = u => (u.spec.turret || u.kind === 'goliath' ? 0.45 : 0.3);
+    let px = 0, pz = 0;
+    for (const u of game.gunners) {
+      if (u === this || u.flying || u.dead || u.downed || u.bunker) continue;
+      const gap = room(this) + room(u), dx = this.x - u.x, dz = this.z - u.z, d = Math.hypot(dx, dz);
+      if (d >= gap) continue;
+      if (d > 1e-3) { px += dx / d * (gap - d); pz += dz / d * (gap - d); continue; }
+      const a = game.gunners.indexOf(this) * 2.4;   // on the very same point: each takes its own direction
+      px += Math.cos(a) * gap; pz += Math.sin(a) * gap;
+    }
+    const push = Math.hypot(px, pz);
+    if (push < 1e-4) return;
+    const fx = foe.x - this.x, fz = foe.z - this.z, range = Math.hypot(fx, fz) || 1;
+    const along = (px * fx + pz * fz) / range;
+    const sideX = px - along * fx / range, sideZ = pz - along * fz / range, side = Math.hypot(sideX, sideZ);
+    const step = Math.min(push, 1.8 * dt);
+    for (const [wx, wz, length] of [[sideX, sideZ, side], [px, pz, push]]) {
+      if (length < 1e-4) continue;
+      const nx = this.x + wx / length * step, nz = this.z + wz / length * step;
+      if (!this.canCross(game, this.x, this.z, nx, nz)) continue;
+      this.x = nx; this.z = nz;
+      return;
+    }
   }
 
   /** Standing on its own tile, as opposed to walking or garrisoned. */
@@ -307,12 +349,14 @@ export class Marine {
   /** Stop where you are: walk the last few steps onto the current tile and dig in. */
   halt(game) {
     if (this.flying) { this.driving = false; this.waypoints = null; return; }
-    if (!this.driving) return;
+    // Already stepping onto a free tile: halting again every frame would cancel the step.
+    if (!this.driving || (this.settling && this.waypoints)) return;
     const cx = Math.floor(this.x), cy = Math.floor(this.z);
     this.goalTx = cx;
     this.goalTy = cy;
     this.waypoints = [{ x: cx + 0.5, y: cy + 0.5, cx, cy }];
     this.wp = 0;
+    this.settling = true;
   }
 
   stop(game) {
@@ -386,6 +430,8 @@ export class Marine {
   }
 
   finishMove(game) {
+    const settling = this.settling;
+    this.settling = false;
     this.driving = false;
     this.waypoints = null;
     const o = this.order;
@@ -394,7 +440,8 @@ export class Marine {
     if (o?.type === 'garrison') {
       this.order = null;
       const b = o.bunker;
-      if (!b.dead && b.garrison.length < 2 && Math.hypot(b.x - this.x, b.z - this.z) < 1.8 && game.garrison(this, b, true)) return;
+      // 3 tiles covers every spot commandGarrison can send a marine to; a sold bunker is gone even though it never died.
+      if (!b.dead && game.bunkers.includes(b) && b.garrison.length < 2 && Math.hypot(b.x - this.x, b.z - this.z) < 3 && game.garrison(this, b, true)) return;
     }
     let spot = null;
     if (game.grid.inside(this.goalTx, this.goalTy) && game.grid.get(this.goalTx, this.goalTy) === CELL.OPEN) {
@@ -405,9 +452,10 @@ export class Marine {
       if (home) spot = { x: home.cx, y: home.cy };
     } else {
       const ox = Math.floor(this.x), oy = Math.floor(this.z);
-      for (let r = 0; r <= 2 && !spot; r++) {
+      for (let r = 0; r <= 8 && !spot; r++) {
         for (let dy = -r; dy <= r && !spot; dy++) {
           for (let dx = -r; dx <= r; dx++) {
+            if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
             const x = ox + dx, y = oy + dy;
             if (game.grid.inside(x, y) && game.grid.get(x, y) === CELL.OPEN
               && game.grid.walkRoute(ox, oy, x, y)) { spot = { x, y }; break; }
@@ -419,7 +467,7 @@ export class Marine {
     // If another unit took our destination, drive to a reachable free tile instead
     // of snapping across a ridge or lake to the first nearby opening.
     if (Math.floor(this.x) !== spot.x || Math.floor(this.z) !== spot.y) {
-      this.orderMove(spot.x, spot.y, game);
+      if (this.orderMove(spot.x, spot.y, game)) this.settling = settling;
       return;
     }
     this.tx = spot.x;
@@ -507,8 +555,10 @@ export class Marine {
       }
     }
     // attack-move: plant feet while something is in the sights, then carry on
-    const engaged = (o?.type === 'amove' || o?.type === 'advance') && !!this.seek(game);
+    const foe = o?.type === 'amove' || o?.type === 'advance' ? this.seek(game) : null;
+    const engaged = !!foe;
     const driving = this.bunker || engaged || holding || this.siegeLocked ? false : this.stepMove(dt, game);
+    if (engaged && !this.flying && !this.bunker && !this.siegeLocked) this.spreadOut(foe, dt, game);
 
     if (this.bunker) {
       this.x = this.bunker.x;
@@ -1005,7 +1055,9 @@ export class Hive {
     this.hp = Math.max(0, this.hp - amount);
     if (this.hp > 0) { game.match?.hiveHit(this); return; }
     this.dead = true;
-    this.obj.visible = false;
+    // Its light stays in the scene at zero: changing the number of lights recompiles every shader mid-fight.
+    for (const part of this.obj.children) part.visible = part === this.light;
+    this.light.intensity = 0;
     // A destroyed base cannot send future troops; surviving lanes keep their waves.
     game.queue = game.queue.filter(s => !game.hives[(s.lane || 0) % game.hives.length]?.dead);
     game.minerals += this.reward;
@@ -1464,7 +1516,8 @@ export class Zergling {
     if (!this.path || this.wp >= this.path.length) this.repath(game);
     if (!this.path || this.wp >= this.path.length) { this.moving = 0; return; }
     const node = this.path[this.wp];
-    if (Math.hypot(node.x - this.x, node.y - this.z) < 0.18) {
+    // A fast bug cannot turn tightly enough to touch a waypoint exactly, so near enough has to allow for its turning circle.
+    if (Math.hypot(node.x - this.x, node.y - this.z) < Math.max(0.18, this.speed / 7)) {
       this.wp++;
       if (this.wp >= this.path.length) this.repath(game);
       return;
@@ -1732,8 +1785,12 @@ export class Scv {
       const sy = Math.max(0, Math.min(game.grid.ROWS - 1, Math.floor(this.z)));
       const end = game.grid.nearestOpen(Math.floor(goal.x), Math.floor(goal.z), 2);
       this.route = end ? game.grid.walkRoute(sx, sy, end.x, end.y) : null;
+      this.routeEnd = end;
       this.wp = 1;
     }
+    // No way there: wait for one to open rather than walking through the walls. Beside the goal, the last step is fine.
+    const end = this.routeEnd;
+    if (!this.route && !(end && Math.floor(this.x) === end.x && Math.floor(this.z) === end.y)) return;
     let px = goal.x, pz = goal.z;
     const node = this.route?.[this.wp];
     if (node) {

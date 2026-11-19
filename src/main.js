@@ -944,6 +944,8 @@ window.addEventListener('keydown', (ev) => {
   if (ev.target instanceof HTMLElement && ev.target.closest('input, textarea, [contenteditable]')) return;
   if (!document.getElementById('intro').hidden) return;
   if (document.querySelector('dialog[open]')) return;
+  // Behind the pause menu or the result screen, orders wait. Pausing and the unit panel (I) still work.
+  if ((game.ended || document.getElementById('pauseMenu').offsetWidth > 0) && ev.code !== 'Space' && ev.key !== 'Escape' && ev.code !== 'KeyI') return;
   if (ARROWS.includes(ev.key)) { keys.add(ev.key); ev.preventDefault(); return; }
 
   // control groups: Ctrl+N sets, Shift+N adds, N selects, N twice jumps the camera
@@ -1217,9 +1219,16 @@ game.on('over', async () => {
   extras.story?.annotateBanner(run);
 });
 
+let restartAskedAt = -Infinity;
 game.on('restart', () => {
   const seed = game.mapSeed;
   if (!intro.hidden) return;
+  // A match in progress has no save to fall back on, so the first press only asks.
+  if (runMode === 'skirmish' && !game.ended && performance.now() - restartAskedAt > 4000) {
+    restartAskedAt = performance.now();
+    ui.toast('Restart this match?', 'Press Restart again to abandon it.', 'warn');
+    return;
+  }
   if (runMode === 'skirmish') launchNewRun(player || 'Commander', extras.skirmish?.quick ?? true, seed, 'skirmish');
   else retention.requestNewRun(() => launchNewRun(player || 'Commander', quickDeployment, seed));
 });
@@ -1418,3 +1427,6 @@ layer('opening', async () => {
   const [opening, touch] = await Promise.all([import('./opening.js'), import('./touch.js')]);
   return opening.installOpening({ game, stage, ui, canvas, intro, isTouch: () => touch.touchScreen(extras.touch) });
 });
+
+// Pressed before the game had finished loading: index.html kept the click, so honour it now.
+if (window.earlyStart) document.getElementById('introForm').requestSubmit(window.earlyStart);

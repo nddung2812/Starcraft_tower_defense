@@ -300,7 +300,7 @@
   </div>
   <div class="menu-rail menu-rail--top" aria-hidden="true"><span>Outpost 29</span><span>Ember Reach evacuation in progress</span></div>
   <div class="menu-rail menu-rail--bottom" aria-hidden="true"></div>
-  <form id="introForm" class="banner__inner intro" autocomplete="off">
+  <form id="introForm" class="banner__inner intro" autocomplete="off" onsubmit="event.preventDefault(); window.earlyStart = event.submitter;">
     <div class="menu__brief">
       <span class="intro__eyebrow"><img class="menu__logo" src="assets/brand/logo-v1.svg" width="1368" height="248" alt="BREACHLINE: 29"></span>
       <h2 class="is-win">Hold the Line</h2>

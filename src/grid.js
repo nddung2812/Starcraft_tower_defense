@@ -207,7 +207,8 @@ export class Grid {
           const nx = cx + dx, ny = cy + dy;
           if (!this.inside(nx, ny)) continue;
           if (this.cost(nx, ny) === Infinity) continue;
-          if (dx && dy && (this.cost(cx + dx, cy) === Infinity || this.cost(cx, cy + dy) === Infinity)) continue;
+          // Bugs cannot squeeze between two solid corners, so the route must not ask them to.
+          if (dx && dy && (this.blocked(cx + dx, cy) || this.blocked(cx, cy + dy))) continue;
           const ni = this.idx(nx, ny);
           const d = base + (dx && dy ? SQRT2 : 1);
           if (d < dist[ni]) {
@@ -267,8 +268,10 @@ export class Grid {
   /** Sweep ground troop movement through every touched cell, including solid corners. */
   clearWalkLine(ax, ay, bx, by) {
     const blocked = (x, y) => ![CELL.OPEN, CELL.TOWER].includes(this.get(x, y));
-    return !blocked(Math.floor(ax), Math.floor(ay)) && !blocked(Math.floor(bx), Math.floor(by))
-      && this.clearWorldLine(ax, ay, bx, by, false, blocked);
+    const startX = Math.floor(ax), startY = Math.floor(ay);
+    // A unit already standing in a solid cell may still walk out of it.
+    const ahead = (x, y) => !(x === startX && y === startY && (startX !== Math.floor(bx) || startY !== Math.floor(by))) && blocked(x, y);
+    return !blocked(Math.floor(bx), Math.floor(by)) && this.clearWorldLine(ax, ay, bx, by, false, ahead);
   }
 
   /** Cell path -> world waypoints, with corners pulled tight for smooth movement. */

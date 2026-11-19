@@ -139,7 +139,7 @@ export function installOpening({ game, stage, ui, canvas, intro, isTouch = () =>
         : 'Add Barriers with W. Press Space when your line is set.' };
     if (game.kills > 0) return { step: 3, title: 'Kills pay minerals.',
       text: touch ? 'Spend them as you earn them: tap a card to build more. Strike calls an air strike on a packed swarm.'
-        : 'Spend them as you earn them: M Trooper · B Bunker · R air strike on a packed swarm.' };
+        : 'Spend them as you earn them: Q Trooper · B Bunker · R air strike on a packed swarm.' };
     if (!game.walls.length) return { step: 1, title: `They are coming from ${sidesText(game.layout.sides)}.`,
       text: touch ? 'Your squad fires on its own. Use the wait: tap the Barrier card, then tap the canyon floor in their path.'
         : 'Your squad fires on its own. Use the wait: press W, then click the canyon floor in their path to drop a Barrier.' };

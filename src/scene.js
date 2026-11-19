@@ -320,7 +320,7 @@ export class Stage {
   resetView() {
     this.yaw = Math.PI / 2;
     this.pitch = 0.82;
-    this.dist = 18;
+    this.dist = 14;   // the distance every round opens at
     this.focus.copy(this.homeFocus);
     this.userZoomed = true;
   }

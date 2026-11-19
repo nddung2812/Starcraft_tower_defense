@@ -13,6 +13,9 @@ import { voice } from './voice.js';
 import { MilestoneAssault } from './milestones.js';
 import { MawAmbush } from './maw.js';
 import { EVOLUTIONS } from './config.js';
+
+/** Free what the graphics card holds for a model that is gone for good. Shared geometry simply uploads again if reused. */
+function releaseModel(root) { root?.traverse(o => o.geometry?.dispose?.()); }
 import { syncEvolutionVisual } from './evolutions.js';
 
 const GUN = new Set(Object.keys(UNITS));
@@ -66,8 +69,8 @@ export class Game {
 
   wipeUnits() {
     for (const e of [...this.gunners, ...this.zerglings, ...this.walls, ...this.bunkers]) this.world.remove(e.obj);
-    if (this.core) this.world.remove(this.core.obj);
-    if (this.scv) this.world.remove(this.scv.obj);
+    if (this.core) { this.world.remove(this.core.obj); releaseModel(this.core.obj); }
+    if (this.scv) { this.world.remove(this.scv.obj); releaseModel(this.scv.obj); }
     for (const t of this.tracers) this.scene.remove(t.mesh);
     for (const a of this.acids) this.scene.remove(a.mesh);
     for (const s of this.shells) this.scene.remove(s.mesh);
@@ -99,6 +102,8 @@ export class Game {
     this.mawSeen = false;
     this.mapVersion = MAP_VERSION;
     this.mapSeed = Number.isInteger(seed) ? seed >>> 0 : (Math.random() * 0x7fffffff) >>> 0;
+    this.runId = (Math.random() * 0x7fffffff) >>> 0;   // one run, however many times it is saved and continued
+    this.restoredRun = false;                          // true once this run has come back from a save
     this.minerals = ECON.startMinerals;
     this.baseLevel = 0;
     this.incomeT = 0;
@@ -177,14 +182,15 @@ export class Game {
     this.stage.setMapSize(layout.cols, layout.rows);
     this.rebuildTerrain(layout);
 
-    if (this.core) this.world.remove(this.core.obj);
+    if (this.core) { this.world.remove(this.core.obj); releaseModel(this.core.obj); }
     this.core = new Core(layout.core, this.baseLevel);
     this.world.add(this.core.obj);
 
-    if (this.scv) this.world.remove(this.scv.obj);
+    if (this.scv) { this.world.remove(this.scv.obj); releaseModel(this.scv.obj); }
     this.scv = this.spawnScv();
     this.world.add(this.scv.obj);
 
+    releaseModel(this.hatchGroup);
     this.hatchGroup.clear();
     this.hives = this.grid.spawns.map(s => new Hive(s, this.level));
     for (const hive of this.hives) this.hatchGroup.add(hive.obj);
@@ -327,9 +333,10 @@ export class Game {
   canBuildAt(tx, ty) {
     if (!['build', 'brief', 'wave', 'raid'].includes(this.state)) return false;
     if (!this.grid.buildable(tx, ty)) return false;
-    for (const z of this.zerglings) {
-      if (!z.dead && z.x > tx - 0.2 && z.x < tx + 1.2 && z.z > ty - 0.2 && z.z < ty + 1.2) return false;
-    }
+    const under = (e) => !e.dead && e.x > tx - 0.2 && e.x < tx + 1.2 && e.z > ty - 0.2 && e.z < ty + 1.2;
+    if (this.zerglings.some(under)) return false;
+    // Nor on a soldier walking across the tile: it would be sealed inside just the same.
+    if (this.gunners.some(u => !u.flying && !u.bunker && under(u)) || (this.scv && under(this.scv))) return false;
     return true;
   }
 
@@ -404,7 +411,7 @@ export class Game {
 
   /** Free Troopers form up at the defense line. They cost nothing, so they pay nothing back. */
   sendFreeTroopers(count) {
-    const standing = this.gunners.filter(u => u.kind === 'marine' && u.invested === 0 && !u.dead).length;
+    const standing = this.gunners.filter(u => u.kind === 'marine' && (u.free || u.invested === 0) && !u.dead).length;
     count = Math.min(count, BASE_INCOME.maxFree - standing);
     const anchor = this.deployAnchor() || this.grid.core, ax = Math.floor(anchor.x), ay = Math.floor(anchor.y);
     let sent = 0;
@@ -412,7 +419,7 @@ export class Game {
       for (let dy = -r; dy <= r && sent < count; dy++) {
         for (let dx = -r; dx <= r && sent < count; dx++) {
           if (Math.max(Math.abs(dx), Math.abs(dy)) !== r || !this.canBuildAt(ax + dx, ay + dy)) continue;
-          this.fieldGunner('marine', ax + dx, ay + dy, 0);
+          this.fieldGunner('marine', ax + dx, ay + dy, 0).free = true;
           sent++;
         }
       }
@@ -494,8 +501,9 @@ export class Game {
   }
 
   sell(entity) {
-    if (this.state !== 'build' || entity.isHero) return false;
-    if (entity.kind === 'bunker') entity.garrison.slice().forEach((m) => this.eject(m));
+    // Rounds run on from one to the next, so the countdown is the time to salvage.
+    if (!['build', 'brief'].includes(this.state) || entity.isHero) return false;
+    if (entity.kind === 'bunker') entity.garrison.slice().forEach((m) => this.eject(m, true));
     const cost = entity.kind === 'wall' ? BUILD.wall.cost
       : entity.kind === 'bunker' ? BUILD.bunker.cost
       : entity.invested;
@@ -511,7 +519,7 @@ export class Game {
 
   upgradeGunner(m) {
     const cost = m.upgradeCost;
-    if (cost == null || !this.canAfford(cost)) return false;
+    if (m.dead || m.downed || cost == null || !this.canAfford(cost)) return false;
     this.minerals -= cost;
     m.invested += cost;
     m.upgrade(this.marineUpgrades);
@@ -583,7 +591,7 @@ export class Game {
     let n = 0;
     for (const e of [...this.gunners, ...this.walls, ...this.bunkers]) {
       const cost = e.kind === 'wall' ? BUILD.wall.cost : e.kind === 'bunker' ? BUILD.bunker.cost : e.invested;
-      n += cost;
+      if (!e.dead) n += cost;   // a unit lost moments ago is lost, even if its wreck is still on the field
       this.removeStructure(e);
     }
     return n;
@@ -814,8 +822,9 @@ export class Game {
     const prevName = this.layout.name;
     this.emit('roundCleared', { level: prev, perfect: !this.roundCoreDamaged && this.core.hp === this.core.maxHp });
     // levels never run out: clear one and the next canyon is waiting
-    // Free Troopers are not part of the army Redeploy buys back.
-    const army = this.gunners.filter(u => !u.dead && u.invested > 0).map(u => ({ kind: u.kind, tier: u.tier, invested: u.invested, defend: u.defend }));
+    // A unit still inside a Maw comes back for the refund. Free Troopers are not part of the army Redeploy buys back.
+    for (const z of this.zerglings) if (z.isMaw && z.meal) z.release(this);
+    const army = this.gunners.filter(u => !u.dead && u.invested > 0 && !u.free).map(u => ({ kind: u.kind, tier: u.tier, invested: u.invested, defend: u.defend }));
     this.lastArmy = army.length ? army : null;
     const refund = this.recoverHardware();
     this.minerals += refund + bonus;
@@ -977,10 +986,11 @@ export class Game {
     const q = [start];
     while (q.length && slots.length < walkers.length) {
       const c = q.shift();
-      if (!taken.has(this.grid.idx(c.x, c.y))) slots.push(c);
+      if (this.grid.get(c.x, c.y) === CELL.OPEN && !taken.has(this.grid.idx(c.x, c.y))) slots.push(c);
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const x = c.x + dx, y = c.y + dy, k = this.grid.idx(x, y);
-        if (!this.grid.inside(x, y) || seen.has(k) || this.grid.get(x, y) !== CELL.OPEN) continue;
+        // the search looks past friendly soldiers, who can be walked through, to the free ground behind them
+        if (!this.grid.inside(x, y) || seen.has(k) || ![CELL.OPEN, CELL.TOWER].includes(this.grid.get(x, y))) continue;
         seen.add(k);
         q.push({ x, y });
       }
@@ -1045,7 +1055,7 @@ export class Game {
 
   /** Something of ours is taking damage: ping the minimap, and say so now and then. */
   alert(e) {
-    if (this.state !== 'wave' && this.state !== 'brief') return;
+    if (!['wave', 'brief', 'raid'].includes(this.state)) return;
     if (e.kind === 'core') this.roundCoreDamaged = true;
     if ((e._pingT ?? -99) > this.time - 1.4) return;
     e._pingT = this.time;

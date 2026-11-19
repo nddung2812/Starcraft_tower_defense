@@ -57,7 +57,12 @@ export class HeroPanel {
     });
     d.addEventListener('click', event => {
       const cell = event.target.closest('[data-item]');
-      if (cell) { this.picked = cell.dataset.item; this.render(); return; }
+      if (cell) {
+        this.picked = cell.dataset.item;
+        this.render();
+        this.dialog.querySelector('#heroDetail')?.scrollIntoView({ block: 'nearest' });   // on a phone Wear is below the fold
+        return;
+      }
       const act = event.target.closest('[data-act]');
       if (act?.dataset.act === 'equip') { corps.wear(this.picked); this.render(); }
       if (act?.dataset.act === 'scrap') { corps.breakDown(this.picked); this.picked = null; this.render(); }

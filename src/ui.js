@@ -290,7 +290,7 @@ export class UI {
       if (this.inspect.entity?.kind === 'marine') this.inspect.entity.stim(game);
     });
     $('btnEject').addEventListener('click', () => {
-      if (this.inspect.entity?.bunker) game.eject(this.inspect.entity);
+      if (this.inspect.entity?.bunker) game.eject(this.inspect.entity, true);
     });
     $('btnSell').addEventListener('click', () => {
       if (this.inspect.entity) game.sell(this.inspect.entity);
@@ -309,6 +309,8 @@ export class UI {
       this.toast('Upgrades automatically applied', `${silver} silver (next 3 rounds) · ${gold} gold (permanent this run) · all Troopers`);
     });
     $('evolutionDialog').addEventListener('cancel', event => event.preventDefault());
+    // Browsers let repeated Esc close a modal anyway. The battle waits on this choice, so it comes straight back.
+    $('evolutionDialog').addEventListener('close', () => this.syncEvolutions());
     $('evolutionChoices').addEventListener('click', event => {
       const button = event.target.closest('[data-evolution]');
       if (button) game.chooseEvolution(button.dataset.evolution);
@@ -382,6 +384,9 @@ export class UI {
         return button;
       }));
       dialog.showModal();
+      // Focus the dialog, not the first card: Space or Enter held from the fight must not pick a reward.
+      dialog.tabIndex = -1;
+      dialog.focus();
     } else if (!g.pendingEvolution && dialog.open) dialog.close();
     const owned = EVOLUTIONS.filter(e => g.evolutions[e.id]);
     $('evolutionLoadout').hidden = !owned.length;
@@ -483,9 +488,9 @@ export class UI {
     if (entity?.kind === 'core' || entity?.kind === 'hive') {
       const hive = entity.kind === 'hive';
       $('pName').textContent = hive ? 'Rift Hive' : `Ridge Relay · Upgrade ${g.baseLevel}`;
-      $('pRole').textContent = hive ? `Evolution ${entity.evolution} · hatches in ${Math.ceil(30 - entity.evolutionT)}s · ${entity.reward} minerals` : 'Army research / piercing laser';
+      $('pRole').textContent = hive ? (g.match ? `Destroy it to win · ${entity.reward} minerals` : `Evolution ${entity.evolution} · hatches in ${Math.ceil(30 - entity.evolutionT)}s · ${entity.reward} minerals`) : 'Army research / piercing laser';
       $('pFaction').textContent = hive ? 'The Rift Brood' : 'Breachline Compact';
-      $('pBio').textContent = hive ? 'This brood egg evolves every 30 combat seconds, hatching a larger swarm each time. Destroy it to stop reinforcements and earn minerals. Attack (A) sends the whole army. Destroy every enemy base to finish the round. Surviving bases keep evolving until you destroy them.' : `Upgrade the base to raise its own health and boost every current and future unit. ${g.laserGuns > 1 ? 'The cannon has two lasers. Each charges for 90 seconds on its own rail, and they fire one at a time at different targets.' : `The cannon tracks enemies and automatically fires a piercing laser every 90 seconds when a target is available. A second laser comes online at base level ${BASE_LASER.twinLevel}.`} Upgrades and energy carry across rounds.`;
+      $('pBio').textContent = hive && g.match ? 'The swarm comes from here. Destroy every hive to win the match. Attack (A) sends the whole army.' : hive ? 'This brood egg evolves every 30 combat seconds, hatching a larger swarm each time. Destroy it to stop reinforcements and earn minerals. Attack (A) sends the whole army. Destroy every enemy base to finish the round. Surviving bases keep evolving until you destroy them.' : `Upgrade the base to raise its own health and boost every current and future unit. ${g.laserGuns > 1 ? 'The cannon has two lasers. Each charges for 90 seconds on its own rail, and they fire one at a time at different targets.' : `The cannon tracks enemies and automatically fires a piercing laser every 90 seconds when a target is available. A second laser comes online at base level ${BASE_LASER.twinLevel}.`} Upgrades and energy carry across rounds.`;
       $('pQuote').textContent = '';
       $('stats').innerHTML = statRow('Hit Points', Math.ceil(entity.hp) + ' / ' + entity.maxHp, entity.hp / entity.maxHp, '#5ef08a');
     } else if (entity?.kind === 'wall') {
@@ -598,7 +603,7 @@ export class UI {
     if (isMine) {
       const base = e.kind === 'wall' ? BUILD.wall.cost : e.kind === 'bunker' ? BUILD.bunker.cost : e.invested;
       const v = Math.round(base * ECON.refundRate);
-      sell.disabled = g.state !== 'build';
+      sell.disabled = !['build', 'brief'].includes(g.state);
       sell.textContent = `Salvage · +${v}`;
     }
   }
@@ -725,7 +730,7 @@ export class UI {
     const cost = primary && UNITS[primary.kind] && !primary.downed ? primary.upgradeCost : null;
     set('promote', cost != null && g.minerals >= cost);
     const mine = primary && (UNITS[primary.kind] || primary.kind === 'wall' || primary.kind === 'bunker');
-    set('salvage', g.state === 'build' && !!mine && !primary.isHero);
+    set('salvage', ['build', 'brief'].includes(g.state) && !!mine && !primary.isHero);
     set('army', g.gunners.some(unitLike));
     set('scv', !!g.scv && !g.scv.dead);
     set('wave', fighting && !!g.lastAlert, 'Last Alert');
@@ -832,7 +837,7 @@ export class UI {
     btn.textContent = u.yamatoLock ? `Yamato charging · ${u.yamatoCharge.toFixed(1)}s`
       : u.yamatoCd > 0 ? `Yamato · ${Math.ceil(u.yamatoCd)}s` : 'Fire Yamato (Shift+Z)';
     btn.disabled = g.paused || !!g.pendingEvolution || !['wave', 'raid'].includes(g.state) || u.downed || u.silenceT > 0 || u.yamatoCd > 0 || !!u.yamatoLock || !yamatoTarget(u, g, true);
-    btn.title = 'Auto-fires against heavy targets. Y: attack target first, otherwise strongest enemy within 12 tiles. 1.4s charge, 18s cooldown. Damage scales with upgrades.';
+    btn.title = `Auto-fires against heavy targets. Shift+Z: attack target first, otherwise strongest enemy within ${YAMATO.range} tiles. ${YAMATO.charge}s charge, ${YAMATO.cooldown}s cooldown. Damage scales with upgrades.`;
   }
 
   syncAir() {

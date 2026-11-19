@@ -70,6 +70,8 @@ export function buildTerrain(depth, seed, cols = COLS, rows = ROWS) {
     const shore = 1 + 0.09 * Math.sin(angle * 3 + l.phase) + 0.05 * Math.cos(angle * 5 - l.phase);
     return Math.hypot(x - l.x, (z - l.z) / 0.82) / (l.radius * shore);
   };
+  // No shoreline reaches past 1.6 radii (1.35 × the widest shore), so most vertices can skip the trigonometry.
+  const farFromLake = (x, z, l) => Math.abs(x - l.x) > l.radius * 1.6 || Math.abs(z - l.z) > l.radius * 1.6;
 
   const resolution = 3;
   const vx = cols * resolution + 1, vy = rows * resolution + 1;
@@ -105,6 +107,7 @@ export function buildTerrain(depth, seed, cols = COLS, rows = ROWS) {
         h *= THREE.MathUtils.smoothstep(d, 0, 0.8);
       }
       for (const lake of lakes) {
+        if (farFromLake(x, y, lake)) continue;
         const distance = lakeDistance(x, y, lake);
         if (distance < 1.35 && d > 0) {
           const t = THREE.MathUtils.smoothstep(distance, 0.62, 1.35);
@@ -156,6 +159,7 @@ export function buildTerrain(depth, seed, cols = COLS, rows = ROWS) {
     const vegetation = valueNoise(x / 5, z / 5, seed + 81);
     c.lerp(VEGETATION, Math.max(0, vegetation - 0.3) * (1 - steep) * 0.8);
     for (const lake of lakes) {
+      if (farFromLake(x, z, lake)) continue;
       const distance = lakeDistance(x, z, lake);
       if (distance < 1.15) c.lerp(SHORE, (1 - THREE.MathUtils.smoothstep(distance, 0.7, 1.15)) * 0.65);
     }

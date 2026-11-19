@@ -127,6 +127,15 @@ export class PlasmaShield {
     if (this.core) this.obj.position.set(this.core.x, 0, this.core.z);
   }
 
+  /** A loaded save keeps the damage the shield had taken. */
+  restore(saved) {
+    this.sync();
+    if (!saved || !Number.isFinite(saved.pool)) return;
+    this.pool = Math.max(0, Math.min(this.maxPool, saved.pool));
+    this.broken = !!saved.broken;
+    this.obj.visible = this.up;
+  }
+
   update(dt) {
     this.sync();
     if (!this.tier) return;

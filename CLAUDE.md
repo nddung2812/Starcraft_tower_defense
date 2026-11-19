@@ -471,7 +471,7 @@ the balance suite checks the starting squad can clear both opening approaches.
   for generation, `layout.cols/rows` for terrain, and `grid.COLS/ROWS` for indexing, input, routing
   and movement. A `Grid.load()` can grow or shrink its storage; never index it with the cap.
 - **Build anytime.** Placement is allowed in `build`, `brief`, `wave` and `raid` states via
-  `game.canBuildAt()` (never on a tile a bug stands on). Salvage is build-phase only.
+  `game.canBuildAt()` (never on a tile a bug stands on). Salvage works in `build` and the three-second `brief` countdown.
 - **Score = kills.** `game.score` mirrors `game.kills`.
 - **Typing is not hotkeys.** The keydown handler ignores events from inputs and while the start
   screen is open. Keep it that way when adding keys.
