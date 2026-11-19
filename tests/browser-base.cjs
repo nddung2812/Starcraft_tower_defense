@@ -90,7 +90,7 @@ const assert = require('node:assert/strict');
     assert.equal(upgrades.rejected, true);
     for (const [key, ok] of Object.entries(upgrades.timer)) assert.equal(ok, true, `build timer: ${key} ${JSON.stringify(upgrades.meshes)}`);
     assert.deepEqual(upgrades.times, [6, 8, 18, 106]);
-    assert.deepEqual(upgrades.first, { level: 1, minerals: 0, cost: 350, damage: 9.2, maxHp: 81, ratio: 0.5, scv: 81 });
+    assert.deepEqual(upgrades.first, { level: 1, minerals: 0, cost: 350, damage: 9.2, maxHp: 63, ratio: 0.5, scv: 81 });
     for (const u of upgrades.future) {
       assert.equal(u.damage, u.baseDamage * 1.15, u.kind);
       assert.equal(u.hp, Math.round(u.baseHp * 1.15), u.kind);

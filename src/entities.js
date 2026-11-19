@@ -1305,6 +1305,7 @@ export class Zergling {
     this.spawnT = Math.min(1, this.spawnT + dt * 2.2);
     this.jumpCd = Math.max(0, this.jumpCd - dt);
     if (!this.air) this.model.scale.setScalar(this.scale * (0.35 + this.spawnT * 0.65));
+    const ox = this.x, oz = this.z;
 
     if (this.flying) {
       this.altitude = (game.heightAt?.(this.x, this.z) || 0) + 2.6;
@@ -1313,12 +1314,14 @@ export class Zergling {
       else {
         this.steer(game.core.x, game.core.z, dt, game);
       }
+      this.holdAtShield(ox, oz, dt, game);
       this.animate(dt, game);
       this.bar.set(this.hp / this.maxHp, game.camera);
       return;
     }
     if (this.air) {
       this.fly(dt, game);
+      this.holdAtShield(ox, oz, dt, game);
       this.animate(dt, game);
       this.bar.set(this.hp / this.maxHp, game.camera);
       return;
@@ -1348,8 +1351,18 @@ export class Zergling {
       else this.advance(dt, game);
     }
 
+    this.holdAtShield(ox, oz, dt, game);
     this.animate(dt, game);
     this.bar.set(this.hp / this.maxHp, game.camera);
+  }
+
+  /** The base's plasma shield stops the swarm at its skin: a bug that walks into it claws at it instead. */
+  holdAtShield(ox, oz, dt, game) {
+    const shield = game.plasma;
+    if (!shield?.bars(this, ox, oz)) return;
+    this.x = ox; this.z = oz;
+    if (this.air) { this.air = null; this.obj.position.y = 0; }
+    this.attack(shield.spotFor(this), dt, game);
   }
 
   repath(game) {

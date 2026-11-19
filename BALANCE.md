@@ -10,7 +10,7 @@ unit, fortifications, or promotions. Costs, timings and statistics live in
 
 | Unit | Cost | HP | Armor | Damage per volley | Interval | Raw DPS | Range | Speed |
 | --- | ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: |
-| Trooper | 60 | 70 | 1 | 8 | 0.80 s | 10.0 | 4.4 | 2.15 |
+| Trooper | 60 | 55 | 1 | 8 | 0.80 s | 10.0 | 4.4 | 2.15 |
 | Atlas | 160 | 220 | 2 | 13 × 2 | 0.80 s | 32.5 | 6.2 | 1.5 |
 | Vector | 240 | 140 | 1 | 10 × 2 | 0.85 s | 23.5 | 5.8 | 4.4 |
 | Hammer | 280 | 340 | 3 | 38 × 2 | 2.40 s | 31.7 | 7.0 | 1.25 |
@@ -23,7 +23,9 @@ within 1.65 tiles with damage falloff; they cannot hit aircraft. All other comba
 units target ground and air. Only Troopers can enter bunkers (two per bunker).
 The Patch Rig's existing repair and revive behavior is unchanged.
 
-- **Trooper:** base DPS stays at 10 but HP rises from 55 to 70. Price rises from
+- **Trooper:** base DPS stays at 10. HP rose from 55 to 70 in this pass, then went back to 55 on
+  Nov 19, 2026, with every rank about a quarter weaker (Sentry 75, Warden 105, Pathkeeper 145),
+  because Troopers were too hard to kill. Price rises from
   50 to 60. The fully promoted investment falls from 640 to 440, making promotion
   useful when firing positions are scarce. Its short range and vulnerability to
   ranged enemies keep a mass of infantry from covering every role.
@@ -74,9 +76,9 @@ Prices are incremental; total includes purchase and all preceding promotions.
 
 | Unit / rank | Upgrade price | Total investment | HP | Raw DPS | Range |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Trooper / Sentry | 70 | 130 | 100 | 17.1 | 4.8 |
-| Trooper / Warden | 120 | 250 | 140 | 30.0 | 5.2 |
-| Trooper / Pathkeeper | 190 | 440 | 190 | 50.0 | 5.6 |
+| Trooper / Sentry | 70 | 130 | 75 | 17.1 | 4.8 |
+| Trooper / Warden | 120 | 250 | 105 | 30.0 | 5.2 |
+| Trooper / Pathkeeper | 190 | 440 | 145 | 50.0 | 5.6 |
 | Atlas / Mk II | 140 | 300 | 290 | 52.8 | 6.7 |
 | Atlas / Mk III | 220 | 520 | 380 | 87.5 | 7.2 |
 | Vector / Flight II | 200 | 440 | 200 | 41.7 | 6.2 |
@@ -217,7 +219,9 @@ balance as permanent treasure stacks and enemy HP grow.
 - Plasma shield (Nov 18, 2026): base research levels 3, 6, 9 and so on each add a shield tier. Tier 1
   covers 5 tiles from the base and holds 300 damage; each further tier adds 1.5 tiles (14 at most) and
   150 damage. While it is up, a hit on anything inside drains the shield and the target takes nothing, and
-  a Tunnel Maw cannot take a unit inside. It recharges only after 8 seconds with nothing under it hit,
+  a Tunnel Maw cannot take a unit inside. It is also a wall (Nov 19, 2026): bugs, bosses and Wraiths cannot
+  cross into it, so they stop at its edge and claw it, each blow draining the shield by the bug's damage. Once it
+  breaks they walk in. A bug already inside when the globe grows over it stays free. It recharges only after 8 seconds with nothing under it hit,
   at 2% of its total per second. Broken, it stays down until that recharge reaches 30%, so it returns
   weak. A new round does not refill it; finishing a research tier does.
 - `tests/browser-base.cjs` checks research, old/new checkpoints, bonus timing and rewards,
@@ -493,7 +497,7 @@ bonus, armour, aircraft/garrison protection, wall occlusion, Yamato survival and
 
 One free soldier named after the commander. Levels and gear are saved in the browser and carry across runs and modes.
 
-- **Level 1** is a Recruit Trooper (8 damage, 4.4 range, 2.15 speed) with +40 health (110), +1 armour (2) and a faster trigger: 0.65 s a shot against the Trooper's 0.8 s.
+- **Level 1** is a Recruit Trooper (8 damage, 4.4 range, 2.15 speed) with +55 health (110), +1 armour (2) and a faster trigger: 0.65 s a shot against the Trooper's 0.8 s.
 - **Each level** adds 12% health, 10% damage and 1% attack speed. Every 10th level adds 1 armour. The cap is level 30.
 - **Melee.** Anything on the ground within 1.5 tiles takes the blade for 2× gun damage. Right-clicking a ground bug charges it.
 - **XP.** A kill pays 0.04 per point of the bug's health, or 40% of that when the hero is over 9 tiles away. A boss adds 60 × its round.

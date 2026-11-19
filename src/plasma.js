@@ -88,13 +88,44 @@ export class PlasmaShield {
     if (!this.tier || !this.core || !this.within(entity)) return false;
     this.sinceHit = 0;            // under attack: even a broken shield waits for the fighting to stop
     if (!this.up) return false;
+    this.drain(entity.x, entity.z, amount);
+    return true;
+  }
+
+  drain(x, z, amount) {
+    this.sinceHit = 0;
     this.pool -= amount;
     const hit = this.uniforms.uHits.value[this.nextHit];
     this.nextHit = (this.nextHit + 1) % HITS;
-    hit.set(entity.x - this.core.x, this.radius * 0.45, entity.z - this.core.z, 1).normalize();
+    hit.set(x - this.core.x, this.radius * 0.45, z - this.core.z, 1).normalize();
     hit.w = 0;
     if (this.pool <= 0) this.collapse();
-    return true;
+  }
+
+  /**
+   * The globe is a wall to the swarm. True when this enemy has just stepped from outside it to inside;
+   * the caller puts it back and has it claw at the shield. Anything already inside when the globe
+   * grew over it stays free, so nothing is ever pushed into rock.
+   */
+  bars(bug, fromX, fromZ) {
+    if (!this.up) return false;
+    const edge = this.shown + 0.3 * (bug.scale || 1);
+    return Math.hypot(fromX - this.core.x, fromZ - this.core.z) >= edge
+      && Math.hypot(bug.x - this.core.x, bug.z - this.core.z) < edge;
+  }
+
+  /** The patch of skin facing this enemy, as something it can attack. One per bug, reused. */
+  spotFor(bug) {
+    const shield = this;
+    const spot = bug.shieldSpot ||= {
+      kind: 'plasma', dead: false, x: 0, z: 0, altitude: 0,
+      takeDamage(amount) { if (shield.up) shield.drain(this.x, this.z, amount); }
+    };
+    const dx = bug.x - this.core.x, dz = bug.z - this.core.z, d = Math.hypot(dx, dz) || 1;
+    spot.x = this.core.x + dx / d * this.shown;
+    spot.z = this.core.z + dz / d * this.shown;
+    spot.altitude = bug.flying ? bug.altitude - 0.3 : 0;
+    return spot;
   }
 
   collapse() {

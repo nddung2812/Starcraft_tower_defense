@@ -58,6 +58,16 @@ const assert = require('node:assert/strict');
       run(2);
       out.rebooted = { up: p.up, visible: p.obj.visible, weak: p.pool < p.maxPool * (S.restart + 0.05) };
 
+      // ---- the globe is a wall: a bug stepping in from outside is held at the skin and claws it ----
+      const { Zergling } = await import('/src/entities.js');
+      p.pool = p.maxPool; p.shown = p.radius;
+      const ox = g.core.x + p.radius + 0.5, oz = g.core.z, full = p.pool;
+      const bug = new Zergling(ox, oz, 'zergling', 1, 1); bug.attackCd = 0;
+      bug.x = g.core.x + p.radius - 0.5; bug.holdAtShield(ox, oz, 0.05, g);
+      const inner = new Zergling(g.core.x + 1, g.core.z, 'zergling', 1, 1);
+      inner.x = g.core.x + 0.8; inner.holdAtShield(g.core.x + 1, g.core.z, 0.05, g);
+      out.wall = { held: bug.x === ox && bug.z === oz, clawed: full - p.pool === bug.damage, insideFree: inner.x === g.core.x + 0.8 };
+
       // ---- a new map does not refill it, and it moves with the base ----
       p.pool = 50; g.loadLevel(); g.update(0.05);
       out.newMap = { same: p.core === g.core, kept: Math.abs(p.pool - 50) < 1, x: p.obj.position.x === g.core.x };
@@ -82,7 +92,8 @@ const assert = require('node:assert/strict');
     assert.deepEqual(r.underAttack, { up: false, pool: 0 }, 'No recharge while the base is under attack');
     assert.equal(r.stillDown, false, 'Still down until the slow recharge reaches the restart level');
     assert.deepEqual(r.rebooted, { up: true, visible: true, weak: true }, 'Comes back weak');
-    assert.deepEqual(r.newMap, { same: true, kept: true, x: true }, 'A new round is not a free refill');
+    assert.deepEqual(r.wall, { held: true, clawed: true, insideFree: true }, 'The swarm stops at the shield and breaks it from outside');
+    assert.deepEqual(r.newMap,{ same: true, kept: true, x: true }, 'A new round is not a free refill');
     assert.match(r.panel, /^Shield 6\.5 tiles · 11%$/);
     assert.deepEqual(r.reset, { tier: 0, visible: false });
 

@@ -44,10 +44,10 @@ export const unlockRound = id => BUILD[id]?.unlock || 1;
 
 // Damage is per projectile; paired weapons fire two projectiles per volley.
 export const MARINE_TIERS = [
-  { rank: 'Recruit', hp: 70, damage: 8, attackSpeed: 0.80, range: 4.4, upgradeCost: 70 },
-  { rank: 'Sentry', hp: 100, damage: 12, attackSpeed: 0.70, range: 4.8, upgradeCost: 120 },
-  { rank: 'Warden', hp: 140, damage: 18, attackSpeed: 0.60, range: 5.2, upgradeCost: 190 },
-  { rank: 'Pathkeeper', hp: 190, damage: 26, attackSpeed: 0.52, range: 5.6, upgradeCost: null }
+  { rank: 'Recruit', hp: 55, damage: 8, attackSpeed: 0.80, range: 4.4, upgradeCost: 70 },
+  { rank: 'Sentry', hp: 75, damage: 12, attackSpeed: 0.70, range: 4.8, upgradeCost: 120 },
+  { rank: 'Warden', hp: 105, damage: 18, attackSpeed: 0.60, range: 5.2, upgradeCost: 190 },
+  { rank: 'Pathkeeper', hp: 145, damage: 26, attackSpeed: 0.52, range: 5.6, upgradeCost: null }
 ];
 
 export const MARINE_INFO = {
@@ -583,7 +583,7 @@ export function milestonePlan(level) {
  * XP: a kill pays `perHp` per point of the bug's health, `far` of that when the hero is over `near` tiles away.
  */
 export const HERO = {
-  maxLevel: 30, extraHp: 40, extraArmor: 1, attackSpeed: 0.65, visualScale: 0.56,
+  maxLevel: 30, extraHp: 55, extraArmor: 1, attackSpeed: 0.65, visualScale: 0.56,
   perLevel: { hp: 0.12, damage: 0.1, haste: 0.01 }, armorEvery: 10,
   melee: { multiplier: 2, reach: 1.5 }, critMultiplier: 2, respawn: 15, introDelay: 10,
   xp: { perHp: 0.04, near: 9, far: 0.4, bossPerRound: 60, first: 40, curve: 1.6 },
