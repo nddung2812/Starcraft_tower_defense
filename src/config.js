@@ -386,8 +386,8 @@ export const CORE_HP = 500;
 export const BASE_INCOME = { levels: 3, minerals: 1, interval: 0.5, troopEvery: 30, maxFree: 40 };
 export const incomeTier = level => Math.floor(level / BASE_INCOME.levels);
 export const incomeMinerals = tier => BASE_INCOME.minerals * tier;
-export const BASE_UPGRADE = { firstCost: 200, costStep: 150, bonus: 0.15, firstTime: 6, timeStep: 1, maxTime: 12 };
-export const baseUpgradeTime = level => Math.min(BASE_UPGRADE.maxTime, BASE_UPGRADE.firstTime + level * BASE_UPGRADE.timeStep);
+export const BASE_UPGRADE = { firstCost: 200, costStep: 150, bonus: 0.15, firstTime: 6, timeStep: 2 };
+export const baseUpgradeTime = level => BASE_UPGRADE.firstTime + level * BASE_UPGRADE.timeStep;
 export const baseUpgradeCost = level => BASE_UPGRADE.firstCost + level * BASE_UPGRADE.costStep;
 export function applyBaseUpgrade(stats, level) {
   const factor = 1 + level * BASE_UPGRADE.bonus;

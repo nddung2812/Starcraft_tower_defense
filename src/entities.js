@@ -1060,13 +1060,13 @@ export class Core {
 
   get twinLaser() { return this.level >= BASE_LASER.twinLevel; }
 
-  /** Redress the building for a research level; `animate` grows the newest addition into place. */
+  /** A research level lands: the base is fully repaired at its new maximum and redressed; `animate` grows the newest addition into place. */
   setLevel(level, animate = false) {
     this.level = level;
-    const ratio = this.hp / this.maxHp, stats = { hp: this.baseHp };
+    const stats = { hp: this.baseHp };
     applyBaseUpgrade(stats, level);
     this.maxHp = stats.hp;
-    this.hp = stats.hp * ratio;
+    this.hp = stats.hp;
     const newest = upgradeCore(this.model, level);
     this.light.intensity = 6 + Math.min(level, 12) * 0.5;
     this.pop = animate && newest ? { group: newest, t: 0 } : null;

@@ -51,7 +51,7 @@ const assert = require('node:assert/strict');
       restoreCheckpoint(g, legacy);
       const oldDefaults = g.baseLevel === 0 && g.laserCharge === 0 && g.baseUpgradeT === 0;
       // The build timer: frozen while paused, six seconds for the first level, saved mid-build.
-      const { BASE_UPGRADE, baseUpgradeTime } = await import('/src/config.js');
+      const { baseUpgradeTime } = await import('/src/config.js');
       const { buildCore, CORE_STAGES } = await import('/src/models.js');
       const render = g.stage.render; g.stage.render = () => {};
       g.reset(123); g.paused = false; g.minerals = 200;
@@ -61,7 +61,8 @@ const assert = require('node:assert/strict');
       const pending = g.baseLevel === 0 && g.baseUpgrading && g.core.scan.visible && g.core.buildBar.group.visible;
       const midSave = captureCheckpoint(g, { player: 'Tester', quickDeployment: true, guideDismissed: true });
       const midValid = validateCheckpoint(midSave) && Math.abs(midSave.baseUpgradeT - 0.1) < 1e-6
-        && [-1, BASE_UPGRADE.maxTime + 1, '3'].every(baseUpgradeT => !validateCheckpoint({ ...midSave, baseUpgradeT }));
+        && [-1, baseUpgradeTime(0) + 1, '3'].every(baseUpgradeT => !validateCheckpoint({ ...midSave, baseUpgradeT }))
+        && validateCheckpoint({ ...midSave, baseLevel: 5, baseUpgradeT: baseUpgradeTime(5) });
       for (let i = 0; i < 2; i++) g.update(0.1);
       const landed = g.baseLevel === 1 && !g.baseUpgrading && !g.core.scan.visible && !g.core.buildBar.group.visible
         && !!g.core.model.getObjectByName('CoreStage1') && g.core.pop !== null;
@@ -88,7 +89,7 @@ const assert = require('node:assert/strict');
     });
     assert.equal(upgrades.rejected, true);
     for (const [key, ok] of Object.entries(upgrades.timer)) assert.equal(ok, true, `build timer: ${key} ${JSON.stringify(upgrades.meshes)}`);
-    assert.deepEqual(upgrades.times, [6, 7, 12, 12]);
+    assert.deepEqual(upgrades.times, [6, 8, 18, 106]);
     assert.deepEqual(upgrades.first, { level: 1, minerals: 0, cost: 350, damage: 9.2, maxHp: 81, ratio: 0.5, scv: 81 });
     for (const u of upgrades.future) {
       assert.equal(u.damage, u.baseDamage * 1.15, u.kind);

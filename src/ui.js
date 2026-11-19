@@ -867,7 +867,7 @@ export class UI {
     $('baseBonus').textContent = upgrading
       ? `Lv ${g.baseLevel} → ${g.baseLevel + 1}${g.paused ? ' · paused' : ''}${next ? ' · ' + next : ''}`
       : `Lv ${g.baseLevel} · +${bonus}% HP / damage${incomeTier(g.baseLevel) ? ` · +${incomeMinerals(incomeTier(g.baseLevel)) / BASE_INCOME.interval} minerals/s · ${incomeTier(g.baseLevel)} Trooper${incomeTier(g.baseLevel) === 1 ? '' : 's'}/${BASE_INCOME.troopEvery}s` : ''}${g.plasma ? ' · ' + g.plasma.summary() : ''}`;
-    $('btnBaseUpgrade').title = `Each level: +15% health for the base and all units, +15% damage for all combat units, and a visible addition to the base${next ? ' (next: ' + next + ')' : ''}. Base level ${BASE_LASER.twinLevel} adds a second laser. Takes ${g.baseUpgradeTime}s to build. Applies to current and future units; lasts for this run.`;
+    $('btnBaseUpgrade').title = `Each level: +15% health for the base and all units, +15% damage for all combat units, and a visible addition to the base${next ? ' (next: ' + next + ')' : ''}. Base level ${BASE_LASER.twinLevel} adds a second laser. Fully repairs the base when it finishes. Takes ${g.baseUpgradeTime}s to build. Applies to current and future units; lasts for this run.`;
     const aiming = $('btnLaser').getAttribute('aria-pressed') === 'true';
     const charges = g.laserGuns > 1 ? [g.laserCharge, g.laserCharge2] : [g.laserCharge];
     const fullest = Math.max(...charges);

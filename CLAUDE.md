@@ -418,7 +418,7 @@ the balance suite checks the starting squad can clear both opening approaches.
   15% health/damage to current and future combat units, and health to the Patch Rig. The
   unit stores its research level so promotions and treasure recalculation retain the bonus.
 - Research is timed (Nov 15, 2026). `upgradeBase()` takes the minerals and starts
-  `baseUpgradeT` (`baseUpgradeTime(level)`: 6 s + 1 s per level, 12 s at most); the level and
+  `baseUpgradeT` (`baseUpgradeTime(level)`: 6 s + 2 s per level, no cap); the level and
   its stats land in `completeBaseUpgrade()`, which `update()` calls when the timer runs out
   (tests call it directly). The timer is an optional checkpoint field. `buildCore(level)` /
   `upgradeCore(model, level)` in `models.js` dress the base: one named group per level

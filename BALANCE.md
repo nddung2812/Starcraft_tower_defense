@@ -172,9 +172,9 @@ balance as permanent treasure stacks and enemy HP grow.
   research multiplies the result. Existing health percentages are preserved. Research lasts
   for the run and is included in checkpoints, independently of hardware refunds.
 - The base gains the same 15 points of health per level: 500 at level 0, 575 at level 1, 875 at
-  level 5. Landing a level keeps its current health percentage.
-- Research is paid at once and lands after a build: 6 s for the first level, one second more
-  per level, 12 s at most. Only one can build at a time; pausing freezes it and a checkpoint
+  level 5. Landing a level fully repairs the base to its new maximum.
+- Research is paid at once and lands after a build: 6 s for the first level and two seconds
+  more for each level after it (6, 8, 10, 12 s and so on, with no cap). Only one can build at a time; pausing freezes it and a checkpoint
   keeps the time left. Each level adds to the building: lit gallery, armour buttresses, beacon
   mast, gold command band, guard pylons, power conduits, halo ring, pylon crowns, spire crown,
   sky beacon; every level also adds a foundation stud (24 at most) and brightens the hull.

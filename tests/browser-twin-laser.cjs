@@ -20,7 +20,7 @@ const assert = require('node:assert/strict');
       g.reset(12345);
       const land = () => { g.baseUpgradeT = 1; g.completeBaseUpgrade(); };
 
-      // ---- health grows with research and keeps its percentage ----
+      // ---- health grows with research and each level lands fully repaired ----
       out.start = [g.core.hp, g.core.maxHp];
       land();
       out.level1 = [g.core.hp, g.core.maxHp];
@@ -76,7 +76,7 @@ const assert = require('node:assert/strict');
     });
     assert.deepEqual(result.start, [500, 500]);
     assert.deepEqual(result.level1, [575, 575], 'Full health rises with the maximum');
-    assert.deepEqual(result.damaged, [325, 650], 'A damaged base keeps its percentage');
+    assert.deepEqual(result.damaged, [650, 650], 'A damaged base is fully repaired when a level lands');
     assert.equal(result.gunsAt4, 1);
     assert.equal(result.secondIdleAt4, true, 'The second rail does not charge before level 5');
     assert.equal(result.gunsAt5, 2);

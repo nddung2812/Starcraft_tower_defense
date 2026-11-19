@@ -1,4 +1,4 @@
-import { ARMORY, TREASURE, TREASURE_RULES, BUILD, UNITS, CELL, applyBaseUpgrade, BASE_UPGRADE, BASE_LASER, YAMATO } from './config.js';
+import { ARMORY, TREASURE, TREASURE_RULES, BUILD, UNITS, CELL, applyBaseUpgrade, baseUpgradeTime, BASE_LASER, YAMATO } from './config.js';
 import { Grid } from './grid.js';
 import { carveLevel, SUPPORTED_MAP_VERSIONS } from './levels.js';
 import { Marine, Wall, Bunker } from './entities.js';
@@ -50,7 +50,7 @@ export function validateCheckpoint(s) {
     if (s.laserCharge !== undefined && !number(s.laserCharge, 0, BASE_LASER.chargeTime)) return false;
     if (s.laserCharge2 !== undefined && !number(s.laserCharge2, 0, BASE_LASER.chargeTime)) return false;
     if (s.baseLevel !== undefined && !integer(s.baseLevel, 0, 100000)) return false;
-    if (s.baseUpgradeT !== undefined && !number(s.baseUpgradeT, 0, BASE_UPGRADE.maxTime)) return false;
+    if (s.baseUpgradeT !== undefined && !number(s.baseUpgradeT, 0, baseUpgradeTime(s.baseLevel ?? 0))) return false;
     if (s.mapVersion !== undefined && !SUPPORTED_MAP_VERSIONS.includes(s.mapVersion)) return false;
     if (s.evolutions !== undefined && (!s.evolutions || Array.isArray(s.evolutions) || typeof s.evolutions !== 'object' ||
       !Object.entries(s.evolutions).every(([id, rank]) => EVOLUTIONS.some(e => e.id === id) && integer(rank, 1, 20000)) ||
