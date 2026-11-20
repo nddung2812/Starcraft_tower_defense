@@ -42,6 +42,7 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
 | `src/atmosphere.js` | Optional layer. Sky dome, far ridges and the time-of-day palette (lights, fog and background) that turns every three rounds. |
 | `src/touch.js` | Optional layer. Two-finger pinch zoom and twist rotate. (Tap-to-order is `touchOrder()` in `main.js`.) |
 | `src/skirmish.js` | Optional layer. Skirmish: the setup screen, the `Match` director behind `game.match` (waves on a timer, hive guards, the result and its record) and the start-screen button. Tuning is `SKIRMISH` in config; its styles are `src/skirmish.css`. |
+| `src/duel.js`, `src/duelnet.js`, `src/duel.css` | Optional layer. Duel: two players, one mirrored battle each. The lobby, the army draft, the `Duel` director (a `Match` subclass behind `game.match`), bug sends, the rival readout and the result (`duel.js`); the room-code connection (`duelnet.js`). Tuning is `DUEL` in config; `tests/browser-duel.cjs` covers it. |
 | `src/menu.js`, `src/menu.css` | Optional layer. Start menu motion: the description beside the highlighted order and the blast doors on exit (a copy of `#intro`, which is hidden at once because the game reads `intro.hidden`). The stylesheet also dresses pause, results and the menu's dialogs. |
 | `src/mines.js` | Optional layer. Medic mines: the `Minefield` behind `game.minefield` (scatter on placement, arming, detonation, salvage recall, checkpoint field). Tuning is `MINES` in config. |
 | `src/groundfire.js` | Optional layer. Air strike flames: the `GroundFire` behind `game.groundFire` (a patch per bomb, burn damage that does not stack, cleared with the map). Tuning is `AIR_STRIKE.fire` in config. |
@@ -80,9 +81,49 @@ Opened this way there is no score API, so the leaderboard is per-browser (localS
   They work on Vercel and GitHub Pages but 404 under `python3 -m http.server`.
 - **Every canonical, Open Graph, JSON-LD, sitemap and robots URL names `protectyourhome.vercel.app`.** Replace them all
   if the domain changes. Update `lastmod` in `sitemap.xml` when a page changes.
-- **Keep the copy true.** Say "inspired by" and keep the non-affiliation notice in the footers. The game is single-player
-  with RPG-style progression, and `/api/scores` returned 503 in production on Nov 18, so do not advertise multiplayer or
-  an online leaderboard. Never add ratings or reviews to the structured data unless they are real.
+- **Keep the copy true.** Say "inspired by" and keep the non-affiliation notice in the footers. The public pages describe a single-player game
+  with RPG-style progression. `/api/scores` returned 503 in production on Nov 18, and the two-player Duel (Nov 20) has not
+  been played over the real network yet, so do not advertise multiplayer or an online leaderboard until each is confirmed working. Never add ratings or reviews to the structured data unless they are real.
+
+## Duel: two players (Nov 20, 2026)
+
+The owner asked for a 2-player mode where each player picks an army and the smarter player wins, and
+chose a mirrored duel over a shared battlefield (units can only fight bugs and combat is not
+synchronised between machines). Rules and numbers are in `BALANCE.md`.
+
+- **Each browser runs its own battle.** Same seed, same `carveMatch()` map, same waves, same
+  minerals. Only small messages cross the line (hello, terms, ready, start/go, status once a second,
+  send, over, again, leave, ping), so nothing in the simulation had to become deterministic. Never
+  try to sync entities: send an event and let each side apply it.
+- **`Duel extends Match`** (skirmish.js), so `game.match` is still the whole switch and every
+  Survival rule in the next section applies. The core reads a few more optional flags from a match:
+  `roster` (`game.isUnlocked`: the drafted army, available from wave 1), `realtime`
+  (`togglePause()` and the speed button refuse), `noHero` (hero.js keeps the hero home, so saved
+  levels and gear cannot decide a duel), `roll()` (boss treasure from a seeded stream, so both
+  players are dealt the same boxes), `readout()` (the objective line) and `sendKey(n)` (Alt+N).
+  A sent bug carries `bountyScale`, which `onKill` multiplies in.
+- **A duel ends through `Duel.finish()`**, which emits `duelOver`, never `matchOver` or `over`: no
+  Survival record, no kills board, no checkpoint. `end()` stops our battle for something that
+  happened on the other side; `rivalOver()` settles two battles that ended in the same instant.
+- **`main.js` knows a duel as `runMode === 'duel'`.** `launchNewRun(..., 'duel')` uses the layer's
+  `options()`, `begin()` and `open()` (the build time before wave 1, instead of the opening squad).
+  Restart and the result button go to `extras.duel.restart()`: a concession asked twice during a
+  match, the lobby after one. `body.is-duel` hides Pause and the speed button.
+- **The connection is `duelnet.js`**: `openLine(code, host)` returns a line with `send`, `close`
+  and `onopen/onmessage/onclose/onerror`. The `peer` carrier is WebRTC through PeerJS
+  (`vendor/peerjs-1.5.5.min.js`, MIT, loaded only when a duel is opened) and its free public broker,
+  because the site has no working backend. The `local` carrier (`?duelnet=local`) is a
+  BroadcastChannel between two windows of one browser, which is what the test suite plays over.
+  `?peerdebug=3` prints the library's log. `?duel=CODE` opens the lobby and joins.
+- **Everything a rival sends is untrusted.** `hear()` validates each field (names, picks, terms,
+  numbers, pack ids) and renders with `textContent`. Scores are not: a duel between friends trusts
+  each side to report its own result.
+- **Not verified over the real network.** On Nov 20, 2026 the broker registered rooms and both
+  browsers exchanged offers, answers and addresses, but two headless browsers on this one Mac could
+  not finish the direct connection (it stalled in ICE "checking" on a bare page too, with no relay
+  candidates from PeerJS's public TURN servers). Players on networks that block direct connections
+  will see "Could not connect to that duel"; the fix would be our own TURN service or a relay.
+- The send numbers and the draft are a first pass and have not been played by two people.
 
 ## Skirmish: a match you can win (Nov 17, 2026)
 
@@ -140,6 +181,9 @@ hive personalities are not.
   `e465309`) and still fail the same way; their causes have not been investigated:
   `browser-base` ("paused"), `browser-scouting` (8 !== 7), `browser-maw` ("A Maw kept a cleared
   round open") and `browser-balance` ("Starting squad cannot protect opening seed 0").
+- **`browser-skirmish` now fails its last check too** ("a built-up push at wave 9 must be able to
+  win": the bot is overrun at waves 6 to 10). It fails the same way on a clean export of `f660c0e`
+  (checked Nov 20, 2026), so it comes from balance changes made after the bot was tuned.
 
 ## Skymother (Nov 18, 2026)
 
@@ -515,6 +559,7 @@ scroll (no automatic edge scrolling) · Ctrl+1–9 set group, Shift+1–9 add, 1
 D defend (selected units stay home when the army attacks) · I unit panel · , and . rotate · touch: tap a unit, then tap ground/enemy/bunker to order it; pinch to zoom, twist to rotate ·
 F stim · R air strike · Shift+F promote · Shift+S salvage · Shift+E SCV (or F1) · Shift+Q all army (or F2) ·
 Shift+R laser · Shift+Z Titan cannon · Shift+D redeploy last round's army · Space pause · Esc cancel ·
+Alt+1–7 in a duel sends that bug pack at your rival ·
 click a supply drop to collect it.
 Build hotkeys: Q Trooper, W wall, B bunker, G Atlas, T Hammer, V Vector, and once unlocked C Torch,
 X Spectre, E Medic, Z Titan. Every shortcut stays within reach of a left hand on WASD (the owner's

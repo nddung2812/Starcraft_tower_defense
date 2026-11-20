@@ -420,7 +420,8 @@ function setLaserAim(on) {
 function setPlacing(id) {
   if (id && !game.isUnlocked(id)) {
     sfx.deny();
-    ui.toast(`${BUILD[id].name} is locked`, `Clear Round ${BUILD[id].unlock - 1} to unlock it.`);
+    if (game.match?.roster) ui.toast(`${BUILD[id].name} is not in your army`, 'You field the units you drafted for this duel.');
+    else ui.toast(`${BUILD[id].name} is locked`, `Clear Round ${BUILD[id].unlock - 1} to unlock it.`);
     return;
   }
   placing = placing === id ? null : id;
@@ -952,6 +953,8 @@ window.addEventListener('keydown', (ev) => {
   const digit = /^Digit(\d)$/.exec(ev.code);
   if (digit) {
     const n = +digit[1];
+    // In a duel Alt+N sends bug pack N at the rival.
+    if (ev.altKey && game.match?.sendKey) { ev.preventDefault(); if (!ev.repeat) game.match.sendKey(n); return; }
     if (ev.ctrlKey || ev.metaKey) { ev.preventDefault(); setGroup(n, false); }
     else if (ev.shiftKey) setGroup(n, true);
     else recallGroup(n);
@@ -1020,7 +1023,7 @@ let runGeneration = 0;
 let guideDismissed = false;
 let guideDismissTimer = null;
 let quickDeployment = true;
-let runMode = 'stand';          // 'skirmish' while a match is being played, so a rematch stays one
+let runMode = 'stand';          // 'skirmish' or 'duel' while a match is being played, so a rematch stays one
 const guide = document.getElementById('fieldGuide');
 const challengeHud = document.getElementById('challengeHud');
 const retention = new Retention(game, {
@@ -1153,12 +1156,13 @@ async function showIntro() {
 
 function launchNewRun(name, quick, seed = challenge?.seed ?? null, mode = 'stand') {
   // A Skirmish is one winnable match on the map its setup screen chose; without its layer the button is never shown.
-  const skirmish = mode === 'skirmish' ? extras.skirmish : null;
+  // A duel is the same kind of match against another player: both layers hand over `options()`, `begin()` and, for a duel, `open()`.
+  const skirmish = mode === 'skirmish' ? extras.skirmish : mode === 'duel' ? extras.duel : null;
   clearTimeout(guideDismissTimer);
   guideDismissTimer = null;
   retention.active = false;
   runGeneration++; completedRun = null;
-  runMode = skirmish ? 'skirmish' : 'stand';
+  runMode = skirmish ? mode : 'stand';
   player = name; guideDismissed = false;
   if (!skirmish) quickDeployment = quick;   // a match always opens with the squad; keep the stand's choice
   rememberName(player);
@@ -1173,7 +1177,8 @@ function launchNewRun(name, quick, seed = challenge?.seed ?? null, mode = 'stand
   else retention.begin();
   sfx.resume();
   voice.unlock();
-  if (quick) game.quickDeploy();
+  if (skirmish?.open) skirmish.open();   // a duel opens with its own build time, the same for both players
+  else if (quick) game.quickDeploy();
   else { game.startWave(); game.togglePause(); retention.plan(); }
   ui.sync();
   updateTip();
@@ -1223,6 +1228,8 @@ let restartAskedAt = -Infinity;
 game.on('restart', () => {
   const seed = game.mapSeed;
   if (!intro.hidden) return;
+  // A duel is two players' match: its layer asks before conceding and offers the rematch.
+  if (runMode === 'duel') { extras.duel?.restart(); return; }
   // A match in progress has no save to fall back on, so the first press only asks.
   if (runMode === 'skirmish' && !game.ended && performance.now() - restartAskedAt > 4000) {
     restartAskedAt = performance.now();
@@ -1289,6 +1296,7 @@ setFx(savedFx === 'high');
 
 const btnSpeed = document.getElementById('btnSpeed');
 btnSpeed.addEventListener('click', () => {
+  if (game.match?.realtime) return;   // both players of a duel run at the same speed
   game.speed = game.speed === 1 ? 2 : game.speed === 2 ? 3 : 1;
   btnSpeed.textContent = game.speed + 'x';
   sfx.ui();
@@ -1422,6 +1430,17 @@ layer('skirmish', async () => (await import('./skirmish.js')).installSkirmish({
   game, getPlayer: () => player || 'Commander',
   // The setup screen's Start button: a fresh map, with the name typed on the start screen.
   launch: (quick) => launchNewRun(cleanName(nameInput.value) || 'Commander', quick, null, 'skirmish')
+}));
+layer('duel', async () => (await import('./duel.js')).installDuel({
+  game, ui,
+  getName: () => cleanName(nameInput.value) || player || 'Commander',
+  launch: (seed) => launchNewRun(cleanName(nameInput.value) || player || 'Commander', true, seed, 'duel'),
+  // Back to the start screen when a duel is left, the same way Save & quit returns there.
+  quit: () => {
+    runGeneration++; runMode = 'stand'; keys.clear(); endDrag();
+    cancelModes(); select(null); ui.hideBanner();
+    showIntro(); ui.sync(); updateGuide();
+  }
 }));
 layer('opening', async () => {
   const [opening, touch] = await Promise.all([import('./opening.js'), import('./touch.js')]);

@@ -365,7 +365,8 @@ export class Game {
   }
 
   /** Specialists join the roster one round at a time. */
-  isUnlocked(id) { return this.level >= unlockRound(id); }
+  /** A match with a drafted army (`match.roster`, see duel.js) fields exactly that army from the first wave. */
+  isUnlocked(id) { return this.match?.roster ? this.match.roster.has(id) : this.level >= unlockRound(id); }
 
   placeGunner(kind, tx, ty) {
     const spec = BUILD[kind];
@@ -534,8 +535,9 @@ export class Game {
   awardTreasureBoxes(count, { guaranteedGold = false } = {}) {
     const rewards = [];
     for (let i = 0; i < count; i++) {
-      const gold = (guaranteedGold && i === 0) || Math.random() < TREASURE_RULES.goldChance;
-      const upgrade = TREASURE[Math.floor(Math.random() * TREASURE.length)];
+      const roll = () => this.match?.roll?.() ?? Math.random();   // a duel deals both players the same boxes
+      const gold = (guaranteedGold && i === 0) || roll() < TREASURE_RULES.goldChance;
+      const upgrade = TREASURE[Math.floor(roll() * TREASURE.length)];
       const reward = {
         ...upgrade, boxType: gold ? 'gold' : 'silver', earnedLevel: this.level,
         expiresAfterLevel: gold ? null : this.level + TREASURE_RULES.silverRounds
@@ -721,6 +723,8 @@ export class Game {
 
   togglePause() {
     if (this.ended || this.pendingEvolution) return;
+    // Two players share the clock in a duel, so nobody can stop it.
+    if (this.match?.realtime) { if (this.paused) this.paused = false; this.emit('pauseRefused'); return; }
     this.paused = !this.paused;
     this.emit('change');
   }
@@ -753,7 +757,7 @@ export class Game {
     this.score = this.kills;   // your score is simply how many bugs you killed
     this.hero?.killed(bug);
     this.emit('kill', this.kills);
-    this.minerals += ECON.perKill * (bug?.breed?.bounty || 1);
+    this.minerals += ECON.perKill * (bug?.breed?.bounty || 1) * (bug?.bountyScale ?? 1);   // a bug a rival paid to send is worth less
     this.streak = this.time - this.lastKillT <= STREAK.window ? this.streak + 1 : 1;
     this.lastKillT = this.time;
     this.bestStreak = Math.max(this.bestStreak, this.streak);

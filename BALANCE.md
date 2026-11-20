@@ -678,3 +678,45 @@ each hive has a real march to the base. `tests/browser-skirmish.cjs` checks the 
 setup screen, per-setup records, that a match never touches the saved stand or the kills board,
 and two bot matches: the unreinforced rush loses and a wave-9 push wins (up to three attempts,
 because combat is not seeded).
+
+## Duel (Nov 20, 2026)
+
+Two players, started from "Duel a friend" on the start screen. One hosts and shares a 5-character
+room code or an invite link; the other joins. Tuning is `DUEL` in `src/config.js`.
+
+- **The battle.** Both players get the same canyon (one seed), the same Survival waves on Standard
+  (a wave every 40 seconds), the same starting minerals and 20 seconds to build before wave 1. The
+  host chooses 1, 2 or 3 hives and 480 or 800 minerals; nothing else can be changed. There is no
+  opening squad, no saved hero, no pause and no speed change. Boss treasure is dealt from the seed,
+  so both players get the same boxes.
+- **The army.** Everyone has the Trooper, Barrier and Bunker. Each player also drafts 3 of 7:
+  Atlas, Hammer, Vector, Torch, Spectre, Medic, Titan. The picks are hidden until the match starts
+  and are available from wave 1 (the usual unlock rounds do not apply).
+- **Winning.** Destroy every hive on your map first. You also win if your rival's relay falls, they
+  concede (Restart, asked twice), they leave, or their battle stands still for 60 seconds (a hidden
+  tab or an unanswered evolution choice). If both battles end in the same instant, the faster win or
+  the longer stand takes it.
+- **What you see of your rival.** One line under the objective: relay health, hives left, wave,
+  their army by unit, their income. It updates once a second.
+- **Sending bugs.** From wave 2 you can pay to send a pack at your rival (the strip on the right
+  edge, or Alt+1 to Alt+7). It climbs out of their living hives 5 seconds later, with the health
+  and speed of their current wave, and is announced to them. Each pack has a 6-second cooldown.
+  Killing a sent bug pays half the usual bounty. Every pack you send raises your income for the rest
+  of the match, paid every 10 seconds (one fifteenth of the pack's cost, so a pack pays for itself
+  in 150 seconds).
+
+| Pack | Bugs | Cost | Income per 10 s | Opens at wave |
+|---|---|---|---|---|
+| Rippers | 8 Rippers | 60 | +4 | 2 |
+| Leapers | 6 Leapers | 90 | +6 | 2 |
+| Needlers | 4 Needlers | 120 | +8 | 3 |
+| Brutes | 4 Brutes | 150 | +10 | 3 |
+| Wraiths | 4 Wraiths | 180 | +12 | 4 |
+| Corroders | 2 Corroders | 210 | +14 | 5 |
+| Behemoth | 1 Behemoth | 420 | +28 | 7 |
+
+The packs are meant to punish a draft's gaps: Wraiths against an army with little anti-air, Brutes
+and the Behemoth against an army without the Spectre or Hammer, Rippers and Leapers against one
+without the Torch. These numbers are a first pass. They have not been played by two people, and the
+Survival bot no longer wins the default battle after recent balance changes, so expect to retune
+costs, income and hive health after real matches.

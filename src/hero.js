@@ -922,6 +922,7 @@ export class HeroCorps {
 
   deploy() {
     const g = this.game;
+    if (g.match?.noHero) return null;   // a duel is fought with the drafted army alone: saved levels and gear stay home
     if (this.unit && !this.unit.dead && g.gunners.includes(this.unit)) return this.unit;
     const spot = this.landing();
     if (!spot) return null;
@@ -965,7 +966,7 @@ export class HeroCorps {
     // The wait runs from the moment the hero falls, not from when the body is finally gone.
     if (u?.downed || u?.dead) this.fellAt ??= g.time;
     else if (u) this.fellAt = null;
-    if (this.present || !['brief', 'wave', 'raid'].includes(g.state)) return;
+    if (this.present || g.match?.noHero || !['brief', 'wave', 'raid'].includes(g.state)) return;
     if (this.respawnT <= 0) {
       this.respawnT = Math.max(0.05, HERO.respawn - (this.fellAt == null ? 0 : g.time - this.fellAt));
       this.ui.toast(`${this.name} is down`, `Back at the line in ${Math.ceil(this.respawnT)} seconds. Experience and gear are safe.`, 'warn');

@@ -774,7 +774,7 @@ export class UI {
     hud.hidden = !showing;
     if (!showing) return;
     const fighting = this.game.state === 'wave';
-    const text = `SURVIVAL · HIVES ${m.hivesLeft}/${m.hives} · WAVE ${this.game.level} · ${fighting ? `NEXT ${clock(Math.ceil(m.nextT))}` : 'STAND BY'}`;
+    const text = m.readout?.() ?? `SURVIVAL · HIVES ${m.hivesLeft}/${m.hives} · WAVE ${this.game.level} · ${fighting ? `NEXT ${clock(Math.ceil(m.nextT))}` : 'STAND BY'}`;
     if (hud.textContent !== text) hud.textContent = text;
     hud.classList.toggle('is-soon', fighting && m.nextT <= 5);
   }

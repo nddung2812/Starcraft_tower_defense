@@ -437,6 +437,34 @@ export const SKIRMISH = {
   minerals: [300, 480, 800, 1200],
   defaults: { hives: 2, mood: 'standard', size: 0, minerals: 480, quick: true }   // size 0 = smallest that fits
 };
+/*
+ * Duel (duel.js): two players, each holding the same canyon against the same waves on their own
+ * screen. Every army has the `core` units and `picks` more chosen from `draft` before the match.
+ * A `pack` is a group of bugs you pay to send at your rival: it arrives `sendDelay` seconds later,
+ * pays them `sendBounty` of the usual kill reward, and raises your income by `income` minerals
+ * every `incomeEvery` seconds for the rest of the match. A pack opens at wave `from`, and no pack
+ * before wave `sendFromWave`. A rival whose battle clock stands still for `stall` seconds forfeits.
+ */
+export const DUEL = {
+  hives: [1, 2, 3], minerals: [480, 800],
+  defaults: { hives: 2, minerals: 480 },
+  mood: 'standard',
+  prep: 20,
+  core: ['marine', 'wall', 'bunker'],
+  draft: ['goliath', 'tank', 'falcon', 'scorcher', 'deadeye', 'mender', 'cruiser'],
+  picks: 3,
+  sendFromWave: 2, sendDelay: 5, sendCooldown: 6, sendBounty: 0.5, incomeEvery: 10,
+  stall: 60, silence: 15,
+  packs: [
+    { id: 'rippers', name: 'Rippers', breed: 'zergling', count: 8, cost: 60, income: 4, from: 2 },
+    { id: 'leapers', name: 'Leapers', breed: 'hopper', count: 6, cost: 90, income: 6, from: 2 },
+    { id: 'needlers', name: 'Needlers', breed: 'needler', count: 4, cost: 120, income: 8, from: 3 },
+    { id: 'brutes', name: 'Brutes', breed: 'warrior', count: 4, cost: 150, income: 10, from: 3 },
+    { id: 'wraiths', name: 'Wraiths', breed: 'skyhunter', count: 4, cost: 180, income: 12, from: 4 },
+    { id: 'corroders', name: 'Corroders', breed: 'tanker', count: 2, cost: 210, income: 14, from: 5 },
+    { id: 'behemoth', name: 'Behemoth', breed: 'ultralisk', count: 1, cost: 420, income: 28, from: 7 }
+  ]
+};
 /* Kills landed within `window` seconds of each other build a streak; each tier pays once per streak. */
 export const STREAK = {
   window: 2.5,

@@ -135,7 +135,7 @@ export class Match {
     if (!assault.pending && (!assault.boss || assault.boss.dead)) { assault.reset(); assault.start(); }
     g.sfx.alarm();
     g.emit('wave', { wave: g.level, hostiles: marching.length, bonus, boss: assault.pending ? assault.plan : null });
-    for (const b of Object.values(BUILD)) if (b.unlock === g.level) g.emit('unitUnlocked', b);
+    if (!this.roster) for (const b of Object.values(BUILD)) if (b.unlock === g.level) g.emit('unitUnlocked', b);   // a drafted army has nothing to unlock
     g.emit('change');
   }
 
